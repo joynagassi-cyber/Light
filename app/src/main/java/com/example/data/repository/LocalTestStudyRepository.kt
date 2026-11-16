@@ -71,7 +71,7 @@ class LocalTestStudyRepository : StudyWorkspaceRepository {
         profileFlow.value = UserProfile(
             userId = userId,
             displayName = safeName,
-            email = email.ifBlank { "mode.test@local.elan" },
+            email = email.ifBlank { "mode.test@local.light" },
             major = "Génie Logiciel · 3ᵉ Année",
             selectedGradientId = "aurore_lavande",
             dailyGoalTasks = 5L,

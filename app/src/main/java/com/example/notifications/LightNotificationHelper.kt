@@ -14,9 +14,9 @@ import com.example.data.model.NotificationFrequency
 import com.example.data.model.UserGender
 import com.example.data.model.UserProfession
 
-object ElanNotificationHelper {
-    private const val CHANNEL_ID = "elan_study_reminders"
-    private const val CHANNEL_NAME = "Rappels Élan"
+object LightNotificationHelper {
+    private const val CHANNEL_ID = "light_study_reminders"
+    private const val CHANNEL_NAME = "Rappels Light"
     private const val CHANNEL_DESC = "Rappels d'étude, sessions Focus et suivi d'habitudes"
 
     fun ensureChannel(context: Context) {
@@ -58,7 +58,7 @@ object ElanNotificationHelper {
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle("Élan configuré pour $displayName")
+            .setContentTitle("Light configuré pour $displayName")
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)

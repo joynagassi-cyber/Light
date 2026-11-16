@@ -110,7 +110,7 @@ import com.example.data.model.UserProfession
 import com.example.data.model.UserProfile
 import com.example.data.model.adaptiveHabitSuggestionsFor
 import com.example.data.preferences.StudyAppSettings
-import com.example.notifications.ElanNotificationHelper
+import com.example.notifications.LightNotificationHelper
 import com.example.ui.components.AppleCard
 import com.example.ui.components.GradientSwatchCard
 import com.example.ui.theme.AppleDivider
@@ -118,9 +118,9 @@ import com.example.ui.theme.AppleEmerald
 import com.example.ui.theme.AppleIndigo
 import com.example.ui.theme.AppleTextPrimary
 import com.example.ui.theme.AppleTextSecondary
-import com.example.ui.theme.ElanGradients
+import com.example.ui.theme.LightGradients
 import com.example.ui.theme.GradientScreenSurface
-import com.example.ui.theme.LocalElanGradient
+import com.example.ui.theme.LocalLightGradient
 import java.time.LocalDate
 import kotlin.math.roundToInt
 
@@ -151,7 +151,7 @@ fun OnboardingScreen(
     onSkip: () -> Unit
 ) {
     val context = LocalContext.current
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
     val currentYear = remember { LocalDate.now().year }
 
     var step by rememberSaveable { mutableIntStateOf(0) } // 0..4 (5 steps)
@@ -215,7 +215,7 @@ fun OnboardingScreen(
         )
     }
     var systemNotifPermissionGranted by remember {
-        mutableStateOf(ElanNotificationHelper.hasNotificationPermission(context))
+        mutableStateOf(LightNotificationHelper.hasNotificationPermission(context))
     }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
@@ -529,7 +529,7 @@ fun OnboardingScreen(
                                             notificationFrequency = NotificationFrequency.DAILY
                                         }
                                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                                            !ElanNotificationHelper.hasNotificationPermission(context)
+                                            !LightNotificationHelper.hasNotificationPermission(context)
                                         ) {
                                             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                                         }
@@ -572,7 +572,7 @@ fun OnboardingScreen(
                             .testTag(if (isLast) "onboarding_finish_button" else "onboarding_next_button")
                     ) {
                         Text(
-                            text = if (isLast) "Activer mon espace Élan" else "Continuer",
+                            text = if (isLast) "Activer mon espace Light" else "Continuer",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -606,7 +606,7 @@ private fun StepIdentityGenderAge(
     onStepBirthYear: (Int) -> Unit,
     onSelectBirthYearPreset: (Int) -> Unit
 ) {
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
     val greetingPreview = if (selectedGender == UserGender.FEMININE) {
         "Bienvenue${if (displayName.isNotBlank()) ", $displayName" else ""} ! Prête à organiser votre quotidien ?"
     } else {
@@ -850,7 +850,7 @@ private fun StepProfessionAndGoals(
     onDailyGoalChange: (Int) -> Unit,
     onAdaptModulesChange: (Boolean) -> Unit
 ) {
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
 
     val options = listOf(
         Triple(
@@ -890,7 +890,7 @@ private fun StepProfessionAndGoals(
             color = AppleTextPrimary
         )
         Text(
-            text = "Élan adapte vos catégories, vos habitudes, vos modules et le ton de l'assistant IA à votre profil.",
+            text = "Light adapte vos catégories, vos habitudes, vos modules et le ton de l'assistant IA à votre profil.",
             style = MaterialTheme.typography.bodySmall,
             color = AppleTextSecondary
         )
@@ -1070,7 +1070,7 @@ private fun StepDesignStudio(
     onToggleHaptics: (Boolean) -> Unit,
     onToggleAutoAudio: (Boolean) -> Unit
 ) {
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
 
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Row(
@@ -1100,7 +1100,7 @@ private fun StepDesignStudio(
             }
         }
 
-        ElanGradients.all.chunked(2).forEach { pair ->
+        LightGradients.all.chunked(2).forEach { pair ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -1189,7 +1189,7 @@ private fun StepHabitsActivation(
     onToggleHabit: (String) -> Unit,
     onAddCustomHabit: () -> Unit
 ) {
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
     val combined = suggestions + customHabits
 
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -1319,8 +1319,8 @@ private fun StepNotificationsAndSummary(
     onRequestSystemPermission: () -> Unit,
     onSelectFrequency: (NotificationFrequency) -> Unit
 ) {
-    val gradient = LocalElanGradient.current
-    val gradientPreset = ElanGradients.byId(selectedGradientId)
+    val gradient = LocalLightGradient.current
+    val gradientPreset = LightGradients.byId(selectedGradientId)
     val role = profession.labelFor(gender, customProfession)
 
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -1348,7 +1348,7 @@ private fun StepNotificationsAndSummary(
                     color = AppleTextPrimary
                 )
                 Text(
-                    text = "Choisissez quand Élan vous envoie des rappels",
+                    text = "Choisissez quand Light vous envoie des rappels",
                     style = MaterialTheme.typography.bodySmall,
                     color = AppleTextSecondary
                 )
@@ -1469,7 +1469,7 @@ private fun StepNotificationsAndSummary(
             ) {
                 Icon(Icons.Rounded.AutoAwesome, contentDescription = null, tint = gradient.accentColor)
                 Text(
-                    text = "Votre espace Élan sur-mesure",
+                    text = "Votre espace Light sur-mesure",
                     style = MaterialTheme.typography.titleSmall,
                     color = AppleTextPrimary
                 )

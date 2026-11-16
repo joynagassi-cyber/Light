@@ -9,7 +9,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
-val ElanShapes = Shapes(
+val LightShapes = Shapes(
     small = RoundedCornerShape(12.dp),
     medium = RoundedCornerShape(18.dp),
     large = RoundedCornerShape(24.dp),
@@ -17,11 +17,11 @@ val ElanShapes = Shapes(
 )
 
 @Composable
-fun ElanTheme(
+fun LightTheme(
     selectedGradientId: String = "aurore_lavande",
     content: @Composable () -> Unit
 ) {
-    val targetGradient = ElanGradients.byId(selectedGradientId)
+    val targetGradient = LightGradients.byId(selectedGradientId)
     val animatedGradient = rememberAnimatedGradientTheme(targetGradient)
 
     val colorScheme = lightColorScheme(
@@ -47,11 +47,11 @@ fun ElanTheme(
         onError = Color.White
     )
 
-    CompositionLocalProvider(LocalElanGradient provides animatedGradient) {
+    CompositionLocalProvider(LocalLightGradient provides animatedGradient) {
         MaterialTheme(
             colorScheme = colorScheme,
-            typography = ElanTypography,
-            shapes = ElanShapes,
+            typography = LightTypography,
+            shapes = LightShapes,
             content = content
         )
     }

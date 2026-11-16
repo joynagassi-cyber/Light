@@ -77,7 +77,7 @@ import com.example.data.model.UserProfession
 import com.example.data.model.UserProfile
 import com.example.data.model.adaptation
 import com.example.data.preferences.StudyAppSettings
-import com.example.notifications.ElanNotificationHelper
+import com.example.notifications.LightNotificationHelper
 import com.example.ui.components.AppleCard
 import com.example.ui.components.CalendarViewMode
 import com.example.ui.components.GradientSwatchCard
@@ -86,8 +86,8 @@ import com.example.ui.theme.AppleDivider
 import com.example.ui.theme.AppleRose
 import com.example.ui.theme.AppleTextPrimary
 import com.example.ui.theme.AppleTextSecondary
-import com.example.ui.theme.ElanGradients
-import com.example.ui.theme.LocalElanGradient
+import com.example.ui.theme.LightGradients
+import com.example.ui.theme.LocalLightGradient
 import java.time.LocalDate
 
 @Composable
@@ -116,7 +116,7 @@ fun SettingsScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
     val adapt = remember(profile) { profile.adaptation() }
     var showEditProfileDialog by remember { mutableStateOf(false) }
     var showAddCourseDialog by remember { mutableStateOf(false) }
@@ -329,7 +329,7 @@ fun SettingsScreen(
                     checked = notifEnabled && currentFreq != NotificationFrequency.OFF,
                     onCheckedChange = { checked ->
                         if (checked && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                            !ElanNotificationHelper.hasNotificationPermission(context)
+                            !LightNotificationHelper.hasNotificationPermission(context)
                         ) {
                             notifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                         } else {
@@ -359,7 +359,7 @@ fun SettingsScreen(
                             onClick = {
                                 val willEnable = freq != NotificationFrequency.OFF
                                 if (willEnable && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                                    !ElanNotificationHelper.hasNotificationPermission(context)
+                                    !LightNotificationHelper.hasNotificationPermission(context)
                                 ) {
                                     notifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                                 } else {
@@ -543,7 +543,7 @@ fun SettingsScreen(
             }
         }
 
-        val chunkedGradients = ElanGradients.all.chunked(2)
+        val chunkedGradients = LightGradients.all.chunked(2)
         items(chunkedGradients) { pair ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -892,7 +892,7 @@ private fun DurationStepperRow(
     onDecrease: () -> Unit,
     onIncrease: () -> Unit
 ) {
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -950,7 +950,7 @@ private fun SettingsSwitchRow(
     onCheckedChange: (Boolean) -> Unit,
     testTag: String
 ) {
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,

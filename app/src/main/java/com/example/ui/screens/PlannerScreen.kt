@@ -93,7 +93,7 @@ import com.example.ui.theme.AppleEmerald
 import com.example.ui.theme.AppleRose
 import com.example.ui.theme.AppleTextPrimary
 import com.example.ui.theme.AppleTextSecondary
-import com.example.ui.theme.LocalElanGradient
+import com.example.ui.theme.LocalLightGradient
 import java.time.LocalDate
 
 private enum class TaskFilter(val label: String) {
@@ -130,7 +130,7 @@ fun PlannerScreen(
     onStartFocusForTask: (StudyTask) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
     var aiExpanded by remember { mutableStateOf(false) }
     var selectedFilter by remember { mutableStateOf(TaskFilter.ALL) }
     var selectedCategoryFilter by remember { mutableStateOf<TaskCategory?>(null) }
@@ -547,7 +547,7 @@ private fun SmartAiPlannerCard(
     onApplyPlan: (AiStudyPlanResult) -> Unit,
     onReset: () -> Unit
 ) {
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
     var goalText by remember { mutableStateOf("") }
     var horizonDays by remember { mutableIntStateOf(4) }
     var dailyMinutes by remember { mutableIntStateOf(60) }
@@ -840,7 +840,7 @@ private fun PlannerTaskRow(
     onDelete: () -> Unit,
     onStartFocus: () -> Unit
 ) {
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
     val category = TaskCategory.fromKey(task.category)
     val categoryColor = category.accentColor()
     val priorityLabel = when (task.priority) {

@@ -80,7 +80,7 @@ import com.example.ui.theme.AppleRose
 import com.example.ui.theme.AppleSky
 import com.example.ui.theme.AppleTextPrimary
 import com.example.ui.theme.AppleTextSecondary
-import com.example.ui.theme.LocalElanGradient
+import com.example.ui.theme.LocalLightGradient
 import java.time.LocalDate
 import java.util.Locale
 
@@ -102,7 +102,7 @@ fun HomeDashboardScreen(
     onOpenCreateTask: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
     val todayIso = LocalDate.now().toString()
     val todayTasks = tasks.filter { it.dueDateIso == todayIso }
     val completedToday = todayTasks.count { it.completed }
@@ -618,7 +618,7 @@ private fun TodayTaskCard(
     onToggle: () -> Unit,
     onStartFocus: () -> Unit
 ) {
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
     val category = TaskCategory.fromKey(task.category)
     val categoryColor = category.accentColor()
 
@@ -722,7 +722,7 @@ private fun CourseMiniCard(
     course: Course,
     onClick: () -> Unit
 ) {
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
     val progress = (course.completedMinutes.toFloat() / course.targetMinutes.coerceAtLeast(1).toFloat())
         .coerceIn(0f, 1f)
     val paletteColors = listOf(

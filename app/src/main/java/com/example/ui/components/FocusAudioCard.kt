@@ -67,7 +67,7 @@ import com.example.ui.FocusAudioUiState
 import com.example.ui.theme.AppleDivider
 import com.example.ui.theme.AppleTextPrimary
 import com.example.ui.theme.AppleTextSecondary
-import com.example.ui.theme.LocalElanGradient
+import com.example.ui.theme.LocalLightGradient
 import kotlin.math.roundToInt
 
 @Composable
@@ -79,7 +79,7 @@ fun FocusAudioCard(
     onToggleAutoPlay: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
     var selectedCategory by remember { mutableStateOf(AudioCategory.ALL) }
 
     val filteredTracks = remember(selectedCategory) {

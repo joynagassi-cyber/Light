@@ -22,6 +22,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "Elan"
+rootProject.name = "Light"
 
 include(":app")

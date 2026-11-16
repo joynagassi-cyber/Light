@@ -2,7 +2,11 @@ package com.example
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import com.example.data.preferences.ThemePreferencesStore
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -16,6 +20,12 @@ class ExampleRobolectricTest {
   fun `read string from context`() {
     val context = ApplicationProvider.getApplicationContext<Context>()
     val appName = context.getString(R.string.app_name)
-    assertEquals("Élan", appName)
+    assertEquals("Light", appName)
+  }
+
+  @Test
+  fun `Google sign in is paused by default for local testing`() = runBlocking {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    assertTrue(ThemePreferencesStore(context).googleAuthPausedForTesting.first())
   }
 }

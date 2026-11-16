@@ -17,16 +17,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 @Immutable
-data class ElanThemeController(
-    val activeGradient: ElanGradientTheme,
-    val availableGradients: List<ElanGradientTheme>,
+data class LightThemeController(
+    val activeGradient: LightGradientTheme,
+    val availableGradients: List<LightGradientTheme>,
     val selectGradient: (String) -> Unit
 )
 
-val LocalElanThemeController = staticCompositionLocalOf {
-    ElanThemeController(
-        activeGradient = ElanGradients.all.first(),
-        availableGradients = ElanGradients.all,
+val LocalLightThemeController = staticCompositionLocalOf {
+    LightThemeController(
+        activeGradient = LightGradients.all.first(),
+        availableGradients = LightGradients.all,
         selectGradient = {}
     )
 }
@@ -36,20 +36,20 @@ val LocalElanThemeController = staticCompositionLocalOf {
  * controller across all Compose screens.
  */
 @Composable
-fun ElanThemeProvider(
+fun LightThemeProvider(
     selectedGradientId: String = "aurore_lavande",
     onSelectGradient: (String) -> Unit = {},
     wrapWithGradientSurface: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    ElanTheme(selectedGradientId = selectedGradientId) {
-        val activeGradient = LocalElanGradient.current
-        val controller = ElanThemeController(
+    LightTheme(selectedGradientId = selectedGradientId) {
+        val activeGradient = LocalLightGradient.current
+        val controller = LightThemeController(
             activeGradient = activeGradient,
-            availableGradients = ElanGradients.all,
+            availableGradients = LightGradients.all,
             selectGradient = onSelectGradient
         )
-        CompositionLocalProvider(LocalElanThemeController provides controller) {
+        CompositionLocalProvider(LocalLightThemeController provides controller) {
             if (wrapWithGradientSurface) {
                 GradientScreenSurface(content = content)
             } else {
@@ -68,7 +68,7 @@ fun GradientScreenSurface(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit
 ) {
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
 
     Surface(
         modifier = modifier.fillMaxSize(),

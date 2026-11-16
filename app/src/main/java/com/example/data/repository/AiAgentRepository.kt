@@ -132,7 +132,7 @@ class AiAgentRepository {
         ),
         FunctionDeclaration(
             name = "set_gradient_theme",
-            description = "Changer le thème visuel dégradé de l'application Élan.",
+            description = "Changer le thème visuel dégradé de l'application Light.",
             parameters = mapOf(
                 "gradientId" to Schema.enumeration(
                     values = listOf(
@@ -171,7 +171,7 @@ class AiAgentRepository {
             systemInstruction = content {
                 text(
                     """
-                    Tu es Élan Agent, l'assistant personnel intelligent et bienveillant d'Élan.
+                    Tu es Light Agent, l'assistant personnel intelligent et bienveillant de l'application Light.
                     Date du jour : $today.
                     Tu réponds toujours en français avec clarté, élégance et concision (style Apple, précis et motivant).
                     Adapte systématiquement ton genre grammatical (féminin ou masculin), ton vocabulaire professionnel (étudiant, entrepreneur, autodidacte, particulier ou profession personnalisée) et tes recommandations au profil détaillé fourni dans le contexte.

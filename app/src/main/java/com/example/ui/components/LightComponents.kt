@@ -78,9 +78,9 @@ import com.example.ui.theme.AppleRose
 import com.example.ui.theme.AppleSky
 import com.example.ui.theme.AppleTextPrimary
 import com.example.ui.theme.AppleTextSecondary
-import com.example.ui.theme.ElanGradientTheme
-import com.example.ui.theme.ElanGradients
-import com.example.ui.theme.LocalElanGradient
+import com.example.ui.theme.LightGradientTheme
+import com.example.ui.theme.LightGradients
+import com.example.ui.theme.LocalLightGradient
 
 @Composable
 fun AppleCard(
@@ -115,7 +115,7 @@ fun GradientHeroCard(
     contentPadding: PaddingValues = PaddingValues(20.dp),
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
     val shape = RoundedCornerShape(cornerRadius)
     Box(
         modifier = modifier
@@ -195,7 +195,7 @@ fun GradientProgressRing(
     trackColor: Color = Color(0xFFEAECEF),
     centerContent: @Composable () -> Unit = {}
 ) {
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
     val animatedProgress by animateFloatAsState(
         targetValue = progress.coerceIn(0f, 1f),
         animationSpec = spring(
@@ -254,7 +254,7 @@ fun WeeklyStudyBarChart(
     activeIndex: Int,
     modifier: Modifier = Modifier
 ) {
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
     val maxMinutes = (minutesPerDay.maxOrNull() ?: 60).coerceAtLeast(30)
 
     Row(
@@ -346,7 +346,7 @@ fun GradientPickerSheet(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(RoundedCornerShape(14.dp))
-                        .background(LocalElanGradient.current.linearBrush()),
+                        .background(LocalLightGradient.current.linearBrush()),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -380,7 +380,7 @@ fun GradientPickerSheet(
                     .fillMaxWidth()
                     .height(410.dp)
             ) {
-                items(ElanGradients.all, key = { it.id }) { preset ->
+                items(LightGradients.all, key = { it.id }) { preset ->
                     GradientSwatchCard(
                         preset = preset,
                         isSelected = preset.id == selectedGradientId,
@@ -394,7 +394,7 @@ fun GradientPickerSheet(
 
 @Composable
 fun GradientSwatchCard(
-    preset: ElanGradientTheme,
+    preset: LightGradientTheme,
     isSelected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier

@@ -48,7 +48,7 @@ import com.example.data.model.TaskCategory
 import com.example.ui.theme.AppleDivider
 import com.example.ui.theme.AppleTextPrimary
 import com.example.ui.theme.AppleTextSecondary
-import com.example.ui.theme.LocalElanGradient
+import com.example.ui.theme.LocalLightGradient
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
@@ -77,7 +77,7 @@ fun CalendarModeSelectorRow(
     onSelectMode: (CalendarViewMode) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -124,7 +124,7 @@ fun CalendarShowcaseCard(
     onStartFocusForTask: (StudyTask) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
     val selectedDate = remember(selectedDateIso) {
         runCatching { LocalDate.parse(selectedDateIso) }.getOrElse { LocalDate.now() }
     }
@@ -305,7 +305,7 @@ private fun DayTimelineView(
     onToggleTask: (StudyTask) -> Unit,
     onStartFocusForTask: (StudyTask) -> Unit
 ) {
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
     val sorted = remember(dayTasks) {
         dayTasks.sortedBy { it.scheduledTime.ifBlank { "23:59" } }
     }
@@ -403,7 +403,7 @@ private fun DayTimelineBlock(
     onToggleTask: (StudyTask) -> Unit,
     onStartFocusForTask: (StudyTask) -> Unit
 ) {
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
     val cat = TaskCategory.fromKey(task.category)
     val catColor = cat.accentColor()
     val blockHeightExtra = if (task.estimatedMinutes >= 50) 8.dp else 0.dp
@@ -499,7 +499,7 @@ private fun ThreeDayColumnsView(
     tasksByDate: Map<String, List<StudyTask>>,
     onSelectDate: (LocalDate) -> Unit
 ) {
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
     val days = remember(startDate) { listOf(startDate, startDate.plusDays(1), startDate.plusDays(2)) }
 
     Row(
@@ -616,7 +616,7 @@ private fun WeekStripCalendarView(
     tasksByDate: Map<String, List<StudyTask>>,
     onSelectDate: (LocalDate) -> Unit
 ) {
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
     val weekStart = remember(selectedDate) {
         selectedDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
     }
@@ -677,7 +677,7 @@ private fun MonthGridCalendarView(
     tasksByDate: Map<String, List<StudyTask>>,
     onSelectDate: (LocalDate) -> Unit
 ) {
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
     val ym = remember(selectedDate) { YearMonth.from(selectedDate) }
     val firstDayOfMonth = ym.atDay(1)
     val leadingBlanks = (firstDayOfMonth.dayOfWeek.value - 1).coerceIn(0, 6)
@@ -761,7 +761,7 @@ private fun QuarterMonthsCalendarView(
     onSelectDate: (LocalDate) -> Unit,
     onOpenMonth: (LocalDate) -> Unit
 ) {
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
     val firstMonthNum = (((selectedDate.monthValue - 1) / 3) * 3) + 1
     val months = remember(selectedDate.year, firstMonthNum) {
         (0..2).map { YearMonth.of(selectedDate.year, firstMonthNum + it) }
@@ -874,7 +874,7 @@ private fun YearOverviewCalendarView(
     tasks: List<StudyTask>,
     onSelectMonth: (LocalDate) -> Unit
 ) {
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
     val year = selectedDate.year
     val months = remember(year) { (1..12).map { YearMonth.of(year, it) } }
 

@@ -77,7 +77,7 @@ import com.example.ui.theme.AppleDivider
 import com.example.ui.theme.AppleTextPrimary
 import com.example.ui.theme.AppleTextSecondary
 import com.example.ui.theme.JetBrainsMonoFamily
-import com.example.ui.theme.LocalElanGradient
+import com.example.ui.theme.LocalLightGradient
 
 @Composable
 fun FocusScreen(
@@ -100,7 +100,7 @@ fun FocusScreen(
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
     val isStopwatch = focusState.kind == FocusKind.STOPWATCH
 
     val progress = if (isStopwatch) {

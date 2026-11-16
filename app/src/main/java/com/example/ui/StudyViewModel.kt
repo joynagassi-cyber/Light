@@ -28,8 +28,8 @@ import com.example.data.repository.AiAgentRepository
 import com.example.data.repository.AiPlannerRepository
 import com.example.data.repository.StudyAgentToolExecutor
 import com.example.data.repository.StudyWorkspaceRepository
-import com.example.notifications.ElanNotificationHelper
-import com.example.ui.theme.ElanGradients
+import com.example.notifications.LightNotificationHelper
+import com.example.ui.theme.LightGradients
 import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -313,7 +313,7 @@ class StudyViewModel(
                 val profile = (profileState.value as? UiState.Success)?.data
                 if (enabled && frequency != NotificationFrequency.OFF) {
                     val adapt = profile.adaptation()
-                    ElanNotificationHelper.sendOnboardingConfiguredNotification(
+                    LightNotificationHelper.sendOnboardingConfiguredNotification(
                         context = context,
                         displayName = profile?.displayName?.ifBlank { adapt.roleLabel } ?: adapt.roleLabel,
                         gender = adapt.gender,
@@ -389,7 +389,7 @@ class StudyViewModel(
                 )
 
                 if (notificationsEnabled && notificationFrequency != NotificationFrequency.OFF) {
-                    ElanNotificationHelper.sendOnboardingConfiguredNotification(
+                    LightNotificationHelper.sendOnboardingConfiguredNotification(
                         context = context,
                         displayName = displayName.ifBlank { profession.labelFor(gender, customProfession) },
                         gender = gender,
@@ -408,7 +408,7 @@ class StudyViewModel(
                         text = "Bienvenue ${displayName.ifBlank { roleLabel }} ! Votre profil $roleLabel ($age ans) est configuré. Je suis $ready à organiser vos tâches, habitudes et sessions Focus."
                     )
                 )
-                _bannerMessage.value = "Élan est adapté à votre profil $roleLabel !"
+                _bannerMessage.value = "Light est adapté à votre profil $roleLabel !"
                 onComplete()
             } catch (e: CancellationException) {
                 throw e
@@ -1106,7 +1106,7 @@ class StudyViewModel(
                 }
 
                 override suspend fun setGradientTheme(gradientId: String): JsonObject {
-                    val preset = ElanGradients.byId(gradientId)
+                    val preset = LightGradients.byId(gradientId)
                     selectGradient(preset.id)
                     return JsonObject(
                         mapOf(
@@ -1172,7 +1172,7 @@ class StudyViewModel(
 
     private fun welcomeAgentMessage() = AgentChatMessage(
         isUser = false,
-        text = "Bonjour ! Je suis Élan Agent. Je peux consulter ou créer vos tâches, valider vos devoirs, ajouter une matière L3, changer le thème dégradé ou lancer votre minuteur Focus."
+        text = "Bonjour ! Je suis Light Agent. Je peux consulter ou créer vos tâches, valider vos devoirs, ajouter une matière L3, changer le thème dégradé ou lancer votre minuteur Focus."
     )
 
     private fun unwrapFirestoreError(error: Throwable): FirebaseFirestoreException? =

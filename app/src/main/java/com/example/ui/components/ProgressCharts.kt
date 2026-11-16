@@ -48,7 +48,7 @@ import com.example.data.model.TaskCategory
 import com.example.ui.theme.AppleDivider
 import com.example.ui.theme.AppleTextPrimary
 import com.example.ui.theme.AppleTextSecondary
-import com.example.ui.theme.LocalElanGradient
+import com.example.ui.theme.LocalLightGradient
 import kotlin.math.roundToInt
 
 @Composable
@@ -57,7 +57,7 @@ fun StudyTrendLineChart(
     minutesPerDay: List<Int>,
     modifier: Modifier = Modifier
 ) {
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
     val count = minOf(dayLabels.size, minutesPerDay.size)
     if (count == 0) return
 

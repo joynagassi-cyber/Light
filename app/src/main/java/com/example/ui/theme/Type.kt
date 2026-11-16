@@ -26,7 +26,7 @@ val JetBrainsMonoFamily = FontFamily(
     Font(R.font.jetbrains_mono, FontWeight.Bold)
 )
 
-val ElanTypography = Typography(
+val LightTypography = Typography(
     displaySmall = TextStyle(
         fontFamily = PlusJakartaFamily,
         fontWeight = FontWeight.Bold,

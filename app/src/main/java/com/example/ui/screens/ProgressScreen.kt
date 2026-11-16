@@ -68,7 +68,7 @@ import com.example.ui.theme.AppleDivider
 import com.example.ui.theme.AppleEmerald
 import com.example.ui.theme.AppleTextPrimary
 import com.example.ui.theme.AppleTextSecondary
-import com.example.ui.theme.LocalElanGradient
+import com.example.ui.theme.LocalLightGradient
 import java.time.LocalDate
 import java.time.format.TextStyle
 import java.util.Locale
@@ -96,7 +96,7 @@ fun ProgressScreen(
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
     val adapt = remember(profile) { profile.adaptation() }
     var chartMode by remember { mutableStateOf(ProgressChartMode.TREND_14D) }
 

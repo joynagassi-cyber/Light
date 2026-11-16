@@ -20,7 +20,7 @@ class LocalTestStudyRepositoryTest {
         val repo = LocalTestStudyRepository()
         val uid = "local_test_user"
 
-        repo.ensureUserProfileAndSeedIfNew(uid, "Testeur", "mode.test@local.elan")
+        repo.ensureUserProfileAndSeedIfNew(uid, "Testeur", "mode.test@local.light")
 
         val initialProfile = repo.observeUserProfile(uid).first()!!
         assertFalse(initialProfile.onboardingCompleted)

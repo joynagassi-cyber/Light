@@ -111,7 +111,7 @@ fun UserProfile?.adaptation(): ProfileAdaptation {
             "\"La régularité transforme l'effort en expertise durable.\""
         }
         UserProfession.ENTREPRENEUR ->
-            "\"Exécutez l'essentiel avec calme : la clarté crée l'élan.\""
+            "\"Exécutez l'essentiel avec calme : la clarté crée l'light.\""
         UserProfession.SELF_TAUGHT ->
             "\"Apprendre un peu chaque jour bâtit une liberté immense.\""
         UserProfession.INDIVIDUAL ->
@@ -193,7 +193,7 @@ fun adaptiveHabitSuggestionsFor(profession: UserProfession): List<AdaptiveHabitT
     UserProfession.OTHER -> listOf(
         AdaptiveHabitTemplate("Bloc Focus quotidien", "45 min de travail profond sans interruption", HabitCategory.STUDY, "sparkles", 0L),
         AdaptiveHabitTemplate("Bilan rapide du soir", "Célébrer ses avancées du jour", HabitCategory.MINDSET, "smile", 3L),
-        AdaptiveHabitTemplate("Levé tôt & régulier", "Commencer la journée avec élan", HabitCategory.HEALTH, "sun", 2L),
+        AdaptiveHabitTemplate("Levé tôt & régulier", "Commencer la journée avec light", HabitCategory.HEALTH, "sun", 2L),
         AdaptiveHabitTemplate("Hydratation & vitalité", "Boire régulièrement tout au long du jour", HabitCategory.HEALTH, "water", 4L),
         AdaptiveHabitTemplate("Activité physique", "Bouger au moins 20 min par jour", HabitCategory.SPORTS, "fitness", 1L)
     )

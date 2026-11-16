@@ -54,14 +54,14 @@ import com.example.ui.theme.AppleRose
 import com.example.ui.theme.AppleSky
 import com.example.ui.theme.AppleTextPrimary
 import com.example.ui.theme.AppleTextSecondary
-import com.example.ui.theme.LocalElanGradient
+import com.example.ui.theme.LocalLightGradient
 
 enum class MoreSubPage(
     val key: String,
     val title: String,
     val subtitle: String
 ) {
-    AGENT("agent", "Élan Agent IA", "Discutez et pilotez votre planning par commandes"),
+    AGENT("agent", "Light Agent IA", "Discutez et pilotez votre planning par commandes"),
     PROGRESS("progress", "Progrès & Bilan", "Graphiques, objectifs, bilans et répartition"),
     HABITS("habits", "Suivi des habitudes", "Rituels quotidiens, séries & galerie bien-être"),
     COUNTDOWN("countdown", "Compte à rebours", "Souvenez-vous de chaque jour spécial"),
@@ -85,7 +85,7 @@ fun MoreHubScreen(
     onOpenGradientPicker: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
 
     val indexedPages = listOf(
         IndexedPageRow(
@@ -144,7 +144,7 @@ fun MoreHubScreen(
                         color = AppleTextPrimary
                     )
                     Text(
-                        text = "Accès rapide à tous vos modules Élan",
+                        text = "Accès rapide à tous vos modules Light",
                         style = MaterialTheme.typography.bodySmall,
                         color = AppleTextSecondary
                     )

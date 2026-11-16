@@ -62,7 +62,7 @@ import com.example.ui.theme.AppleRose
 import com.example.ui.theme.AppleTextPrimary
 import com.example.ui.theme.AppleTextSecondary
 import com.example.ui.theme.GradientScreenSurface
-import com.example.ui.theme.LocalElanGradient
+import com.example.ui.theme.LocalLightGradient
 
 @Composable
 fun AuthScreen(
@@ -74,7 +74,7 @@ fun AuthScreen(
     val credentialManager = remember { CredentialManager.create(context) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
 
     GradientScreenSurface {
         Box(
@@ -263,7 +263,7 @@ fun AuthScreen(
                         .testTag("pause_google_test_mode_button")
                 ) {
                     Text(
-                        text = "Mettre en pause Google · Mode Test",
+                        text = "Tester Light sans compte",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -289,7 +289,7 @@ private fun FeatureHighlightRow(
     title: String,
     subtitle: String
 ) {
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp)

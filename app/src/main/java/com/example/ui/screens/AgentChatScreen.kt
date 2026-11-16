@@ -59,7 +59,7 @@ import com.example.ui.theme.AppleEmerald
 import com.example.ui.theme.AppleRose
 import com.example.ui.theme.AppleTextPrimary
 import com.example.ui.theme.AppleTextSecondary
-import com.example.ui.theme.LocalElanGradient
+import com.example.ui.theme.LocalLightGradient
 
 @Composable
 fun AgentChatScreen(
@@ -70,7 +70,7 @@ fun AgentChatScreen(
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
     var inputText by rememberSaveable { mutableStateOf("") }
     val listState = rememberLazyListState()
 
@@ -120,7 +120,7 @@ fun AgentChatScreen(
                 }
                 Column {
                     Text(
-                        text = "Élan Agent IA",
+                        text = "Light Agent IA",
                         style = MaterialTheme.typography.headlineSmall,
                         color = AppleTextPrimary
                     )
@@ -293,7 +293,7 @@ fun AgentChatScreen(
                                 strokeWidth = 2.dp
                             )
                             Text(
-                                text = "Élan Agent réfléchit et exécute...",
+                                text = "Light Agent réfléchit et exécute...",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = AppleTextSecondary
                             )
@@ -324,7 +324,7 @@ fun AgentChatScreen(
                     onValueChange = { inputText = it },
                     placeholder = {
                         Text(
-                            text = "Demandez une action à Élan Agent...",
+                            text = "Demandez une action à Light Agent...",
                             style = MaterialTheme.typography.bodyMedium,
                             color = AppleTextSecondary
                         )
@@ -374,7 +374,7 @@ fun AgentChatScreen(
 
 @Composable
 private fun AgentMessageBubble(message: AgentChatMessage) {
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (message.isUser) Arrangement.End else Arrangement.Start

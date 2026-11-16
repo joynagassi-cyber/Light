@@ -61,7 +61,7 @@ import com.example.ui.theme.AppleRose
 import com.example.ui.theme.AppleSky
 import com.example.ui.theme.AppleTextPrimary
 import com.example.ui.theme.AppleTextSecondary
-import com.example.ui.theme.LocalElanGradient
+import com.example.ui.theme.LocalLightGradient
 import java.time.LocalDate
 
 private data class MatrixQuadrantMeta(
@@ -89,7 +89,7 @@ fun EisenhowerScreen(
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
     val todayIso = remember { LocalDate.now().toString() }
     var hideCompleted by remember { mutableStateOf(true) }
     var menuExpanded by remember { mutableStateOf(false) }

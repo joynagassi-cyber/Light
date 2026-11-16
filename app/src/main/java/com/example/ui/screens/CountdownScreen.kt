@@ -65,7 +65,7 @@ import com.example.ui.theme.AppleRose
 import com.example.ui.theme.AppleSky
 import com.example.ui.theme.AppleTextPrimary
 import com.example.ui.theme.AppleTextSecondary
-import com.example.ui.theme.LocalElanGradient
+import com.example.ui.theme.LocalLightGradient
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -82,7 +82,7 @@ fun CountdownScreen(
     onDeleteCountdown: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
     val today = remember { LocalDate.now() }
     var showCreateDialog by remember { mutableStateOf(false) }
 
@@ -342,7 +342,7 @@ private fun CreateCountdownDialog(
     onDismiss: () -> Unit,
     onCreate: (title: String, notes: String, dateIso: String, category: CountdownCategory, colorIndex: Long) -> Unit
 ) {
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
     var title by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
     var targetDate by remember { mutableStateOf(LocalDate.now().plusDays(14)) }

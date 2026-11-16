@@ -11,7 +11,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 
 @Immutable
-data class ElanGradientTheme(
+data class LightGradientTheme(
     val id: String,
     val name: String,
     val subtitle: String,
@@ -40,9 +40,9 @@ data class ElanGradientTheme(
     )
 }
 
-object ElanGradients {
-    val all: List<ElanGradientTheme> = listOf(
-        ElanGradientTheme(
+object LightGradients {
+    val all: List<LightGradientTheme> = listOf(
+        LightGradientTheme(
             id = "aurore_lavande",
             name = "Aurore Lavande",
             subtitle = "Violet néon & magenta soyeux",
@@ -56,7 +56,7 @@ object ElanGradients {
             softContainer = Color(0xFFF2ECFF),
             onSoftContainer = Color(0xFF4C1D95)
         ),
-        ElanGradientTheme(
+        LightGradientTheme(
             id = "lagon_boreal",
             name = "Lagon Boréal",
             subtitle = "Cyan polaire & bleu saphir",
@@ -70,7 +70,7 @@ object ElanGradients {
             softContainer = Color(0xFFE8F6FE),
             onSoftContainer = Color(0xFF075985)
         ),
-        ElanGradientTheme(
+        LightGradientTheme(
             id = "menthe_emeraude",
             name = "Menthe Émeraude",
             subtitle = "Vert frais & océan profond",
@@ -84,7 +84,7 @@ object ElanGradients {
             softContainer = Color(0xFFE6FAF3),
             onSoftContainer = Color(0xFF065F46)
         ),
-        ElanGradientTheme(
+        LightGradientTheme(
             id = "peche_solaire",
             name = "Pêche Solaire",
             subtitle = "Ambre doré & corail vibrant",
@@ -98,7 +98,7 @@ object ElanGradients {
             softContainer = Color(0xFFFFF2E8),
             onSoftContainer = Color(0xFF9A3412)
         ),
-        ElanGradientTheme(
+        LightGradientTheme(
             id = "rose_quartz",
             name = "Rose Quartz",
             subtitle = "Ciel irisé & framboise douce",
@@ -112,7 +112,7 @@ object ElanGradients {
             softContainer = Color(0xFFFCEEFF),
             onSoftContainer = Color(0xFF86198F)
         ),
-        ElanGradientTheme(
+        LightGradientTheme(
             id = "nebuleuse_douce",
             name = "Nébuleuse Douce",
             subtitle = "Indigo velours & orchidée",
@@ -126,7 +126,7 @@ object ElanGradients {
             softContainer = Color(0xFFF3EEFD),
             onSoftContainer = Color(0xFF581C87)
         ),
-        ElanGradientTheme(
+        LightGradientTheme(
             id = "matcha_azur",
             name = "Matcha Azur",
             subtitle = "Pistache lumineuse & lagon",
@@ -140,7 +140,7 @@ object ElanGradients {
             softContainer = Color(0xFFEBFBF4),
             onSoftContainer = Color(0xFF115E59)
         ),
-        ElanGradientTheme(
+        LightGradientTheme(
             id = "sakura_velours",
             name = "Fleur de Cerisier",
             subtitle = "Sakura électrique & prune",
@@ -156,12 +156,12 @@ object ElanGradients {
         )
     )
 
-    fun byId(id: String?): ElanGradientTheme =
+    fun byId(id: String?): LightGradientTheme =
         all.firstOrNull { it.id == id } ?: all.first()
 }
 
 @Composable
-fun rememberAnimatedGradientTheme(target: ElanGradientTheme): ElanGradientTheme {
+fun rememberAnimatedGradientTheme(target: LightGradientTheme): LightGradientTheme {
     val spec = spring<Color>(
         dampingRatio = 0.85f,
         stiffness = Spring.StiffnessLow
@@ -176,7 +176,7 @@ fun rememberAnimatedGradientTheme(target: ElanGradientTheme): ElanGradientTheme 
     val soft = animateColorAsState(target.softContainer, animationSpec = spec, label = "gradSoft")
     val onSoft = animateColorAsState(target.onSoftContainer, animationSpec = spec, label = "gradOnSoft")
 
-    return ElanGradientTheme(
+    return LightGradientTheme(
         id = target.id,
         name = target.name,
         subtitle = target.subtitle,
@@ -192,4 +192,4 @@ fun rememberAnimatedGradientTheme(target: ElanGradientTheme): ElanGradientTheme 
     )
 }
 
-val LocalElanGradient = staticCompositionLocalOf { ElanGradients.all.first() }
+val LocalLightGradient = staticCompositionLocalOf { LightGradients.all.first() }

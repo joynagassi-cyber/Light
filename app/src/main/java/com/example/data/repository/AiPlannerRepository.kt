@@ -81,7 +81,7 @@ class AiPlannerRepository {
         }
 
         val fullPrompt = """
-            Tu es un coach de planification d'élite dans l'application Élan.
+            Tu es un coach de planification d'élite dans l'application Light.
             $profileLine
             Date d'aujourd'hui : $today
             Date cible / échéance : $targetDateIso

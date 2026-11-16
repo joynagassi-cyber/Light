@@ -94,7 +94,7 @@ import com.example.ui.theme.AppleTextPrimary
 import com.example.ui.theme.AppleTextSecondary
 import com.example.ui.theme.AppleTextTertiary
 import com.example.ui.theme.GradientScreenSurface
-import com.example.ui.theme.LocalElanGradient
+import com.example.ui.theme.LocalLightGradient
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -123,7 +123,7 @@ fun TaskCreationScreen(
 ) {
     BackHandler(onBack = onCancel)
 
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
     val focusManager = LocalFocusManager.current
     val adapt = remember(profile) { profile.adaptation() }
 
@@ -890,7 +890,7 @@ private fun IosFloatingTextField(
     imeAction: ImeAction = ImeAction.Default,
     onImeAction: () -> Unit = {}
 ) {
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
     var isFocused by remember { mutableStateOf(false) }
 
     val borderColor by animateColorAsState(

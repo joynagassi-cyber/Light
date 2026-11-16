@@ -59,7 +59,7 @@ import com.example.ui.components.accentColor
 import com.example.ui.theme.AppleDivider
 import com.example.ui.theme.AppleTextPrimary
 import com.example.ui.theme.AppleTextSecondary
-import com.example.ui.theme.LocalElanGradient
+import com.example.ui.theme.LocalLightGradient
 import java.time.LocalDate
 import java.util.Locale
 
@@ -82,7 +82,7 @@ fun SearchScreen(
     onToggleHabitToday: (StudyHabit) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
     var query by rememberSaveable { mutableStateOf("") }
     var scope by rememberSaveable { mutableStateOf(SearchScope.ALL) }
     val todayIso = remember { LocalDate.now().toString() }

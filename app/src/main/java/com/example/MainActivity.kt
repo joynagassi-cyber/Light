@@ -114,14 +114,15 @@ import com.example.ui.screens.TaskCreationScreen
 import com.example.ui.theme.AppleDivider
 import com.example.ui.theme.AppleTextPrimary
 import com.example.ui.theme.AppleTextSecondary
-import com.example.ui.theme.ElanThemeProvider
-import com.example.ui.theme.LocalElanGradient
-import com.google.firebase.Firebase
-import com.google.firebase.auth.auth
+import com.example.ui.theme.LightThemeProvider
+import com.example.ui.theme.LocalLightGradient
+import com.google.firebase.FirebaseApp
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 
-private enum class ElanTab(
+private enum class LightTab(
     val route: String,
     val labelRes: Int,
     val selectedIcon: ImageVector,
@@ -143,13 +144,13 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         setContent {
-            ElanAppRoot()
+            LightAppRoot()
         }
     }
 }
 
 @Composable
-private fun ElanAppRoot() {
+private fun LightAppRoot() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val themeStore = remember(context) { ThemePreferencesStore(context.applicationContext) }
@@ -157,35 +158,46 @@ private fun ElanAppRoot() {
     val googleAuthPaused by themeStore.googleAuthPausedForTesting.collectAsStateWithLifecycle(initialValue = null)
     val localTestRepository = remember { LocalTestStudyRepository() }
 
-    val auth = remember { Firebase.auth }
-    val currentUser by auth.authStateFlow().collectAsStateWithLifecycle(initialValue = auth.currentUser)
-    var startupChecked by remember { mutableStateOf(auth.currentUser != null) }
-
-    LaunchedEffect(googleAuthPaused, currentUser) {
-        val paused = googleAuthPaused ?: return@LaunchedEffect
-        if (currentUser != null) {
-            startupChecked = true
-            if (paused) {
-                themeStore.updateGoogleAuthPausedForTesting(false)
-            }
-        } else if (paused) {
-            startupChecked = true
+    // Local mode is the default. Avoid touching Firebase Auth until the user explicitly opts in.
+    // This lets the app launch and be explored even without google-services.json or OAuth setup.
+    val auth = remember(googleAuthPaused) {
+        if (googleAuthPaused == false) {
+            runCatching {
+                val app = FirebaseApp.getApps(context).firstOrNull()
+                    ?: FirebaseApp.initializeApp(context)
+                app?.let { FirebaseAuth.getInstance(it) }
+            }.getOrNull()
         } else {
-            val credentialManager = CredentialManager.create(context)
-            attemptAutoSignIn(
-                context = context,
-                credentialManager = credentialManager,
-                onAuthSuccess = { startupChecked = true },
-                onUnauthenticated = { startupChecked = true },
-                scope = scope
-            )
+            null
+        }
+    }
+    val authState = remember(auth) { auth?.authStateFlow() ?: flowOf(auth?.currentUser) }
+    val currentUser by authState.collectAsStateWithLifecycle(initialValue = auth?.currentUser)
+    var startupChecked by remember { mutableStateOf(false) }
+
+    LaunchedEffect(googleAuthPaused, currentUser, auth) {
+        val paused = googleAuthPaused ?: return@LaunchedEffect
+        when {
+            paused -> startupChecked = true
+            auth == null -> startupChecked = true
+            currentUser != null -> startupChecked = true
+            else -> {
+                val credentialManager = CredentialManager.create(context)
+                attemptAutoSignIn(
+                    context = context,
+                    credentialManager = credentialManager,
+                    onAuthSuccess = { startupChecked = true },
+                    onUnauthenticated = { startupChecked = true },
+                    scope = scope
+                )
+            }
         }
     }
 
     val user = currentUser
     val paused = googleAuthPaused
-    if (paused == null || (!startupChecked && user == null && !paused)) {
-        ElanThemeProvider(
+    if (paused == null || !startupChecked) {
+        LightThemeProvider(
             selectedGradientId = localGradientId,
             wrapWithGradientSurface = true
         ) {
@@ -193,10 +205,11 @@ private fun ElanAppRoot() {
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = LocalElanGradient.current.accentColor)
+                CircularProgressIndicator(color = LocalLightGradient.current.accentColor)
             }
         }
-    } else if (user != null) {
+    } else if (user != null && auth != null) {
+        val activeAuth = auth
         key(user.uid) {
             AuthenticatedStudyShell(
                 userId = user.uid,
@@ -208,15 +221,16 @@ private fun ElanAppRoot() {
                 repositoryFactory = { app ->
                     val databaseId = app.getString(R.string.firestore_database_id)
                     val db = FirebaseFirestore.getInstance(databaseId)
-                    StudyRepository(db, Firebase.auth)
+                    StudyRepository(db, activeAuth)
                 },
                 onTogglePauseGoogleAuth = { pause ->
                     scope.launch {
-                        val cm = CredentialManager.create(context)
-                        signOut(credentialManager = cm, scope = scope) {
-                            scope.launch {
-                                themeStore.updateGoogleAuthPausedForTesting(pause)
-                            }
+                        // Persist the local-mode choice before Firebase emits its signed-out event,
+                        // so the auth observer cannot immediately trigger another Google prompt.
+                        themeStore.updateGoogleAuthPausedForTesting(pause)
+                        if (pause) {
+                            val cm = CredentialManager.create(context)
+                            signOut(credentialManager = cm, scope = scope)
                         }
                     }
                 }
@@ -227,7 +241,7 @@ private fun ElanAppRoot() {
             AuthenticatedStudyShell(
                 userId = "local_test_user",
                 initialDisplayName = "Mode Test",
-                initialEmail = "mode.test@local.elan",
+                initialEmail = "mode.test@local.light",
                 photoUrl = null,
                 isGoogleAuthPaused = true,
                 themeStore = themeStore,
@@ -240,7 +254,7 @@ private fun ElanAppRoot() {
             )
         }
     } else {
-        ElanThemeProvider(selectedGradientId = localGradientId) {
+        LightThemeProvider(selectedGradientId = localGradientId) {
             AuthScreen(
                 onAuthSuccess = { startupChecked = true },
                 onEnterTestMode = {
@@ -308,7 +322,7 @@ private fun AuthenticatedStudyShell(
     val habits = (habitsState as? UiState.Success)?.data.orEmpty()
     val countdowns = (countdownsState as? UiState.Success)?.data.orEmpty()
 
-    var currentTab by rememberSaveable { mutableStateOf(ElanTab.HOME) }
+    var currentTab by rememberSaveable { mutableStateOf(LightTab.HOME) }
     var activeMorePage by rememberSaveable { mutableStateOf<MoreSubPage?>(null) }
     var pendingTaskQuadrant by rememberSaveable { mutableStateOf<Int?>(null) }
     var showGradientSheet by remember { mutableStateOf(false) }
@@ -333,23 +347,23 @@ private fun AuthenticatedStudyShell(
             BackHandler {
                 showSettingsOverlay = false
             }
-        } else if (currentTab == ElanTab.MORE && activeMorePage != null && !showTaskCreation) {
+        } else if (currentTab == LightTab.MORE && activeMorePage != null && !showTaskCreation) {
             BackHandler {
                 activeMorePage = null
             }
-        } else if (currentTab != ElanTab.HOME && !showTaskCreation) {
+        } else if (currentTab != LightTab.HOME && !showTaskCreation) {
             BackHandler {
-                currentTab = ElanTab.HOME
+                currentTab = LightTab.HOME
             }
         }
     }
 
-    ElanThemeProvider(
+    LightThemeProvider(
         selectedGradientId = selectedGradientId,
         onSelectGradient = viewModel::selectGradient,
         wrapWithGradientSurface = !needsOnboarding
     ) {
-        val gradient = LocalElanGradient.current
+        val gradient = LocalLightGradient.current
 
         if (isLoadingInitialProfile) {
             Box(
@@ -409,12 +423,12 @@ private fun AuthenticatedStudyShell(
                                 windowInsets = WindowInsets.navigationBars,
                                 tonalElevation = 0.dp
                             ) {
-                                ElanTab.entries.forEach { tab ->
+                                LightTab.entries.forEach { tab ->
                                     val selected = currentTab == tab
                                     NavigationBarItem(
                                         selected = selected,
                                         onClick = {
-                                            if (tab == ElanTab.MORE && currentTab == ElanTab.MORE) {
+                                            if (tab == LightTab.MORE && currentTab == LightTab.MORE) {
                                                 activeMorePage = null
                                             }
                                             currentTab = tab
@@ -460,12 +474,12 @@ private fun AuthenticatedStudyShell(
                                 .fillMaxHeight()
                                 .statusBarsPadding()
                         ) {
-                            ElanTab.entries.forEach { tab ->
+                            LightTab.entries.forEach { tab ->
                                 val selected = currentTab == tab
                                 NavigationRailItem(
                                     selected = selected,
                                     onClick = {
-                                        if (tab == ElanTab.MORE && currentTab == ElanTab.MORE) {
+                                        if (tab == LightTab.MORE && currentTab == LightTab.MORE) {
                                             activeMorePage = null
                                         }
                                         currentTab = tab
@@ -514,7 +528,7 @@ private fun AuthenticatedStudyShell(
                             }
 
                             when (tab) {
-                                ElanTab.HOME -> HomeDashboardScreen(
+                                LightTab.HOME -> HomeDashboardScreen(
                                     profile = profile,
                                     photoUrl = photoUrl,
                                     courses = courses,
@@ -523,20 +537,20 @@ private fun AuthenticatedStudyShell(
                                     onToggleTask = viewModel::toggleTaskCompleted,
                                     onStartFocusForTask = { task ->
                                         viewModel.setFocusTarget(task.courseId, task.title)
-                                        currentTab = ElanTab.FOCUS
+                                        currentTab = LightTab.FOCUS
                                     },
-                                    onNavigateToPlanner = { currentTab = ElanTab.PLANNER },
+                                    onNavigateToPlanner = { currentTab = LightTab.PLANNER },
                                     onNavigateToProgress = {
                                         activeMorePage = MoreSubPage.PROGRESS
-                                        currentTab = ElanTab.MORE
+                                        currentTab = LightTab.MORE
                                     },
                                     onNavigateToAgent = {
                                         activeMorePage = MoreSubPage.AGENT
-                                        currentTab = ElanTab.MORE
+                                        currentTab = LightTab.MORE
                                     },
                                     onOpenStopwatch = {
                                         viewModel.setFocusKind(FocusKind.STOPWATCH)
-                                        currentTab = ElanTab.FOCUS
+                                        currentTab = LightTab.FOCUS
                                     },
                                     onOpenSettings = openSettingsAction,
                                     onOpenGradientPicker = { showGradientSheet = true },
@@ -546,7 +560,7 @@ private fun AuthenticatedStudyShell(
                                     }
                                 )
 
-                                ElanTab.PLANNER -> PlannerScreen(
+                                LightTab.PLANNER -> PlannerScreen(
                                     selectedDateIso = selectedDateIso,
                                     defaultCalendarViewKey = appSettings.defaultCalendarView,
                                     onSelectDate = viewModel::selectDate,
@@ -569,11 +583,11 @@ private fun AuthenticatedStudyShell(
                                     onDeleteTask = viewModel::deleteTask,
                                     onStartFocusForTask = { task ->
                                         viewModel.setFocusTarget(task.courseId, task.title)
-                                        currentTab = ElanTab.FOCUS
+                                        currentTab = LightTab.FOCUS
                                     }
                                 )
 
-                                ElanTab.FOCUS -> FocusScreen(
+                                LightTab.FOCUS -> FocusScreen(
                                     focusState = focusState,
                                     audioState = audioState,
                                     appSettings = appSettings,
@@ -606,13 +620,13 @@ private fun AuthenticatedStudyShell(
                                     onOpenSettings = openSettingsAction
                                 )
 
-                                ElanTab.MATRIX -> EisenhowerScreen(
+                                LightTab.MATRIX -> EisenhowerScreen(
                                     tasks = tasks,
                                     onToggleTask = viewModel::toggleTaskCompleted,
                                     onMoveTaskQuadrant = viewModel::updateTaskQuadrant,
                                     onStartFocusForTask = { task ->
                                         viewModel.setFocusTarget(task.courseId, task.title)
-                                        currentTab = ElanTab.FOCUS
+                                        currentTab = LightTab.FOCUS
                                     },
                                     onOpenCreateTaskForQuadrant = { quadrant ->
                                         pendingTaskQuadrant = quadrant
@@ -621,7 +635,7 @@ private fun AuthenticatedStudyShell(
                                     onOpenSettings = openSettingsAction
                                 )
 
-                                ElanTab.MORE -> {
+                                LightTab.MORE -> {
                                     AnimatedContent(
                                         targetState = activeMorePage,
                                         transitionSpec = {
@@ -691,7 +705,7 @@ private fun AuthenticatedStudyShell(
                                                             onSendMessage = { prompt ->
                                                                 viewModel.sendAgentMessage(
                                                                     prompt = prompt,
-                                                                    onStartFocusRequested = { currentTab = ElanTab.FOCUS }
+                                                                    onStartFocusRequested = { currentTab = LightTab.FOCUS }
                                                                 )
                                                             },
                                                             onClearConversation = viewModel::clearAgentConversation,
@@ -728,7 +742,7 @@ private fun AuthenticatedStudyShell(
                                                             onToggleTask = viewModel::toggleTaskCompleted,
                                                             onStartFocusForTask = { task ->
                                                                 viewModel.setFocusTarget(task.courseId, task.title)
-                                                                currentTab = ElanTab.FOCUS
+                                                                currentTab = LightTab.FOCUS
                                                             },
                                                             onToggleHabitToday = viewModel::toggleHabitToday
                                                         )
@@ -758,7 +772,10 @@ private fun AuthenticatedStudyShell(
                                                             onResumeGoogleSignIn = { onTogglePauseGoogleAuth(false) },
                                                             onPauseGoogleSignIn = { onTogglePauseGoogleAuth(true) },
                                                             onSignOut = {
-                                                                signOut(credentialManager = credentialManager, scope = scope)
+                                                                scope.launch {
+                                                                    themeStore.updateGoogleAuthPausedForTesting(true)
+                                                                    signOut(credentialManager = credentialManager, scope = scope)
+                                                                }
                                                             },
                                                             onClose = { activeMorePage = null }
                                                         )
@@ -835,7 +852,10 @@ private fun AuthenticatedStudyShell(
                         },
                         onSignOut = {
                             showSettingsOverlay = false
-                            signOut(credentialManager = credentialManager, scope = scope)
+                            scope.launch {
+                                themeStore.updateGoogleAuthPausedForTesting(true)
+                                signOut(credentialManager = credentialManager, scope = scope)
+                            }
                         },
                         onClose = { showSettingsOverlay = false },
                         modifier = Modifier

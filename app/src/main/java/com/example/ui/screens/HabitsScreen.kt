@@ -83,7 +83,7 @@ import com.example.ui.theme.AppleRose
 import com.example.ui.theme.AppleSky
 import com.example.ui.theme.AppleTextPrimary
 import com.example.ui.theme.AppleTextSecondary
-import com.example.ui.theme.LocalElanGradient
+import com.example.ui.theme.LocalLightGradient
 import java.time.LocalDate
 import java.time.format.TextStyle
 import java.util.Locale
@@ -149,7 +149,7 @@ fun HabitsScreen(
     onDeleteHabit: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
     val today = remember { LocalDate.now() }
     val todayIso = today.toString()
     val last7Days = remember(today) { (6 downTo 0).map { today.minusDays(it.toLong()) } }
@@ -473,7 +473,7 @@ private fun HabitGallerySheet(
     onOpenCustomDialog: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var selectedCategory by remember { mutableStateOf(HabitCategory.HEALTH) }
 
@@ -620,7 +620,7 @@ private fun CreateHabitDialog(
     onDismiss: () -> Unit,
     onCreate: (title: String, subtitle: String, category: HabitCategory, iconKey: String, colorIndex: Long) -> Unit
 ) {
-    val gradient = LocalElanGradient.current
+    val gradient = LocalLightGradient.current
     var title by remember { mutableStateOf("") }
     var subtitle by remember { mutableStateOf("") }
     var category by remember { mutableStateOf(HabitCategory.STUDY) }

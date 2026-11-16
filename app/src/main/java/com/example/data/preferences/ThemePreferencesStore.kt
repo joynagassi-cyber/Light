@@ -12,7 +12,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
-private val Context.elanDataStore: DataStore<Preferences> by preferencesDataStore(name = "elan_prefs")
+private val Context.lightDataStore: DataStore<Preferences> by preferencesDataStore(name = "elan_prefs")
 
 data class StudyAppSettings(
     val selectedGradientId: String = "aurore_lavande",
@@ -45,15 +45,15 @@ class ThemePreferencesStore(private val context: Context) {
     private val notificationFrequencyKey = stringPreferencesKey("notification_frequency")
     private val googleAuthPausedKey = booleanPreferencesKey("google_auth_paused_for_testing")
 
-    val selectedGradientId: Flow<String> = context.elanDataStore.data.map { prefs ->
+    val selectedGradientId: Flow<String> = context.lightDataStore.data.map { prefs ->
         prefs[gradientKey] ?: "aurore_lavande"
     }
 
-    val googleAuthPausedForTesting: Flow<Boolean> = context.elanDataStore.data.map { prefs ->
+    val googleAuthPausedForTesting: Flow<Boolean> = context.lightDataStore.data.map { prefs ->
         prefs[googleAuthPausedKey] ?: true
     }
 
-    val appSettings: Flow<StudyAppSettings> = context.elanDataStore.data.map { prefs ->
+    val appSettings: Flow<StudyAppSettings> = context.lightDataStore.data.map { prefs ->
         StudyAppSettings(
             selectedGradientId = prefs[gradientKey] ?: "aurore_lavande",
             pomodoroMinutes = (prefs[pomodoroMinutesKey] ?: 25).coerceIn(10, 90),
@@ -72,13 +72,13 @@ class ThemePreferencesStore(private val context: Context) {
     }
 
     suspend fun saveSelectedGradient(gradientId: String) {
-        context.elanDataStore.edit { prefs ->
+        context.lightDataStore.edit { prefs ->
             prefs[gradientKey] = gradientId
         }
     }
 
     suspend fun updateTimerDurations(pomodoro: Int, deepCode: Int, shortBreak: Int) {
-        context.elanDataStore.edit { prefs ->
+        context.lightDataStore.edit { prefs ->
             prefs[pomodoroMinutesKey] = pomodoro.coerceIn(10, 90)
             prefs[deepCodeMinutesKey] = deepCode.coerceIn(20, 120)
             prefs[shortBreakMinutesKey] = shortBreak.coerceIn(3, 30)
@@ -86,50 +86,50 @@ class ThemePreferencesStore(private val context: Context) {
     }
 
     suspend fun updateDefaultCalendarView(viewKey: String) {
-        context.elanDataStore.edit { prefs ->
+        context.lightDataStore.edit { prefs ->
             prefs[defaultCalendarViewKey] = viewKey
         }
     }
 
     suspend fun updateHapticsEnabled(enabled: Boolean) {
-        context.elanDataStore.edit { prefs ->
+        context.lightDataStore.edit { prefs ->
             prefs[hapticsEnabledKey] = enabled
         }
     }
 
     suspend fun updateAutoLogStopwatch(enabled: Boolean) {
-        context.elanDataStore.edit { prefs ->
+        context.lightDataStore.edit { prefs ->
             prefs[autoLogStopwatchKey] = enabled
         }
     }
 
     suspend fun updateSelectedAudioTrack(trackId: String) {
-        context.elanDataStore.edit { prefs ->
+        context.lightDataStore.edit { prefs ->
             prefs[selectedAudioTrackKey] = trackId
         }
     }
 
     suspend fun updateAudioVolume(volume: Float) {
-        context.elanDataStore.edit { prefs ->
+        context.lightDataStore.edit { prefs ->
             prefs[audioVolumeKey] = volume.coerceIn(0f, 1f)
         }
     }
 
     suspend fun updateAutoPlayAudioWithFocus(enabled: Boolean) {
-        context.elanDataStore.edit { prefs ->
+        context.lightDataStore.edit { prefs ->
             prefs[autoPlayAudioKey] = enabled
         }
     }
 
     suspend fun updateNotificationPreferences(enabled: Boolean, frequency: String) {
-        context.elanDataStore.edit { prefs ->
+        context.lightDataStore.edit { prefs ->
             prefs[notificationsEnabledKey] = enabled
             prefs[notificationFrequencyKey] = frequency
         }
     }
 
     suspend fun updateGoogleAuthPausedForTesting(paused: Boolean) {
-        context.elanDataStore.edit { prefs ->
+        context.lightDataStore.edit { prefs ->
             prefs[googleAuthPausedKey] = paused
         }
     }

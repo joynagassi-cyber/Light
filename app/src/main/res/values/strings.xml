@@ -1,0 +1,28 @@
+<resources>
+    <string name="app_name">Élan</string>
+    <string name="app_tagline">Planifie avec clarté. Code avec sérénité.</string>
+    <string name="major_badge">Génie Logiciel · 3ᵉ Année</string>
+    <string name="sign_in_google">Continuer avec Google</string>
+    <string name="sign_in_subtitle">Synchronisez vos cours, votre planning IA et vos sessions Focus dans le cloud.</string>
+    <string name="sign_out">Se déconnecter</string>
+    <string name="nav_home">Accueil</string>
+    <string name="nav_planner">Calendrier</string>
+    <string name="nav_focus">Focus</string>
+    <string name="nav_matrix">Matrice</string>
+    <string name="nav_more">Plus</string>
+    <string name="nav_agent">Agent IA</string>
+    <string name="nav_progress">Progrès</string>
+    <string name="nav_habits">Habitudes</string>
+    <string name="nav_countdown">À rebours</string>
+    <string name="nav_search">Rechercher</string>
+    <string name="nav_settings">Paramètres</string>
+    <string name="nav_profile">Profil</string>
+    <string name="sync_active">Sync Cloud active</string>
+    <string name="daily_goal_title">Objectif du jour</string>
+    <string name="streak_title">Série d\'étude</string>
+    <string name="today_schedule">Programme du jour</string>
+    <string name="my_courses">Mes Matières L3</string>
+    <string name="smart_planner_title">Planificateur IA</string>
+    <string name="focus_timer_title">Mode Focus</string>
+    <string name="gradient_studio_title">Studio Dégradés</string>
+</resources>

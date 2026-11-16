@@ -1,0 +1,209 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidUserProfile(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 80 &&
+             (!('email' in data) || (data.email is string && data.email.size() <= 120)) &&
+             data.major is string && data.major.size() >= 1 && data.major.size() <= 80 &&
+             data.selectedGradientId is string && data.selectedGradientId.size() >= 1 && data.selectedGradientId.size() <= 40 &&
+             data.dailyGoalTasks is int && data.dailyGoalTasks >= 1 && data.dailyGoalTasks <= 50 &&
+             data.streakDays is int && data.streakDays >= 0 && data.streakDays <= 3650 &&
+             (!('lastStudyDate' in data) || (data.lastStudyDate is string && data.lastStudyDate.size() <= 20)) &&
+             (!('gender' in data) || data.gender in ['feminine', 'masculine']) &&
+             (!('birthYear' in data) || (data.birthYear is int && data.birthYear >= 1930 && data.birthYear <= 2020)) &&
+             (!('age' in data) || (data.age is int && data.age >= 6 && data.age <= 100)) &&
+             (!('profession' in data) || data.profession in ['student', 'entrepreneur', 'self_taught', 'individual', 'other']) &&
+             (!('customProfession' in data) || (data.customProfession is string && data.customProfession.size() <= 80)) &&
+             (!('notificationsEnabled' in data) || data.notificationsEnabled is bool) &&
+             (!('notificationFrequency' in data) || data.notificationFrequency in ['realtime', 'daily', 'every_3h', 'weekly', 'off']) &&
+             (!('onboardingCompleted' in data) || data.onboardingCompleted is bool) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidCourse(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.code is string && data.code.size() >= 1 && data.code.size() <= 20 &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 100 &&
+             (!('professor' in data) || (data.professor is string && data.professor.size() <= 80)) &&
+             data.colorIndex is int && data.colorIndex >= 0 && data.colorIndex <= 15 &&
+             data.targetMinutes is int && data.targetMinutes >= 30 && data.targetMinutes <= 60000 &&
+             data.completedMinutes is int && data.completedMinutes >= 0 && data.completedMinutes <= 600000 &&
+             data.grade is number && data.grade >= 0 && data.grade <= 20 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidStudyTask(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             (!('courseId' in data) || (data.courseId is string && data.courseId.size() <= 128)) &&
+             (!('courseTitle' in data) || (data.courseTitle is string && data.courseTitle.size() <= 100)) &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 140 &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() <= 500)) &&
+             data.dueDateIso is string && data.dueDateIso.size() >= 1 && data.dueDateIso.size() <= 20 &&
+             (!('scheduledTime' in data) || (data.scheduledTime is string && data.scheduledTime.size() <= 20)) &&
+             data.priority in ['high', 'medium', 'low'] &&
+             (!('category' in data) || data.category in ['exam', 'project', 'assignment', 'revision', 'reading']) &&
+             data.estimatedMinutes is int && data.estimatedMinutes >= 5 && data.estimatedMinutes <= 600 &&
+             (!('quadrant' in data) || (data.quadrant is int && data.quadrant >= 1 && data.quadrant <= 4)) &&
+             data.completed is bool &&
+             data.aiGenerated is bool &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidFocusSession(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             (!('courseId' in data) || (data.courseId is string && data.courseId.size() <= 128)) &&
+             (!('courseTitle' in data) || (data.courseTitle is string && data.courseTitle.size() <= 100)) &&
+             (!('taskTitle' in data) || (data.taskTitle is string && data.taskTitle.size() <= 140)) &&
+             data.durationMinutes is int && data.durationMinutes >= 1 && data.durationMinutes <= 240 &&
+             data.mode in ['pomodoro', 'deep_code', 'short_break', 'stopwatch'] &&
+             data.dateIso is string && data.dateIso.size() >= 1 && data.dateIso.size() <= 20 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidHabit(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 80 &&
+             (!('subtitle' in data) || (data.subtitle is string && data.subtitle.size() <= 140)) &&
+             data.category in ['study', 'life', 'health', 'sports', 'mindset'] &&
+             data.iconKey is string && data.iconKey.size() >= 1 && data.iconKey.size() <= 30 &&
+             data.colorIndex is int && data.colorIndex >= 0 && data.colorIndex <= 15 &&
+             data.streakDays is int && data.streakDays >= 0 && data.streakDays <= 3650 &&
+             data.completedDates is list && data.completedDates.size() <= 366 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidCountdown(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 100 &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() <= 300)) &&
+             data.targetDateIso is string && data.targetDateIso.size() >= 8 && data.targetDateIso.size() <= 20 &&
+             data.category in ['exam', 'project', 'milestone', 'personal'] &&
+             data.colorIndex is int && data.colorIndex >= 0 && data.colorIndex <= 15 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if false;
+      allow create: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       incoming().keys().hasAll(['userId', 'displayName', 'major', 'selectedGradientId', 'dailyGoalTasks', 'streakDays', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'displayName', 'email', 'major', 'selectedGradientId', 'dailyGoalTasks', 'streakDays', 'lastStudyDate', 'gender', 'birthYear', 'age', 'profession', 'customProfession', 'notificationsEnabled', 'notificationFrequency', 'onboardingCompleted', 'createdAt', 'updatedAt']) &&
+                       isValidUserProfile(incoming(), userId);
+      allow update: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       isValidUserProfile(incoming(), userId) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'email', 'major', 'selectedGradientId', 'dailyGoalTasks', 'streakDays', 'lastStudyDate', 'gender', 'birthYear', 'age', 'profession', 'customProfession', 'notificationsEnabled', 'notificationFrequency', 'onboardingCompleted', 'updatedAt']);
+      allow delete: if isOwner(userId) && isValidId(userId);
+
+      match /courses/{courseId} {
+        allow list: if isOwner(userId);
+        allow get, delete: if isOwner(userId) && isValidId(courseId);
+        allow create: if isOwner(userId) &&
+                         isValidId(courseId) &&
+                         incoming().keys().hasAll(['userId', 'code', 'title', 'colorIndex', 'targetMinutes', 'completedMinutes', 'grade', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'code', 'title', 'professor', 'colorIndex', 'targetMinutes', 'completedMinutes', 'grade', 'createdAt', 'updatedAt']) &&
+                         isValidCourse(incoming(), userId);
+        allow update: if isOwner(userId) &&
+                         isValidId(courseId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidCourse(incoming(), userId) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['code', 'title', 'professor', 'colorIndex', 'targetMinutes', 'completedMinutes', 'grade', 'updatedAt']);
+      }
+
+      match /tasks/{taskId} {
+        allow list: if isOwner(userId);
+        allow get, delete: if isOwner(userId) && isValidId(taskId);
+        allow create: if isOwner(userId) &&
+                         isValidId(taskId) &&
+                         incoming().keys().hasAll(['userId', 'title', 'dueDateIso', 'priority', 'estimatedMinutes', 'completed', 'aiGenerated', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'courseId', 'courseTitle', 'title', 'notes', 'dueDateIso', 'scheduledTime', 'priority', 'category', 'estimatedMinutes', 'quadrant', 'completed', 'aiGenerated', 'createdAt', 'updatedAt']) &&
+                         isValidStudyTask(incoming(), userId);
+        allow update: if isOwner(userId) &&
+                         isValidId(taskId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidStudyTask(incoming(), userId) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['courseId', 'courseTitle', 'title', 'notes', 'dueDateIso', 'scheduledTime', 'priority', 'category', 'estimatedMinutes', 'quadrant', 'completed', 'aiGenerated', 'updatedAt']);
+      }
+
+      match /focusSessions/{sessionId} {
+        allow list: if isOwner(userId);
+        allow get, delete: if isOwner(userId) && isValidId(sessionId);
+        allow create: if isOwner(userId) &&
+                         isValidId(sessionId) &&
+                         incoming().keys().hasAll(['userId', 'durationMinutes', 'mode', 'dateIso', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'courseId', 'courseTitle', 'taskTitle', 'durationMinutes', 'mode', 'dateIso', 'createdAt', 'updatedAt']) &&
+                         isValidFocusSession(incoming(), userId);
+        allow update: if false;
+      }
+
+      match /habits/{habitId} {
+        allow list: if isOwner(userId);
+        allow get, delete: if isOwner(userId) && isValidId(habitId);
+        allow create: if isOwner(userId) &&
+                         isValidId(habitId) &&
+                         incoming().keys().hasAll(['userId', 'title', 'category', 'iconKey', 'colorIndex', 'streakDays', 'completedDates', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'title', 'subtitle', 'category', 'iconKey', 'colorIndex', 'streakDays', 'completedDates', 'createdAt', 'updatedAt']) &&
+                         isValidHabit(incoming(), userId);
+        allow update: if isOwner(userId) &&
+                         isValidId(habitId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidHabit(incoming(), userId) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['title', 'subtitle', 'category', 'iconKey', 'colorIndex', 'streakDays', 'completedDates', 'updatedAt']);
+      }
+
+      match /countdowns/{countdownId} {
+        allow list: if isOwner(userId);
+        allow get, delete: if isOwner(userId) && isValidId(countdownId);
+        allow create: if isOwner(userId) &&
+                         isValidId(countdownId) &&
+                         incoming().keys().hasAll(['userId', 'title', 'targetDateIso', 'category', 'colorIndex', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'title', 'notes', 'targetDateIso', 'category', 'colorIndex', 'createdAt', 'updatedAt']) &&
+                         isValidCountdown(incoming(), userId);
+        allow update: if isOwner(userId) &&
+                         isValidId(countdownId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidCountdown(incoming(), userId) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['title', 'notes', 'targetDateIso', 'category', 'colorIndex', 'updatedAt']);
+      }
+    }
+  }
+}

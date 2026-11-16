@@ -1,0 +1,6 @@
+{
+  "name": "Élan",
+  "description": "Minimalist Apple-inspired smart study planner, progress tracker, and focus companion for 3rd-year software engineering students with cloud sync and customizable gradient themes.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

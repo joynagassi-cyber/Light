@@ -1,0 +1,384 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Student profile, preferences, gradient theme selection, and study streak metadata.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Authenticated Firebase UID matching the document ID."
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Student display name."
+        },
+        "email": {
+          "type": "string",
+          "description": "Student email address."
+        },
+        "major": {
+          "type": "string",
+          "description": "Academic major and year (e.g., Génie Logiciel · 3ᵉ Année)."
+        },
+        "selectedGradientId": {
+          "type": "string",
+          "description": "Identifier of the chosen customizable gradient theme."
+        },
+        "dailyGoalTasks": {
+          "type": "integer",
+          "description": "Target number of daily study tasks."
+        },
+        "streakDays": {
+          "type": "integer",
+          "description": "Consecutive study days."
+        },
+        "lastStudyDate": {
+          "type": "string",
+          "description": "ISO-8601 date of the latest completed study activity."
+        },
+        "gender": {
+          "type": "string",
+          "enum": ["feminine", "masculine"],
+          "description": "Grammatical gender preference for adaptive UI copy."
+        },
+        "birthYear": {
+          "type": "integer",
+          "description": "User birth year (e.g., 2005)."
+        },
+        "age": {
+          "type": "integer",
+          "description": "User age synchronized with birthYear."
+        },
+        "profession": {
+          "type": "string",
+          "enum": ["student", "entrepreneur", "self_taught", "individual", "other"],
+          "description": "Primary occupation profile."
+        },
+        "customProfession": {
+          "type": "string",
+          "description": "Custom occupation label when profession is other."
+        },
+        "notificationsEnabled": {
+          "type": "boolean",
+          "description": "Whether study and habit reminders are enabled."
+        },
+        "notificationFrequency": {
+          "type": "string",
+          "enum": ["realtime", "daily", "every_3h", "weekly", "off"],
+          "description": "Selected reminder frequency."
+        },
+        "onboardingCompleted": {
+          "type": "boolean",
+          "description": "Whether interactive onboarding has been completed."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when created (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when last updated (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "userId",
+        "displayName",
+        "major",
+        "selectedGradientId",
+        "dailyGoalTasks",
+        "streakDays",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Course": {
+      "title": "Course",
+      "description": "3rd-year software engineering academic module with progress and grade tracking.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner Firebase UID."
+        },
+        "code": {
+          "type": "string",
+          "description": "Course code (e.g., GL-301)."
+        },
+        "title": {
+          "type": "string",
+          "description": "Course title."
+        },
+        "professor": {
+          "type": "string",
+          "description": "Instructor name."
+        },
+        "colorIndex": {
+          "type": "integer",
+          "description": "Visual accent index (0..7)."
+        },
+        "targetMinutes": {
+          "type": "integer",
+          "description": "Target semester study minutes."
+        },
+        "completedMinutes": {
+          "type": "integer",
+          "description": "Logged study minutes."
+        },
+        "grade": {
+          "type": "number",
+          "description": "Current average score out of 20."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when created (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when last updated (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "userId",
+        "code",
+        "title",
+        "colorIndex",
+        "targetMinutes",
+        "completedMinutes",
+        "grade",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "StudyTask": {
+      "title": "StudyTask",
+      "description": "Planned study task, assignment, or AI-scheduled revision block.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner Firebase UID."
+        },
+        "courseId": {
+          "type": "string",
+          "description": "Associated course ID or empty string."
+        },
+        "courseTitle": {
+          "type": "string",
+          "description": "Denormalized course title for display."
+        },
+        "title": {
+          "type": "string",
+          "description": "Task title."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional study notes or checklist hints."
+        },
+        "dueDateIso": {
+          "type": "string",
+          "description": "Scheduled date in YYYY-MM-DD format."
+        },
+        "scheduledTime": {
+          "type": "string",
+          "description": "Scheduled start time (e.g., 09:00)."
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["high", "medium", "low"],
+          "description": "Priority level."
+        },
+        "category": {
+          "type": "string",
+          "enum": ["exam", "project", "assignment", "revision", "reading"],
+          "description": "Task category tag for color-coded organization."
+        },
+        "estimatedMinutes": {
+          "type": "integer",
+          "description": "Estimated study duration in minutes."
+        },
+        "quadrant": {
+          "type": "integer",
+          "description": "Optional Eisenhower matrix quadrant (1=Urgent&Important, 2=Important, 3=Urgent, 4=Other)."
+        },
+        "completed": {
+          "type": "boolean",
+          "description": "Completion state."
+        },
+        "aiGenerated": {
+          "type": "boolean",
+          "description": "Whether generated by the smart AI planner."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when created (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when last updated (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "userId",
+        "title",
+        "dueDateIso",
+        "priority",
+        "estimatedMinutes",
+        "completed",
+        "aiGenerated",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "FocusSession": {
+      "title": "FocusSession",
+      "description": "Completed Pomodoro or deep work focus session.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner Firebase UID."
+        },
+        "courseId": {
+          "type": "string",
+          "description": "Associated course ID."
+        },
+        "courseTitle": {
+          "type": "string",
+          "description": "Associated course title."
+        },
+        "taskTitle": {
+          "type": "string",
+          "description": "Focused task or topic description."
+        },
+        "durationMinutes": {
+          "type": "integer",
+          "description": "Duration in minutes."
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["pomodoro", "deep_code", "short_break", "stopwatch"],
+          "description": "Timer or stopwatch mode."
+        },
+        "dateIso": {
+          "type": "string",
+          "description": "ISO-8601 date YYYY-MM-DD."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when created (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when updated (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "userId",
+        "durationMinutes",
+        "mode",
+        "dateIso",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Habit": {
+      "title": "Habit",
+      "description": "Daily study or wellness habit with completion history and streak.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner Firebase UID." },
+        "title": { "type": "string", "description": "Habit title." },
+        "subtitle": { "type": "string", "description": "Motivational subtitle or cue." },
+        "category": {
+          "type": "string",
+          "enum": ["study", "life", "health", "sports", "mindset"],
+          "description": "Habit gallery category."
+        },
+        "iconKey": { "type": "string", "description": "Icon identifier." },
+        "colorIndex": { "type": "integer", "description": "Badge color index." },
+        "streakDays": { "type": "integer", "description": "Current consecutive check-in streak." },
+        "completedDates": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of ISO-8601 dates when the habit was completed."
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId",
+        "title",
+        "category",
+        "iconKey",
+        "colorIndex",
+        "streakDays",
+        "completedDates",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Countdown": {
+      "title": "Countdown",
+      "description": "Special academic deadline or milestone countdown.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner Firebase UID." },
+        "title": { "type": "string", "description": "Event or deadline title." },
+        "notes": { "type": "string", "description": "Optional details." },
+        "targetDateIso": { "type": "string", "description": "Target ISO-8601 date YYYY-MM-DD." },
+        "category": {
+          "type": "string",
+          "enum": ["exam", "project", "milestone", "personal"],
+          "description": "Countdown category."
+        },
+        "colorIndex": { "type": "integer", "description": "Color accent index." },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId",
+        "title",
+        "targetDateIso",
+        "category",
+        "colorIndex",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private student profile, theme preference, and streak data."
+    },
+    "/users/{userId}/courses/{courseId}": {
+      "schema": { "$ref": "#/entities/Course" },
+      "description": "Student's 3rd-year software engineering courses."
+    },
+    "/users/{userId}/tasks/{taskId}": {
+      "schema": { "$ref": "#/entities/StudyTask" },
+      "description": "Student's scheduled study tasks and AI-planned blocks."
+    },
+    "/users/{userId}/focusSessions/{sessionId}": {
+      "schema": { "$ref": "#/entities/FocusSession" },
+      "description": "Logged Pomodoro and deep-work focus sessions."
+    },
+    "/users/{userId}/habits/{habitId}": {
+      "schema": { "$ref": "#/entities/Habit" },
+      "description": "Student's tracked daily habits."
+    },
+    "/users/{userId}/countdowns/{countdownId}": {
+      "schema": { "$ref": "#/entities/Countdown" },
+      "description": "Special dates and exam countdowns."
+    }
+  }
+}

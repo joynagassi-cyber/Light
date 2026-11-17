@@ -48,7 +48,7 @@ object LightGradients {
             subtitle = "Violet néon & magenta soyeux",
             startColor = Color(0xFF6B21F5),
             midColor = Color(0xFF9D3CF7),
-            endColor = Color(0xFFE935C1),
+            endColor = Color(0xFFB52D96),
             ambientTop = Color(0xFFE9DFFF),
             ambientMid = Color(0xFFF6E8FF),
             ambientBottom = Color(0xFFFCF7FF),
@@ -60,13 +60,13 @@ object LightGradients {
             id = "lagon_boreal",
             name = "Lagon Boréal",
             subtitle = "Cyan polaire & bleu saphir",
-            startColor = Color(0xFF06B6D4),
+            startColor = Color(0xFF006E86),
             midColor = Color(0xFF2563EB),
             endColor = Color(0xFF4338CA),
             ambientTop = Color(0xFFD7F3FE),
             ambientMid = Color(0xFFE6EEFF),
             ambientBottom = Color(0xFFF5F8FF),
-            accentColor = Color(0xFF0284C7),
+            accentColor = Color(0xFF006A9F),
             softContainer = Color(0xFFE8F6FE),
             onSoftContainer = Color(0xFF075985)
         ),
@@ -74,13 +74,13 @@ object LightGradients {
             id = "menthe_emeraude",
             name = "Menthe Émeraude",
             subtitle = "Vert frais & océan profond",
-            startColor = Color(0xFF10B981),
-            midColor = Color(0xFF0891B2),
+            startColor = Color(0xFF0B805B),
+            midColor = Color(0xFF0C7185),
             endColor = Color(0xFF1E3A8A),
             ambientTop = Color(0xFFD4FAED),
             ambientMid = Color(0xFFE1F6FA),
             ambientBottom = Color(0xFFF4FBFC),
-            accentColor = Color(0xFF059669),
+            accentColor = Color(0xFF047857),
             softContainer = Color(0xFFE6FAF3),
             onSoftContainer = Color(0xFF065F46)
         ),
@@ -88,13 +88,13 @@ object LightGradients {
             id = "peche_solaire",
             name = "Pêche Solaire",
             subtitle = "Ambre doré & corail vibrant",
-            startColor = Color(0xFFF59E0B),
-            midColor = Color(0xFFF97316),
-            endColor = Color(0xFFE11D48),
+            startColor = Color(0xFFB45309),
+            midColor = Color(0xFFC2410C),
+            endColor = Color(0xFFBE123C),
             ambientTop = Color(0xFFFFEBD0),
             ambientMid = Color(0xFFFFE5DC),
             ambientBottom = Color(0xFFFFF8F5),
-            accentColor = Color(0xFFEA580C),
+            accentColor = Color(0xFFC2410C),
             softContainer = Color(0xFFFFF2E8),
             onSoftContainer = Color(0xFF9A3412)
         ),
@@ -102,9 +102,9 @@ object LightGradients {
             id = "rose_quartz",
             name = "Rose Quartz",
             subtitle = "Ciel irisé & framboise douce",
-            startColor = Color(0xFF0EA5E9),
+            startColor = Color(0xFF0369A1),
             midColor = Color(0xFFC026D3),
-            endColor = Color(0xFFE11D48),
+            endColor = Color(0xFFBE123C),
             ambientTop = Color(0xFFDDF3FF),
             ambientMid = Color(0xFFFCE2F6),
             ambientBottom = Color(0xFFFFF6FB),
@@ -118,7 +118,7 @@ object LightGradients {
             subtitle = "Indigo velours & orchidée",
             startColor = Color(0xFF3C4487),
             midColor = Color(0xFF8935CA),
-            endColor = Color(0xFFD5539E),
+            endColor = Color(0xFF9D3672),
             ambientTop = Color(0xFFDFE2FB),
             ambientMid = Color(0xFFF0E0FC),
             ambientBottom = Color(0xFFFCF4FA),
@@ -130,13 +130,13 @@ object LightGradients {
             id = "matcha_azur",
             name = "Matcha Azur",
             subtitle = "Pistache lumineuse & lagon",
-            startColor = Color(0xFF65A30D),
-            midColor = Color(0xFF10B981),
-            endColor = Color(0xFF0284C7),
+            startColor = Color(0xFF4D7C0F),
+            midColor = Color(0xFF0B805B),
+            endColor = Color(0xFF0369A1),
             ambientTop = Color(0xFFE4FAD4),
             ambientMid = Color(0xFFDDF8EE),
             ambientBottom = Color(0xFFF4FBFE),
-            accentColor = Color(0xFF0D9488),
+            accentColor = Color(0xFF0F766E),
             softContainer = Color(0xFFEBFBF4),
             onSoftContainer = Color(0xFF115E59)
         ),
@@ -159,6 +159,22 @@ object LightGradients {
     fun byId(id: String?): LightGradientTheme =
         all.firstOrNull { it.id == id } ?: all.first()
 }
+
+@Composable
+fun LightGradientTheme.appBrush(): Brush =
+    if (LocalThemeSurfaceConfig.current.selectedThemeId == LightColorThemes.GRADIENT_ID) {
+        linearBrush()
+    } else {
+        Brush.linearGradient(listOf(accentColor, accentColor))
+    }
+
+@Composable
+fun LightGradientTheme.appVerticalBrush(): Brush =
+    if (LocalThemeSurfaceConfig.current.selectedThemeId == LightColorThemes.GRADIENT_ID) {
+        verticalBrush()
+    } else {
+        Brush.verticalGradient(listOf(accentColor, accentColor))
+    }
 
 @Composable
 fun rememberAnimatedGradientTheme(target: LightGradientTheme): LightGradientTheme {

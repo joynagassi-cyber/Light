@@ -39,16 +39,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.data.model.StudyTask
 import com.example.data.model.TaskCategory
-import com.example.ui.theme.AppleDivider
-import com.example.ui.theme.AppleTextPrimary
-import com.example.ui.theme.AppleTextSecondary
 import com.example.ui.theme.LocalLightGradient
+import com.example.ui.theme.appBrush
+import com.example.ui.theme.appVerticalBrush
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
@@ -98,13 +100,13 @@ fun CalendarModeSelectorRow(
                 colors = FilterChipDefaults.filterChipColors(
                     selectedContainerColor = gradient.accentColor,
                     selectedLabelColor = Color.White,
-                    containerColor = Color.White.copy(alpha = 0.88f),
-                    labelColor = AppleTextSecondary
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant
                 ),
                 border = FilterChipDefaults.filterChipBorder(
                     enabled = true,
                     selected = selected,
-                    borderColor = AppleDivider,
+                    borderColor = MaterialTheme.colorScheme.outlineVariant,
                     selectedBorderColor = gradient.accentColor
                 ),
                 modifier = Modifier.testTag("calendar_view_${mode.key}")
@@ -198,7 +200,7 @@ fun CalendarShowcaseCard(
                 Icon(
                     imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowLeft,
                     contentDescription = "Période précédente",
-                    tint = AppleTextPrimary
+                    tint = MaterialTheme.colorScheme.onSurface
                 )
             }
 
@@ -210,7 +212,7 @@ fun CalendarShowcaseCard(
                     text = periodTitle,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = AppleTextPrimary,
+                    color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -236,7 +238,7 @@ fun CalendarShowcaseCard(
                 Icon(
                     imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                     contentDescription = "Période suivante",
-                    tint = AppleTextPrimary
+                    tint = MaterialTheme.colorScheme.onSurface
                 )
             }
         }
@@ -289,8 +291,8 @@ fun CalendarShowcaseCard(
                 selectedDate = selectedDate,
                 today = today,
                 tasks = tasks,
-                onSelectMonth = { monthStart ->
-                    onSelectDate(monthStart.toString())
+                onSelectDate = { date ->
+                    onSelectDate(date.toString())
                     onSelectMode(CalendarViewMode.MONTH)
                 }
             )
@@ -332,7 +334,7 @@ private fun DayTimelineView(
                 Text(
                     text = "Aucun bloc planifié le ${date.dayOfMonth}/${date.monthValue}. Touchez + pour ajouter un créneau.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = AppleTextSecondary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(14.dp)
                 )
             }
@@ -350,7 +352,7 @@ private fun DayTimelineView(
                     text = "Créneaux flexibles",
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.SemiBold,
-                    color = AppleTextSecondary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp)
                 )
                 flexible.forEach { task ->
@@ -377,19 +379,19 @@ private fun DayTimelineView(
                     Text(
                         text = freeSlot,
                         style = MaterialTheme.typography.labelSmall,
-                        color = AppleTextSecondary,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.width(44.dp)
                     )
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .height(1.dp)
-                            .background(AppleDivider)
+                            .background(MaterialTheme.colorScheme.outlineVariant)
                     )
                     Text(
                         text = "Créneau libre",
                         style = MaterialTheme.typography.labelSmall,
-                        color = AppleTextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -428,7 +430,7 @@ private fun DayTimelineBlock(
             Text(
                 text = "${task.estimatedMinutes}m",
                 style = MaterialTheme.typography.labelSmall,
-                color = AppleTextSecondary
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
@@ -453,7 +455,7 @@ private fun DayTimelineBlock(
                 Text(
                     text = task.title,
                     style = MaterialTheme.typography.titleSmall,
-                    color = if (task.completed) AppleTextSecondary else AppleTextPrimary,
+                    color = if (task.completed) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
                     textDecoration = if (task.completed) TextDecoration.LineThrough else TextDecoration.None,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -461,7 +463,7 @@ private fun DayTimelineBlock(
                 Text(
                     text = "${cat.label} · ${task.courseTitle.ifBlank { "Génie Logiciel" }}",
                     style = MaterialTheme.typography.labelSmall,
-                    color = AppleTextSecondary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -473,7 +475,7 @@ private fun DayTimelineBlock(
                 Icon(
                     imageVector = if (task.completed) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
                     contentDescription = "Basculer la tâche",
-                    tint = if (task.completed) catColor else AppleTextSecondary
+                    tint = if (task.completed) catColor else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             if (!task.completed) {
@@ -524,11 +526,11 @@ private fun ThreeDayColumnsView(
                     .clip(RoundedCornerShape(18.dp))
                     .background(
                         if (isSelected) gradient.softContainer.copy(alpha = 0.72f)
-                        else Color(0xFFF6F7FB)
+                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
                     )
                     .border(
                         width = if (isSelected) 1.2.dp else 0.8.dp,
-                        color = if (isSelected) gradient.accentColor else AppleDivider,
+                        color = if (isSelected) gradient.accentColor else MaterialTheme.colorScheme.outlineVariant,
                         shape = RoundedCornerShape(18.dp)
                     )
                     .clickable { onSelectDate(day) }
@@ -544,7 +546,7 @@ private fun ThreeDayColumnsView(
                         text = "$dayName ${day.dayOfMonth}",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
-                        color = if (isToday || isSelected) gradient.accentColor else AppleTextPrimary
+                        color = if (isToday || isSelected) gradient.accentColor else MaterialTheme.colorScheme.onSurface
                     )
                     if (dayTasks.isNotEmpty()) {
                         Surface(
@@ -565,7 +567,7 @@ private fun ThreeDayColumnsView(
                     Text(
                         text = "Journée libre",
                         style = MaterialTheme.typography.labelSmall,
-                        color = AppleTextSecondary,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(vertical = 12.dp)
                     )
                 } else {
@@ -588,7 +590,7 @@ private fun ThreeDayColumnsView(
                                 Text(
                                     text = task.title,
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = AppleTextPrimary,
+                                    color = MaterialTheme.colorScheme.onSurface,
                                     textDecoration = if (task.completed) TextDecoration.LineThrough else TextDecoration.None,
                                     maxLines = 2,
                                     overflow = TextOverflow.Ellipsis
@@ -644,7 +646,7 @@ private fun WeekStripCalendarView(
                     .weight(1f)
                     .clip(RoundedCornerShape(16.dp))
                     .then(
-                        if (isSelected) Modifier.background(gradient.linearBrush())
+                        if (isSelected) Modifier.background(gradient.appBrush())
                         else if (isToday) Modifier.border(1.dp, gradient.accentColor.copy(alpha = 0.45f), RoundedCornerShape(16.dp))
                         else Modifier
                     )
@@ -654,14 +656,14 @@ private fun WeekStripCalendarView(
                 Text(
                     text = dayLabel,
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (isSelected) Color.White.copy(alpha = 0.9f) else AppleTextSecondary
+                    color = if (isSelected) Color.White.copy(alpha = 0.9f) else MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = day.dayOfMonth.toString(),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = if (isSelected) Color.White else if (isToday) gradient.accentColor else AppleTextPrimary
+                    color = if (isSelected) Color.White else if (isToday) gradient.accentColor else MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(5.dp))
                 CategoryDotsStrip(dayTasks = dayTasks, isSelected = isSelected)
@@ -683,7 +685,7 @@ private fun MonthGridCalendarView(
     val leadingBlanks = (firstDayOfMonth.dayOfWeek.value - 1).coerceIn(0, 6)
     val daysInMonth = ym.lengthOfMonth()
     val totalCells = ((leadingBlanks + daysInMonth + 6) / 7) * 7
-    val weekdayHeaders = listOf("L", "M", "M", "J", "V", "S", "D")
+    val weekdayHeaders = listOf("Lu", "Ma", "Me", "Je", "Ve", "Sa", "Di")
 
     Column(
         modifier = Modifier
@@ -701,7 +703,7 @@ private fun MonthGridCalendarView(
                         text = lbl,
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.SemiBold,
-                        color = AppleTextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -731,7 +733,7 @@ private fun MonthGridCalendarView(
                                 .height(46.dp)
                                 .clip(RoundedCornerShape(12.dp))
                                 .then(
-                                    if (isSelected) Modifier.background(gradient.linearBrush())
+                                    if (isSelected) Modifier.background(gradient.appBrush())
                                     else if (isToday) Modifier.background(gradient.softContainer)
                                     else Modifier
                                 )
@@ -741,7 +743,7 @@ private fun MonthGridCalendarView(
                                 text = dayNum.toString(),
                                 style = MaterialTheme.typography.bodySmall,
                                 fontWeight = if (isSelected || isToday) FontWeight.Bold else FontWeight.Medium,
-                                color = if (isSelected) Color.White else if (isToday) gradient.accentColor else AppleTextPrimary
+                                color = if (isSelected) Color.White else if (isToday) gradient.accentColor else MaterialTheme.colorScheme.onSurface
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             CategoryDotsStrip(dayTasks = dayTasks, isSelected = isSelected)
@@ -767,100 +769,57 @@ private fun QuarterMonthsCalendarView(
         (0..2).map { YearMonth.of(selectedDate.year, firstMonthNum + it) }
     }
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag("calendar_quarter_view"),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    Column(
+        modifier = Modifier.fillMaxWidth().testTag("calendar_quarter_view"),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         months.forEach { ym ->
-            val monthName = ym.month.getDisplayName(TextStyle.SHORT, Locale.FRENCH)
-                .replace(".", "")
-                .replaceFirstChar { it.uppercase() }
-            val monthPrefix = ym.toString()
-            val activeCount = tasksByDate
-                .filterKeys { it.startsWith(monthPrefix) }
-                .values
-                .flatten()
-                .count { !it.completed }
-
-            val leading = (ym.atDay(1).dayOfWeek.value - 1).coerceIn(0, 6)
-            val totalDays = ym.lengthOfMonth()
-            val totalCells = ((leading + totalDays + 6) / 7) * 7
-
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(Color(0xFFF6F7FB))
-                    .border(
-                        width = if (ym == YearMonth.from(selectedDate)) 1.2.dp else 0.7.dp,
-                        color = if (ym == YearMonth.from(selectedDate)) gradient.accentColor else AppleDivider,
-                        shape = RoundedCornerShape(16.dp)
-                    )
-                    .clickable { onOpenMonth(ym.atDay(1)) }
-                    .padding(8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+            val monthTasks = tasksByDate.filterKeys { it.startsWith(ym.toString()) }.values.flatten()
+            val pendingCount = monthTasks.count { !it.completed }
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.48f),
+                border = BorderStroke(
+                    width = if (ym == YearMonth.from(selectedDate)) 1.2.dp else 0.7.dp,
+                    color = if (ym == YearMonth.from(selectedDate)) gradient.accentColor else MaterialTheme.colorScheme.outlineVariant
+                ),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = monthName,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = if (ym == YearMonth.from(selectedDate)) gradient.accentColor else AppleTextPrimary
-                    )
-                    if (activeCount > 0) {
+                Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
                         Text(
-                            text = "${activeCount}",
+                            text = ym.month.getDisplayName(TextStyle.FULL, Locale.FRENCH)
+                                .replaceFirstChar { it.uppercase() },
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = if (ym == YearMonth.from(selectedDate)) gradient.accentColor else MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable { onOpenMonth(ym.atDay(1)) }.padding(vertical = 2.dp)
+                        )
+                        Text(
+                            text = when (pendingCount) {
+                                0 -> "Aucune tâche en attente  ›"
+                                1 -> "1 tâche à faire  ›"
+                                else -> "$pendingCount tâches à faire  ›"
+                            },
                             style = MaterialTheme.typography.labelSmall,
-                            color = gradient.accentColor,
-                            fontWeight = FontWeight.SemiBold
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable { onOpenMonth(ym.atDay(1)) }.padding(4.dp)
                         )
                     }
-                }
-
-                for (rowStart in 0 until totalCells step 7) {
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        for (col in 0 until 7) {
-                            val d = (rowStart + col) - leading + 1
-                            if (d < 1 || d > totalDays) {
-                                Spacer(modifier = Modifier.weight(1f).height(18.dp))
-                            } else {
-                                val date = ym.atDay(d)
-                                val hasTask = !tasksByDate[date.toString()].isNullOrEmpty()
-                                val isSel = date == selectedDate
-                                val isNow = date == today
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(18.dp)
-                                        .clip(CircleShape)
-                                        .background(
-                                            when {
-                                                isSel -> gradient.accentColor
-                                                hasTask -> gradient.accentColor.copy(alpha = 0.18f)
-                                                isNow -> gradient.softContainer
-                                                else -> Color.Transparent
-                                            }
-                                        )
-                                        .clickable { onSelectDate(date) },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = d.toString(),
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            fontSize = androidx.compose.ui.unit.TextUnit(8.5f, androidx.compose.ui.unit.TextUnitType.Sp)
-                                        ),
-                                        color = if (isSel) Color.White else AppleTextPrimary
-                                    )
-                                }
-                            }
-                        }
-                    }
+                    Spacer(Modifier.height(8.dp))
+                    MiniMonthGrid(
+                        month = ym,
+                        selectedDate = selectedDate,
+                        today = today,
+                        tasksByDate = tasksByDate,
+                        cellHeight = 48.dp,
+                        dayTextSize = 12,
+                        onSelectDate = onSelectDate
+                    )
                 }
             }
         }
@@ -872,82 +831,154 @@ private fun YearOverviewCalendarView(
     selectedDate: LocalDate,
     today: LocalDate,
     tasks: List<StudyTask>,
-    onSelectMonth: (LocalDate) -> Unit
+    onSelectDate: (LocalDate) -> Unit
 ) {
     val gradient = LocalLightGradient.current
     val year = selectedDate.year
     val months = remember(year) { (1..12).map { YearMonth.of(year, it) } }
+    val tasksByDate = remember(tasks) { tasks.filter { it.dueDateIso.isNotBlank() }.groupBy { it.dueDateIso } }
 
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag("calendar_year_view"),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        modifier = Modifier.fillMaxWidth().testTag("calendar_year_view"),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        months.chunked(3).forEach { rowMonths ->
+        months.chunked(2).forEach { rowMonths ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 rowMonths.forEach { ym ->
-                    val prefix = ym.toString()
-                    val monthTasks = tasks.filter { it.dueDateIso.startsWith(prefix) }
-                    val pending = monthTasks.count { !it.completed }
-                    val done = monthTasks.count { it.completed }
+                    val monthTasks = tasks.filter { it.dueDateIso.startsWith(ym.toString()) }
                     val isCurrent = ym == YearMonth.from(today)
                     val isSelectedMonth = ym == YearMonth.from(selectedDate)
-                    val monthTitle = ym.month.getDisplayName(TextStyle.SHORT, Locale.FRENCH)
-                        .replace(".", "")
-                        .replaceFirstChar { it.uppercase() }
-
                     Surface(
-                        onClick = { onSelectMonth(ym.atDay(1)) },
-                        shape = RoundedCornerShape(14.dp),
+                        onClick = { onSelectDate(ym.atDay(1)) },
+                        shape = RoundedCornerShape(16.dp),
                         color = when {
                             isSelectedMonth -> gradient.softContainer
-                            isCurrent -> Color(0xFFF3F6FF)
-                            else -> Color(0xFFF6F7FB)
+                            isCurrent -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+                            else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.38f)
                         },
                         border = BorderStroke(
                             width = if (isSelectedMonth || isCurrent) 1.2.dp else 0.7.dp,
-                            color = if (isSelectedMonth) gradient.accentColor else AppleDivider
+                            color = if (isSelectedMonth) gradient.accentColor else MaterialTheme.colorScheme.outlineVariant
                         ),
                         modifier = Modifier.weight(1f)
                     ) {
-                        Column(
-                            modifier = Modifier.padding(10.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
+                        Column(Modifier.padding(horizontal = 9.dp, vertical = 8.dp)) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Text(
-                                    text = monthTitle,
-                                    style = MaterialTheme.typography.titleSmall,
+                                    text = ym.month.getDisplayName(TextStyle.SHORT, Locale.FRENCH)
+                                        .replace(".", "").replaceFirstChar { it.uppercase() },
+                                    style = MaterialTheme.typography.labelLarge,
                                     fontWeight = FontWeight.Bold,
-                                    color = if (isSelectedMonth) gradient.accentColor else AppleTextPrimary
+                                    color = if (isSelectedMonth || isCurrent) gradient.accentColor else MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.clip(RoundedCornerShape(4.dp)).clickable { onSelectDate(ym.atDay(1)) }.padding(vertical = 2.dp)
                                 )
                                 if (monthTasks.isNotEmpty()) {
-                                    Text(
-                                        text = "${monthTasks.size}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = gradient.accentColor,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
+                                    Text("${monthTasks.size}", style = MaterialTheme.typography.labelSmall, color = gradient.accentColor)
                                 }
                             }
-                            CategoryDotsStrip(dayTasks = monthTasks, isSelected = false)
-                            Text(
-                                text = when {
-                                    monthTasks.isEmpty() -> "Libre"
-                                    pending == 0 -> "$done fait(s)"
-                                    else -> "$pending à faire"
-                                },
-                                style = MaterialTheme.typography.labelSmall,
-                                color = AppleTextSecondary,
-                                maxLines = 1
+                            Spacer(Modifier.height(4.dp))
+                            MiniMonthGrid(
+                                month = ym,
+                                selectedDate = selectedDate,
+                                today = today,
+                                tasksByDate = tasksByDate,
+                                cellHeight = 24.dp,
+                                dayTextSize = 9,
+                                onSelectDate = null
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Monday-first, complete-week cell list used by both compact and full-size month grids. */
+internal fun calendarMonthGridDates(month: YearMonth): List<LocalDate?> {
+    val leadingDays = month.atDay(1).dayOfWeek.value - 1
+    val cellCount = ((leadingDays + month.lengthOfMonth() + 6) / 7) * 7
+    return (0 until cellCount).map { index ->
+        val dayOfMonth = index - leadingDays + 1
+        if (dayOfMonth in 1..month.lengthOfMonth()) month.atDay(dayOfMonth) else null
+    }
+}
+
+/** A responsive seven-column month grid shared by the full-size quarter and compact year views. */
+@Composable
+private fun MiniMonthGrid(
+    month: YearMonth,
+    selectedDate: LocalDate,
+    today: LocalDate,
+    tasksByDate: Map<String, List<StudyTask>>,
+    cellHeight: androidx.compose.ui.unit.Dp,
+    dayTextSize: Int,
+    onSelectDate: ((LocalDate) -> Unit)?
+) {
+    val gradient = LocalLightGradient.current
+    val weekdayLabels = listOf("L", "Ma", "Me", "J", "V", "S", "D")
+    val weekdayHeaderHeight = if (cellHeight >= 40.dp) 24.dp else cellHeight
+    Row(Modifier.fillMaxWidth()) {
+        weekdayLabels.forEach { label ->
+            Box(Modifier.weight(1f).height(weekdayHeaderHeight), contentAlignment = Alignment.Center) {
+                Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+    val weeks = remember(month) { calendarMonthGridDates(month).chunked(7) }
+    weeks.forEach { week ->
+        Row(Modifier.fillMaxWidth()) {
+            week.forEach { date ->
+                if (date == null) {
+                    Spacer(Modifier.weight(1f).height(cellHeight))
+                } else {
+                    val isSelected = date == selectedDate
+                    val isToday = date == today
+                    val taskCount = tasksByDate[date.toString()].orEmpty().size
+                    val hasTasks = taskCount > 0
+                    val accessibilityLabel = remember(date, isToday, isSelected, taskCount, onSelectDate != null) {
+                        if (onSelectDate == null) "" else buildString {
+                            append(date.format(DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.FRENCH)).replaceFirstChar { it.uppercase() })
+                            if (isToday) append(", aujourd'hui")
+                            if (isSelected) append(", sélectionné")
+                            if (taskCount > 0) append(", $taskCount tâche${if (taskCount == 1) "" else "s"}")
+                        }
+                    }
+                    Box(
+                        modifier = Modifier.weight(1f).height(cellHeight).padding(1.dp)
+                            .clip(CircleShape)
+                            .background(when {
+                                isSelected -> gradient.accentColor
+                                isToday -> gradient.softContainer
+                                hasTasks -> gradient.accentColor.copy(alpha = 0.14f)
+                                else -> Color.Transparent
+                            })
+                            .then(
+                                onSelectDate?.let { selectDate ->
+                                    Modifier.semantics(mergeDescendants = true) {
+                                        contentDescription = accessibilityLabel
+                                    }.clickable { selectDate(date) }
+                                } ?: Modifier
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = date.dayOfMonth.toString(),
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = dayTextSize.sp),
+                            fontWeight = if (isSelected || isToday) FontWeight.Bold else FontWeight.Normal,
+                            color = if (isSelected) Color.White else if (isToday) gradient.accentColor else MaterialTheme.colorScheme.onSurface
+                        )
+                        if (hasTasks && !isSelected && !isToday) {
+                            Box(
+                                Modifier.align(Alignment.BottomCenter).padding(bottom = 2.dp).size(3.dp)
+                                    .clip(CircleShape).background(gradient.accentColor)
                             )
                         }
                     }

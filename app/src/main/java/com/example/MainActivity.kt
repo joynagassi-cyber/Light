@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -41,6 +42,7 @@ import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.MoreHoriz
@@ -87,6 +89,7 @@ import com.example.auth.authStateFlow
 import com.example.auth.signOut
 import com.example.data.firebase.configureAppCheck
 import com.example.data.model.UiState
+import com.example.data.preferences.StudyAppSettings
 import com.example.data.preferences.ThemePreferencesStore
 import com.example.data.repository.AiPlannerRepository
 import com.example.data.repository.LocalTestStudyRepository
@@ -101,6 +104,7 @@ import com.example.ui.screens.AuthScreen
 import com.example.ui.screens.CountdownScreen
 import com.example.ui.screens.EisenhowerScreen
 import com.example.ui.screens.FocusScreen
+import com.example.ui.screens.GanttScreen
 import com.example.ui.screens.HabitsScreen
 import com.example.ui.screens.HomeDashboardScreen
 import com.example.ui.screens.MoreHubScreen
@@ -111,9 +115,6 @@ import com.example.ui.screens.ProgressScreen
 import com.example.ui.screens.SearchScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.TaskCreationScreen
-import com.example.ui.theme.AppleDivider
-import com.example.ui.theme.AppleTextPrimary
-import com.example.ui.theme.AppleTextSecondary
 import com.example.ui.theme.LightThemeProvider
 import com.example.ui.theme.LocalLightGradient
 import com.google.firebase.FirebaseApp
@@ -137,6 +138,7 @@ private enum class LightTab(
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
 
         // App Check MUST be initialized with launch intent before setContent or ViewModels
@@ -155,6 +157,7 @@ private fun LightAppRoot() {
     val scope = rememberCoroutineScope()
     val themeStore = remember(context) { ThemePreferencesStore(context.applicationContext) }
     val localGradientId by themeStore.selectedGradientId.collectAsStateWithLifecycle(initialValue = "aurore_lavande")
+    val themeSettings by themeStore.appSettings.collectAsStateWithLifecycle(initialValue = StudyAppSettings())
     val googleAuthPaused by themeStore.googleAuthPausedForTesting.collectAsStateWithLifecycle(initialValue = null)
     val localTestRepository = remember { LocalTestStudyRepository() }
 
@@ -199,6 +202,9 @@ private fun LightAppRoot() {
     if (paused == null || !startupChecked) {
         LightThemeProvider(
             selectedGradientId = localGradientId,
+            selectedThemeId = themeSettings.selectedThemeId,
+            appearanceModeKey = themeSettings.appearanceMode,
+            glassEnabled = themeSettings.glassEnabled,
             wrapWithGradientSurface = true
         ) {
             Box(
@@ -254,7 +260,12 @@ private fun LightAppRoot() {
             )
         }
     } else {
-        LightThemeProvider(selectedGradientId = localGradientId) {
+        LightThemeProvider(
+            selectedGradientId = localGradientId,
+            selectedThemeId = themeSettings.selectedThemeId,
+            appearanceModeKey = themeSettings.appearanceMode,
+            glassEnabled = themeSettings.glassEnabled
+        ) {
             AuthScreen(
                 onAuthSuccess = { startupChecked = true },
                 onEnterTestMode = {
@@ -304,6 +315,7 @@ private fun AuthenticatedStudyShell(
     val profileState by viewModel.profileState.collectAsStateWithLifecycle()
     val coursesState by viewModel.coursesState.collectAsStateWithLifecycle()
     val tasksState by viewModel.tasksState.collectAsStateWithLifecycle()
+    val projectsState by viewModel.projectsState.collectAsStateWithLifecycle()
     val sessionsState by viewModel.sessionsState.collectAsStateWithLifecycle()
     val habitsState by viewModel.habitsState.collectAsStateWithLifecycle()
     val countdownsState by viewModel.countdownsState.collectAsStateWithLifecycle()
@@ -313,18 +325,28 @@ private fun AuthenticatedStudyShell(
     val aiPlanState by viewModel.aiPlanState.collectAsStateWithLifecycle()
     val agentMessages by viewModel.agentMessages.collectAsStateWithLifecycle()
     val agentBusy by viewModel.agentBusy.collectAsStateWithLifecycle()
+    val agentApiKeyConfigured by viewModel.agentApiKeyConfigured.collectAsStateWithLifecycle()
+    val agentModels by viewModel.agentModels.collectAsStateWithLifecycle()
+    val agentModelsLoading by viewModel.agentModelsLoading.collectAsStateWithLifecycle()
+    val agentModelsError by viewModel.agentModelsError.collectAsStateWithLifecycle()
+    val agentUsage by viewModel.agentUsage.collectAsStateWithLifecycle()
     val bannerMessage by viewModel.bannerMessage.collectAsStateWithLifecycle()
 
     val profile = (profileState as? UiState.Success)?.data
     val courses = (coursesState as? UiState.Success)?.data.orEmpty()
     val tasks = (tasksState as? UiState.Success)?.data.orEmpty()
+    val projects = (projectsState as? UiState.Success)?.data.orEmpty()
     val sessions = (sessionsState as? UiState.Success)?.data.orEmpty()
     val habits = (habitsState as? UiState.Success)?.data.orEmpty()
     val countdowns = (countdownsState as? UiState.Success)?.data.orEmpty()
+    val hasRepositoryError = listOf(
+        profileState, coursesState, tasksState, projectsState, sessionsState, habitsState, countdownsState
+    ).any { it is UiState.Error }
 
     var currentTab by rememberSaveable { mutableStateOf(LightTab.HOME) }
     var activeMorePage by rememberSaveable { mutableStateOf<MoreSubPage?>(null) }
     var pendingTaskQuadrant by rememberSaveable { mutableStateOf<Int?>(null) }
+    var pendingProjectId by rememberSaveable { mutableStateOf("") }
     var showGradientSheet by remember { mutableStateOf(false) }
     var showTaskCreation by rememberSaveable { mutableStateOf(false) }
     var showSettingsOverlay by rememberSaveable { mutableStateOf(false) }
@@ -360,6 +382,9 @@ private fun AuthenticatedStudyShell(
 
     LightThemeProvider(
         selectedGradientId = selectedGradientId,
+        selectedThemeId = appSettings.selectedThemeId,
+        appearanceModeKey = appSettings.appearanceMode,
+        glassEnabled = appSettings.glassEnabled,
         onSelectGradient = viewModel::selectGradient,
         wrapWithGradientSurface = !needsOnboarding
     ) {
@@ -414,8 +439,8 @@ private fun AuthenticatedStudyShell(
                 bottomBar = {
                     if (!useRail) {
                         Surface(
-                            color = Color.White.copy(alpha = 0.88f),
-                            border = BorderStroke(0.6.dp, Color.White.copy(alpha = 0.9f)),
+                            color = MaterialTheme.colorScheme.surface,
+                            border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant),
                             shadowElevation = 6.dp
                         ) {
                             NavigationBar(
@@ -451,8 +476,8 @@ private fun AuthenticatedStudyShell(
                                             selectedIconColor = gradient.accentColor,
                                             selectedTextColor = gradient.accentColor,
                                             indicatorColor = gradient.softContainer,
-                                            unselectedIconColor = AppleTextSecondary,
-                                            unselectedTextColor = AppleTextSecondary
+                                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                                         ),
                                         modifier = Modifier.testTag("nav_tab_${tab.route}")
                                     )
@@ -469,7 +494,7 @@ private fun AuthenticatedStudyShell(
                 ) {
                     if (useRail) {
                         NavigationRail(
-                            containerColor = Color.White.copy(alpha = 0.88f),
+                            containerColor = MaterialTheme.colorScheme.surface,
                             modifier = Modifier
                                 .fillMaxHeight()
                                 .statusBarsPadding()
@@ -495,8 +520,8 @@ private fun AuthenticatedStudyShell(
                                         selectedIconColor = gradient.accentColor,
                                         selectedTextColor = gradient.accentColor,
                                         indicatorColor = gradient.softContainer,
-                                        unselectedIconColor = AppleTextSecondary,
-                                        unselectedTextColor = AppleTextSecondary
+                                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                                     ),
                                     modifier = Modifier.testTag("nav_rail_${tab.route}")
                                 )
@@ -528,7 +553,35 @@ private fun AuthenticatedStudyShell(
                             }
 
                             when (tab) {
-                                LightTab.HOME -> HomeDashboardScreen(
+                                LightTab.HOME -> Column(modifier = Modifier.fillMaxSize()) {
+                                    if (hasRepositoryError) {
+                                        Card(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                                            colors = CardDefaults.cardColors(
+                                                containerColor = MaterialTheme.colorScheme.errorContainer
+                                            )
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(16.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Rounded.CloudOff,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.onErrorContainer
+                                                )
+                                                Text(
+                                                    text = "Certaines données n'ont pas pu être chargées. Vérifiez votre connexion.",
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                                )
+                                            }
+                                        }
+                                    }
+                                    HomeDashboardScreen(
                                     profile = profile,
                                     photoUrl = photoUrl,
                                     courses = courses,
@@ -556,9 +609,11 @@ private fun AuthenticatedStudyShell(
                                     onOpenGradientPicker = { showGradientSheet = true },
                                     onOpenCreateTask = {
                                         pendingTaskQuadrant = null
+                                        pendingProjectId = ""
                                         showTaskCreation = true
                                     }
-                                )
+                                    )
+                                }
 
                                 LightTab.PLANNER -> PlannerScreen(
                                     selectedDateIso = selectedDateIso,
@@ -576,9 +631,14 @@ private fun AuthenticatedStudyShell(
                                     onResetAiPlan = viewModel::resetAiPlan,
                                     onOpenCreateTask = {
                                         pendingTaskQuadrant = null
+                                        pendingProjectId = ""
                                         showTaskCreation = true
                                     },
                                     onOpenSettings = openSettingsAction,
+                                    onOpenGantt = {
+                                        activeMorePage = MoreSubPage.PROJECTS
+                                        currentTab = LightTab.MORE
+                                    },
                                     onToggleTask = viewModel::toggleTaskCompleted,
                                     onDeleteTask = viewModel::deleteTask,
                                     onStartFocusForTask = { task ->
@@ -617,6 +677,8 @@ private fun AuthenticatedStudyShell(
                                     onToggleAudioPlayPause = viewModel::toggleAudioPlayback,
                                     onAudioVolumeChange = viewModel::setAudioVolume,
                                     onToggleAutoPlayAudio = viewModel::setAutoPlayAudioWithFocus,
+                                    onSelectFocusIllustration = viewModel::selectFocusIllustration,
+                                    onSelectFocusTheme = viewModel::selectFocusTheme,
                                     onOpenSettings = openSettingsAction
                                 )
 
@@ -630,6 +692,7 @@ private fun AuthenticatedStudyShell(
                                     },
                                     onOpenCreateTaskForQuadrant = { quadrant ->
                                         pendingTaskQuadrant = quadrant
+                                        pendingProjectId = ""
                                         showTaskCreation = true
                                     },
                                     onOpenSettings = openSettingsAction
@@ -667,8 +730,8 @@ private fun AuthenticatedStudyShell(
                                                     Surface(
                                                         onClick = { activeMorePage = null },
                                                         shape = CircleShape,
-                                                        color = Color.White.copy(alpha = 0.92f),
-                                                        border = BorderStroke(0.8.dp, AppleDivider),
+                                                        color = MaterialTheme.colorScheme.surface,
+                                                        border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
                                                         shadowElevation = 2.dp,
                                                         modifier = Modifier
                                                             .size(48.dp)
@@ -678,21 +741,21 @@ private fun AuthenticatedStudyShell(
                                                             Icon(
                                                                 imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
                                                                 contentDescription = "Retour aux pages indexées",
-                                                                tint = AppleTextPrimary,
+                                                                tint = MaterialTheme.colorScheme.onSurface,
                                                                 modifier = Modifier.size(20.dp)
                                                             )
                                                         }
                                                     }
                                                     Column {
                                                         Text(
-                                                            text = "Plus • Index",
+                                                            text = "Explorer",
                                                             style = MaterialTheme.typography.labelSmall,
                                                             color = gradient.accentColor
                                                         )
                                                         Text(
                                                             text = subPage.title,
                                                             style = MaterialTheme.typography.titleMedium,
-                                                            color = AppleTextPrimary
+                                                            color = MaterialTheme.colorScheme.onSurface
                                                         )
                                                     }
                                                 }
@@ -709,7 +772,16 @@ private fun AuthenticatedStudyShell(
                                                                 )
                                                             },
                                                             onClearConversation = viewModel::clearAgentConversation,
-                                                            onOpenSettings = { activeMorePage = MoreSubPage.SETTINGS }
+                                                            onOpenSettings = { activeMorePage = MoreSubPage.SETTINGS },
+                                                            settings = appSettings,
+                                                            apiKeyConfigured = agentApiKeyConfigured,
+                                                            agentModels = agentModels,
+                                                            agentModelsLoading = agentModelsLoading,
+                                                            agentModelsError = agentModelsError,
+                                                            agentUsage = agentUsage,
+                                                            onClearAgentUsage = viewModel::clearAgentUsage,
+                                                            onLoadAgentModels = viewModel::loadAgentModels,
+                                                            onSaveAgentSettings = viewModel::updateAgentPreferences
                                                         )
 
                                                         MoreSubPage.PROGRESS -> ProgressScreen(
@@ -747,6 +819,22 @@ private fun AuthenticatedStudyShell(
                                                             onToggleHabitToday = viewModel::toggleHabitToday
                                                         )
 
+                                                        MoreSubPage.PROJECTS -> GanttScreen(
+                                                            tasks = tasks,
+                                                            courses = courses,
+                                                            projects = projects,
+                                                            onCreateProject = viewModel::createProject,
+                                                            onUpdateProject = viewModel::updateProject,
+                                                            onDeleteProject = viewModel::deleteProject,
+                                                            onCreateTask = { projectId ->
+                                                                pendingTaskQuadrant = null
+                                                                pendingProjectId = projectId
+                                                                showTaskCreation = true
+                                                            },
+                                                            onToggleTask = viewModel::toggleTaskCompleted,
+                                                            onDeleteTask = viewModel::deleteTask
+                                                        )
+
                                                         MoreSubPage.SETTINGS -> SettingsScreen(
                                                             profile = profile,
                                                             photoUrl = photoUrl,
@@ -766,6 +854,9 @@ private fun AuthenticatedStudyShell(
                                                             onUpdateHapticsEnabled = viewModel::updateHapticsEnabled,
                                                             onUpdateAutoLogStopwatch = viewModel::updateAutoLogStopwatch,
                                                             onUpdateAutoPlayAudioWithFocus = viewModel::setAutoPlayAudioWithFocus,
+                                                            onSelectTheme = viewModel::selectTheme,
+                                                            onSelectAppearanceMode = viewModel::selectAppearanceMode,
+                                                            onSetGlassEnabled = viewModel::setGlassEnabled,
                                                             onCreateCourse = viewModel::createCourse,
                                                             onDeleteCourse = viewModel::deleteCourse,
                                                             isGoogleAuthPaused = isGoogleAuthPaused,
@@ -839,6 +930,9 @@ private fun AuthenticatedStudyShell(
                         onUpdateHapticsEnabled = viewModel::updateHapticsEnabled,
                         onUpdateAutoLogStopwatch = viewModel::updateAutoLogStopwatch,
                         onUpdateAutoPlayAudioWithFocus = viewModel::setAutoPlayAudioWithFocus,
+                        onSelectTheme = viewModel::selectTheme,
+                        onSelectAppearanceMode = viewModel::selectAppearanceMode,
+                        onSetGlassEnabled = viewModel::setGlassEnabled,
                         onCreateCourse = viewModel::createCourse,
                         onDeleteCourse = viewModel::deleteCourse,
                         isGoogleAuthPaused = isGoogleAuthPaused,
@@ -877,27 +971,33 @@ private fun AuthenticatedStudyShell(
         ) {
             TaskCreationScreen(
                 courses = courses,
+                projects = projects,
                 initialDateIso = selectedDateIso,
                 initialQuadrant = pendingTaskQuadrant,
+                initialProjectId = pendingProjectId,
                 profile = profile,
                 onCancel = {
                     pendingTaskQuadrant = null
+                    pendingProjectId = ""
                     showTaskCreation = false
                 },
-                onCreateTask = { course, title, notes, dueDateIso, scheduledTime, priority, category, estimatedMinutes, quadrant ->
+                onCreateTask = { course, title, notes, startDateIso, dueDateIso, scheduledTime, priority, category, estimatedMinutes, quadrant, projectId ->
                     viewModel.createTask(
                         course = course,
                         title = title,
                         notes = notes,
+                        startDateIso = startDateIso,
                         dueDateIso = dueDateIso,
                         scheduledTime = scheduledTime,
                         priority = priority,
                         category = category,
                         estimatedMinutes = estimatedMinutes,
-                        quadrant = quadrant
+                        quadrant = quadrant,
+                        projectId = projectId
                     )
                     viewModel.selectDate(dueDateIso)
                     pendingTaskQuadrant = null
+                    pendingProjectId = ""
                     showTaskCreation = false
                 }
             )

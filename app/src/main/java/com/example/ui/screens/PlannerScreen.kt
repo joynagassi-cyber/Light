@@ -83,17 +83,17 @@ import com.example.data.model.StudyTask
 import com.example.data.model.TaskCategory
 import com.example.ui.AiPlanUiState
 import com.example.ui.components.AppleCard
+import com.example.ui.components.EmptyStateCard
 import com.example.ui.components.CalendarShowcaseCard
 import com.example.ui.components.CalendarViewMode
 import com.example.ui.components.TaskCategoryPill
 import com.example.ui.components.accentColor
 import com.example.ui.theme.AppleAmber
-import com.example.ui.theme.AppleDivider
 import com.example.ui.theme.AppleEmerald
 import com.example.ui.theme.AppleRose
-import com.example.ui.theme.AppleTextPrimary
-import com.example.ui.theme.AppleTextSecondary
 import com.example.ui.theme.LocalLightGradient
+import com.example.ui.theme.appBrush
+import com.example.ui.theme.appVerticalBrush
 import java.time.LocalDate
 
 private enum class TaskFilter(val label: String) {
@@ -125,6 +125,7 @@ fun PlannerScreen(
     onResetAiPlan: () -> Unit,
     onOpenCreateTask: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenGantt: () -> Unit = {},
     onToggleTask: (StudyTask) -> Unit,
     onDeleteTask: (String) -> Unit,
     onStartFocusForTask: (StudyTask) -> Unit,
@@ -172,9 +173,9 @@ fun PlannerScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Calendrier",
+                        text = "Planning",
                         style = MaterialTheme.typography.headlineMedium,
-                        color = AppleTextPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(3.dp))
                     // Tappable active view indicator pill
@@ -240,8 +241,8 @@ fun PlannerScreen(
                         Surface(
                             onClick = { viewsMenuExpanded = true },
                             shape = CircleShape,
-                            color = Color.White,
-                            border = BorderStroke(0.8.dp, AppleDivider),
+                            color = MaterialTheme.colorScheme.surface,
+                            border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
                             shadowElevation = 2.dp,
                             modifier = Modifier
                                 .size(48.dp)
@@ -251,7 +252,7 @@ fun PlannerScreen(
                                 Icon(
                                     imageVector = Icons.Rounded.MoreVert,
                                     contentDescription = "Organiser les 6 vues du calendrier",
-                                    tint = AppleTextPrimary,
+                                    tint = MaterialTheme.colorScheme.onSurface,
                                     modifier = Modifier.size(21.dp)
                                 )
                             }
@@ -260,13 +261,13 @@ fun PlannerScreen(
                         DropdownMenu(
                             expanded = viewsMenuExpanded,
                             onDismissRequest = { viewsMenuExpanded = false },
-                            containerColor = Color.White
+                            containerColor = MaterialTheme.colorScheme.surface
                         ) {
                             Text(
                                 text = "VUES DU CALENDRIER",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
-                                color = AppleTextSecondary,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
                             )
                             CalendarViewMode.entries.forEach { mode ->
@@ -277,12 +278,12 @@ fun PlannerScreen(
                                             Text(
                                                 text = mode.label,
                                                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                                                color = if (selected) gradient.accentColor else AppleTextPrimary
+                                                color = if (selected) gradient.accentColor else MaterialTheme.colorScheme.onSurface
                                             )
                                             Text(
                                                 text = mode.subtitle,
                                                 style = MaterialTheme.typography.labelSmall,
-                                                color = AppleTextSecondary
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                         }
                                     },
@@ -290,7 +291,7 @@ fun PlannerScreen(
                                         Icon(
                                             imageVector = mode.menuIcon(),
                                             contentDescription = null,
-                                            tint = if (selected) gradient.accentColor else AppleTextSecondary
+                                            tint = if (selected) gradient.accentColor else MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     },
                                     trailingIcon = if (selected) {
@@ -309,7 +310,7 @@ fun PlannerScreen(
                                     modifier = Modifier.testTag("calendar_view_${mode.key}")
                                 )
                             }
-                            HorizontalDivider(color = AppleDivider, modifier = Modifier.padding(vertical = 4.dp))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 4.dp))
                             DropdownMenuItem(
                                 text = {
                                     Text(if (aiExpanded) "Masquer Assistant IA" else "Planificateur IA Gemini")
@@ -334,7 +335,7 @@ fun PlannerScreen(
                                     Icon(
                                         imageVector = Icons.Rounded.CalendarToday,
                                         contentDescription = null,
-                                        tint = AppleTextSecondary
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 },
                                 onClick = {
@@ -348,7 +349,7 @@ fun PlannerScreen(
                                     Icon(
                                         imageVector = Icons.Rounded.Settings,
                                         contentDescription = null,
-                                        tint = AppleTextSecondary
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 },
                                 onClick = {
@@ -356,6 +357,15 @@ fun PlannerScreen(
                                     onOpenSettings()
                                 },
                                 modifier = Modifier.testTag("planner_settings_button")
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Ouvrir le diagramme Gantt") },
+                                leadingIcon = { Icon(Icons.Rounded.DateRange, contentDescription = null, tint = gradient.accentColor) },
+                                onClick = {
+                                    viewsMenuExpanded = false
+                                    onOpenGantt()
+                                },
+                                modifier = Modifier.testTag("planner_open_gantt")
                             )
                         }
                     }
@@ -391,7 +401,7 @@ fun PlannerScreen(
                         Text(
                             text = "Filtré sur le $selectedDateIso",
                             style = MaterialTheme.typography.labelMedium,
-                            color = AppleTextSecondary
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
                             text = "Toutes les dates",
@@ -440,7 +450,7 @@ fun PlannerScreen(
                             border = FilterChipDefaults.filterChipBorder(
                                 enabled = true,
                                 selected = selected,
-                                borderColor = AppleDivider,
+                                borderColor = MaterialTheme.colorScheme.outlineVariant,
                                 selectedBorderColor = gradient.accentColor
                             )
                         )
@@ -466,7 +476,7 @@ fun PlannerScreen(
                         border = FilterChipDefaults.filterChipBorder(
                             enabled = true,
                             selected = allCatSelected,
-                            borderColor = AppleDivider,
+                            borderColor = MaterialTheme.colorScheme.outlineVariant,
                             selectedBorderColor = gradient.accentColor
                         ),
                         modifier = Modifier.testTag("planner_category_filter_all")
@@ -496,7 +506,7 @@ fun PlannerScreen(
                             border = FilterChipDefaults.filterChipBorder(
                                 enabled = true,
                                 selected = isSelected,
-                                borderColor = AppleDivider,
+                                borderColor = MaterialTheme.colorScheme.outlineVariant,
                                 selectedBorderColor = catColor
                             ),
                             modifier = Modifier.testTag("planner_category_filter_${category.key}")
@@ -508,22 +518,12 @@ fun PlannerScreen(
 
         if (filteredTasks.isEmpty()) {
             item {
-                AppleCard(
-                    modifier = Modifier.fillMaxWidth(),
-                    onClick = onOpenCreateTask
-                ) {
-                    Text(
-                        text = "Aucune tâche dans cette vue",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = AppleTextPrimary
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Touchez ici pour créer une tâche ou laissez l'assistant IA structurer vos révisions.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = AppleTextSecondary
-                    )
-                }
+                EmptyStateCard(
+                    title = "Aucune tâche dans cette vue",
+                    description = "Ajoutez une tâche ou demandez au planificateur IA d'organiser vos révisions.",
+                    actionLabel = "Créer une tâche",
+                    onAction = onOpenCreateTask
+                )
             }
         } else {
             items(filteredTasks, key = { it.id }) { task ->
@@ -580,7 +580,7 @@ private fun SmartAiPlannerCard(
                     modifier = Modifier
                         .size(38.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(gradient.linearBrush()),
+                        .background(gradient.appBrush()),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -594,19 +594,19 @@ private fun SmartAiPlannerCard(
                     Text(
                         text = "Assistant Planification IA",
                         style = MaterialTheme.typography.titleMedium,
-                        color = AppleTextPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = "Découpe intelligente pour votre semestre L3",
                         style = MaterialTheme.typography.bodySmall,
-                        color = AppleTextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
             Icon(
                 imageVector = if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
                 contentDescription = if (expanded) "Réduire" else "Déplier",
-                tint = AppleTextSecondary
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
@@ -744,7 +744,7 @@ private fun SmartAiPlannerCard(
                             Text(
                                 text = "Gemini structure votre planning...",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = AppleTextSecondary
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -760,7 +760,7 @@ private fun SmartAiPlannerCard(
                                 Text(
                                     text = plan.summary,
                                     style = MaterialTheme.typography.titleSmall,
-                                    color = AppleTextPrimary
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
@@ -788,7 +788,7 @@ private fun SmartAiPlannerCard(
                                             text = item.title,
                                             style = MaterialTheme.typography.bodySmall,
                                             fontWeight = FontWeight.Medium,
-                                            color = AppleTextPrimary,
+                                            color = MaterialTheme.colorScheme.onSurface,
                                             modifier = Modifier.weight(1f)
                                         )
                                         Text(
@@ -841,6 +841,7 @@ private fun PlannerTaskRow(
     onStartFocus: () -> Unit
 ) {
     val gradient = LocalLightGradient.current
+    var actionsExpanded by remember(task.id) { mutableStateOf(false) }
     val category = TaskCategory.fromKey(task.category)
     val categoryColor = category.accentColor()
     val priorityLabel = when (task.priority) {
@@ -881,7 +882,7 @@ private fun PlannerTaskRow(
                 Icon(
                     imageVector = if (task.completed) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
                     contentDescription = "Basculer l'état de la tâche",
-                    tint = if (task.completed) categoryColor else AppleTextSecondary,
+                    tint = if (task.completed) categoryColor else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(24.dp)
                 )
             }
@@ -921,14 +922,14 @@ private fun PlannerTaskRow(
                 Text(
                     text = task.title,
                     style = MaterialTheme.typography.titleSmall,
-                    color = if (task.completed) AppleTextSecondary else AppleTextPrimary,
+                    color = if (task.completed) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
                     textDecoration = if (task.completed) TextDecoration.LineThrough else TextDecoration.None
                 )
                 if (task.notes.isNotBlank()) {
                     Text(
                         text = task.notes,
                         style = MaterialTheme.typography.bodySmall,
-                        color = AppleTextSecondary,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -937,33 +938,33 @@ private fun PlannerTaskRow(
                 Text(
                     text = "${task.courseTitle.ifBlank { "Génie Logiciel" }} · ${task.dueDateIso} · ${task.scheduledTime.ifBlank { "Libre" }} · ${task.estimatedMinutes} min",
                     style = MaterialTheme.typography.labelSmall,
-                    color = AppleTextSecondary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
 
-            if (!task.completed) {
+            Box {
                 IconButton(
-                    onClick = onStartFocus,
-                    modifier = Modifier.size(48.dp)
+                    onClick = { actionsExpanded = true },
+                    modifier = Modifier.size(44.dp).testTag("planner_task_actions_${task.id}")
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.PlayArrow,
-                        contentDescription = "Démarrer Focus",
-                        tint = gradient.accentColor
+                    Icon(Icons.Rounded.MoreVert, contentDescription = "Actions pour ${task.title}", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                DropdownMenu(expanded = actionsExpanded, onDismissRequest = { actionsExpanded = false }) {
+                    if (!task.completed) {
+                        DropdownMenuItem(
+                            text = { Text("Démarrer une session Focus") },
+                            leadingIcon = { Icon(Icons.Rounded.PlayArrow, null) },
+                            onClick = { actionsExpanded = false; onStartFocus() }
+                        )
+                    }
+                    DropdownMenuItem(
+                        text = { Text("Supprimer la tâche") },
+                        leadingIcon = { Icon(Icons.Rounded.DeleteOutline, null) },
+                        onClick = { actionsExpanded = false; onDelete() }
                     )
                 }
-            }
-            IconButton(
-                onClick = onDelete,
-                modifier = Modifier.size(48.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.DeleteOutline,
-                    contentDescription = "Supprimer la tâche",
-                    tint = AppleTextSecondary
-                )
             }
         }
     }

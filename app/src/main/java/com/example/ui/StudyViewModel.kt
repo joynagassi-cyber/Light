@@ -10,10 +10,15 @@ import com.example.audio.FocusAudioTrack
 import com.example.data.model.AdaptiveHabitTemplate
 import com.example.data.model.AiStudyPlanResult
 import com.example.data.model.Course
+import com.example.data.model.AgentModelOption
+import com.example.data.model.AgentProvider
+import com.example.data.model.AgentSkill
+import com.example.data.model.AgentUsageRecord
 import com.example.data.model.FocusSession
 import com.example.data.model.NotificationFrequency
 import com.example.data.model.StudyCountdown
 import com.example.data.model.StudyHabit
+import com.example.data.model.StudyProject
 import com.example.data.model.StudyTask
 import com.example.data.model.TaskCategory
 import com.example.data.model.UiState
@@ -25,6 +30,7 @@ import com.example.data.preferences.StudyAppSettings
 import com.example.data.preferences.ThemePreferencesStore
 import com.example.data.repository.AgentChatMessage
 import com.example.data.repository.AiAgentRepository
+import com.example.data.repository.AgentModelCatalogRepository
 import com.example.data.repository.AiPlannerRepository
 import com.example.data.repository.StudyAgentToolExecutor
 import com.example.data.repository.StudyWorkspaceRepository
@@ -40,6 +46,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -48,6 +55,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
+import java.util.UUID
 
 private const val TAG = "StudyViewModel"
 
@@ -97,6 +105,7 @@ class StudyViewModel(
     initialDisplayName: String,
     initialEmail: String,
     private val aiAgentRepository: AiAgentRepository = AiAgentRepository(),
+    private val agentModelCatalogRepository: AgentModelCatalogRepository = AgentModelCatalogRepository(),
     private val focusAudioEngine: FocusAudioEngine = FocusAudioEngine()
 ) : ViewModel() {
 
@@ -135,6 +144,15 @@ class StudyViewModel(
             val root = fsError ?: error
             Log.w(TAG, "Error observing tasks", root)
             emit(UiState.Error(root.message ?: "Impossible de charger les tâches"))
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), UiState.Loading)
+
+    val projectsState: StateFlow<UiState<List<StudyProject>>> = repository.observeProjects(currentUserId)
+        .map<List<StudyProject>, UiState<List<StudyProject>>> { UiState.Success(it) }
+        .catch { error ->
+            if (error is CancellationException) throw error
+            Log.w(TAG, "Error observing projects", error)
+            emit(UiState.Error(error.localizedMessage ?: "Impossible de charger les projets"))
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), UiState.Loading)
 
@@ -196,6 +214,18 @@ class StudyViewModel(
 
     private val _agentBusy = MutableStateFlow(false)
     val agentBusy: StateFlow<Boolean> = _agentBusy.asStateFlow()
+    private val _agentApiKeyConfigured = MutableStateFlow(false)
+    val agentApiKeyConfigured: StateFlow<Boolean> = _agentApiKeyConfigured.asStateFlow()
+    private val _agentModels = MutableStateFlow<List<AgentModelOption>>(emptyList())
+    val agentModels: StateFlow<List<AgentModelOption>> = _agentModels.asStateFlow()
+    private val _agentModelsLoading = MutableStateFlow(false)
+    val agentModelsLoading: StateFlow<Boolean> = _agentModelsLoading.asStateFlow()
+    private val _agentModelsError = MutableStateFlow<String?>(null)
+    val agentModelsError: StateFlow<String?> = _agentModelsError.asStateFlow()
+    private val _doclingTokenConfigured = MutableStateFlow(false)
+    val doclingTokenConfigured: StateFlow<Boolean> = _doclingTokenConfigured.asStateFlow()
+    val agentUsage: StateFlow<List<AgentUsageRecord>> = themePreferencesStore.agentUsage
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     private val _audioPlaying = MutableStateFlow(false)
     val audioState: StateFlow<FocusAudioUiState> = combine(
@@ -211,6 +241,16 @@ class StudyViewModel(
     }.stateIn(viewModelScope, SharingStarted.Eagerly, FocusAudioUiState())
 
     init {
+        viewModelScope.launch {
+            val providerId = appSettings.value.agentProvider
+            _agentApiKeyConfigured.value = themePreferencesStore.hasAgentApiKey(providerId)
+            _doclingTokenConfigured.value = themePreferencesStore.hasDoclingToken()
+        }
+        viewModelScope.launch {
+            appSettings.collectLatest { settings ->
+                _agentApiKeyConfigured.value = themePreferencesStore.hasAgentApiKey(settings.agentProvider)
+            }
+        }
         viewModelScope.launch {
             try {
                 repository.ensureUserProfileAndSeedIfNew(
@@ -258,6 +298,7 @@ class StudyViewModel(
     fun selectGradient(gradientId: String) {
         viewModelScope.launch {
             themePreferencesStore.saveSelectedGradient(gradientId)
+            themePreferencesStore.updateSelectedTheme("gradient")
             try {
                 repository.updateSelectedGradient(currentUserId, gradientId)
             } catch (e: CancellationException) {
@@ -266,6 +307,18 @@ class StudyViewModel(
                 Log.w(TAG, "Failed to sync gradient preference", e)
             }
         }
+    }
+
+    fun selectTheme(themeId: String) {
+        viewModelScope.launch { themePreferencesStore.updateSelectedTheme(themeId) }
+    }
+
+    fun selectAppearanceMode(mode: String) {
+        viewModelScope.launch { themePreferencesStore.updateAppearanceMode(mode) }
+    }
+
+    fun setGlassEnabled(enabled: Boolean) {
+        viewModelScope.launch { themePreferencesStore.updateGlassEnabled(enabled) }
     }
 
     fun updateProfile(
@@ -483,13 +536,26 @@ class StudyViewModel(
         }
     }
 
+    fun selectFocusIllustration(id: String) {
+        viewModelScope.launch {
+            themePreferencesStore.updateFocusIllustration(id)
+        }
+    }
+
+    fun selectFocusTheme(id: String) {
+        viewModelScope.launch {
+            themePreferencesStore.updateFocusTheme(id)
+        }
+    }
+
     fun createCourse(
         code: String,
         title: String,
         professor: String,
         colorIndex: Long,
         targetHours: Int,
-        grade: Double
+        grade: Double,
+        iconKey: String = "book"
     ) {
         viewModelScope.launch {
             try {
@@ -500,7 +566,8 @@ class StudyViewModel(
                     professor = professor,
                     colorIndex = colorIndex,
                     targetMinutes = (targetHours.coerceAtLeast(1) * 60L),
-                    grade = grade
+                    grade = grade,
+                    iconKey = iconKey
                 )
                 _bannerMessage.value = "Matière \"$code\" ajoutée."
             } catch (e: CancellationException) {
@@ -545,7 +612,9 @@ class StudyViewModel(
         priority: String,
         category: String = TaskCategory.REVISION.key,
         estimatedMinutes: Long,
-        quadrant: Long? = null
+        quadrant: Long? = null,
+        startDateIso: String = "",
+        projectId: String = ""
     ) {
         viewModelScope.launch {
             try {
@@ -561,13 +630,54 @@ class StudyViewModel(
                     category = category,
                     estimatedMinutes = estimatedMinutes,
                     aiGenerated = false,
-                    quadrant = quadrant
+                    quadrant = quadrant,
+                    startDateIso = startDateIso,
+                    projectId = projectId
                 )
                 _bannerMessage.value = "Tâche ajoutée et synchronisée."
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 _bannerMessage.value = e.localizedMessage ?: "Impossible d'enregistrer la tâche."
+            }
+        }
+    }
+
+    fun createProject(title: String, description: String, startDateIso: String, dueDateIso: String) {
+        viewModelScope.launch {
+            try {
+                repository.createProject(currentUserId, title, description, startDateIso, dueDateIso)
+                _bannerMessage.value = "Projet ajouté au planning."
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _bannerMessage.value = e.localizedMessage ?: "Impossible de créer le projet."
+            }
+        }
+    }
+
+    fun updateProject(project: StudyProject) {
+        viewModelScope.launch {
+            try {
+                repository.updateProject(project.copy(userId = currentUserId))
+                _bannerMessage.value = "Projet mis à jour."
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _bannerMessage.value = e.localizedMessage ?: "Impossible de mettre à jour le projet."
+            }
+        }
+    }
+
+    fun deleteProject(projectId: String) {
+        viewModelScope.launch {
+            try {
+                repository.deleteProject(currentUserId, projectId)
+                _bannerMessage.value = "Projet supprimé ; ses tâches restent dans le planning."
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _bannerMessage.value = e.localizedMessage ?: "Impossible de supprimer le projet."
             }
         }
     }
@@ -955,7 +1065,9 @@ class StudyViewModel(
             val adapt = currentProfile.adaptation()
             val courseNames = currentCourses.joinToString(", ") { "${it.code}:${it.title}" }.ifBlank { "Aucun" }
             val pendingCount = currentTasks.count { !it.completed }
-            val snapshot = "${adapt.aiPersonaInstruction} Modules=[$courseNames], tâches en cours=$pendingCount, thème actif=${selectedGradientId.value}"
+            val projectNames = (projectsState.value as? UiState.Success)?.data.orEmpty()
+                .joinToString(", ") { it.title }.ifBlank { "Aucun" }
+            val snapshot = "${adapt.aiPersonaInstruction} Modules=[$courseNames], projets=[$projectNames], tâches en cours=$pendingCount, thème actif=${selectedGradientId.value}"
 
             val executor = object : StudyAgentToolExecutor {
                 override suspend fun listTasks(filter: String, dateIso: String?): JsonObject {
@@ -1105,6 +1217,21 @@ class StudyViewModel(
                     )
                 }
 
+                override suspend fun createProject(
+                    title: String,
+                    description: String,
+                    startDateIso: String,
+                    dueDateIso: String
+                ): JsonObject {
+                    val start = runCatching { LocalDate.parse(startDateIso) }.getOrNull()
+                    val due = runCatching { LocalDate.parse(dueDateIso) }.getOrNull()
+                    if (title.isBlank() || start == null || due == null || due.isBefore(start)) {
+                        return JsonObject(mapOf("success" to JsonPrimitive(false), "error" to JsonPrimitive("Vérifiez le titre et les dates du projet.")))
+                    }
+                    val id = repository.createProject(currentUserId, title.trim().take(120), description.take(500), start.toString(), due.toString())
+                    return JsonObject(mapOf("success" to JsonPrimitive(true), "projectId" to JsonPrimitive(id), "title" to JsonPrimitive(title)))
+                }
+
                 override suspend fun setGradientTheme(gradientId: String): JsonObject {
                     val preset = LightGradients.byId(gradientId)
                     selectGradient(preset.id)
@@ -1141,11 +1268,43 @@ class StudyViewModel(
             }
 
             try {
+                val currentAgentSettings = appSettings.value
+                val configuredKey = if (currentAgentSettings.agentProvider != AgentProvider.FIREBASE.id) {
+                    themePreferencesStore.readAgentApiKey(currentAgentSettings.agentProvider)
+                } else null
                 val result = aiAgentRepository.sendMessage(
                     userPrompt = trimmed,
                     contextSnapshot = snapshot,
-                    executor = executor
+                    executor = executor,
+                    settings = currentAgentSettings,
+                    apiKey = configuredKey
                 )
+                val tokensIn = result.inputTokens ?: 0L
+                val tokensOut = result.outputTokens ?: 0L
+                val pricing = _agentModels.value.firstOrNull { it.id == currentAgentSettings.agentModel }
+                val estimatedCost = if (result.inputTokens != null && result.outputTokens != null &&
+                    pricing?.promptUsdPerMillion != null && pricing.outputUsdPerMillion != null
+                ) {
+                    tokensIn * pricing.promptUsdPerMillion / 1_000_000.0 + tokensOut * pricing.outputUsdPerMillion / 1_000_000.0
+                } else null
+                runCatching {
+                    themePreferencesStore.recordAgentUsage(
+                    AgentUsageRecord(
+                        id = UUID.randomUUID().toString(),
+                        providerId = currentAgentSettings.agentProvider,
+                        modelId = currentAgentSettings.agentModel,
+                        createdAtMillis = System.currentTimeMillis(),
+                        inputTokens = tokensIn,
+                        outputTokens = tokensOut,
+                        estimatedCostUsd = estimatedCost,
+                        costNote = when {
+                            result.inputTokens == null || result.outputTokens == null -> "Le fournisseur n'a pas renvoyé les compteurs de tokens."
+                            estimatedCost == null -> "Tokens reçus; tarif du modèle indisponible dans le catalogue chargé."
+                            else -> "Estimation selon les tarifs renvoyés par le catalogue; vérifier la facture fournisseur."
+                        }
+                    )
+                    )
+                }
                 _agentMessages.value = _agentMessages.value + AgentChatMessage(
                     isUser = false,
                     text = result.replyText,
@@ -1156,13 +1315,59 @@ class StudyViewModel(
             } catch (e: Exception) {
                 _agentMessages.value = _agentMessages.value + AgentChatMessage(
                     isUser = false,
-                    text = e.localizedMessage ?: "Une erreur est survenue lors de l'appel à Gemini.",
+                    text = e.localizedMessage ?: "Une erreur est survenue lors de l'appel au fournisseur IA.",
                     isError = true
                 )
             } finally {
                 _agentBusy.value = false
             }
         }
+    }
+
+    fun updateAgentPreferences(
+        provider: String,
+        baseUrl: String,
+        model: String,
+        reflection: String,
+        capabilities: Set<String>,
+        skills: List<AgentSkill>,
+        newApiKey: String? = null,
+        clearApiKey: Boolean = false
+    ) {
+        viewModelScope.launch {
+            themePreferencesStore.updateAgentPreferences(provider, baseUrl, model, reflection, capabilities, skills)
+            if (clearApiKey) {
+                themePreferencesStore.clearAgentApiKey(provider)
+            } else if (!newApiKey.isNullOrBlank()) {
+                themePreferencesStore.saveAgentApiKey(provider, newApiKey)
+            }
+            _agentApiKeyConfigured.value = themePreferencesStore.hasAgentApiKey(provider)
+            aiAgentRepository.resetConversation()
+        }
+    }
+
+    fun loadAgentModels(provider: String, baseUrl: String, apiKey: String?) {
+        viewModelScope.launch {
+            _agentModelsLoading.value = true
+            _agentModelsError.value = null
+            try {
+                val storedKey = apiKey?.takeIf { it.isNotBlank() }
+                    ?: themePreferencesStore.readAgentApiKey(provider)
+                _agentModels.value = agentModelCatalogRepository.loadModels(provider, baseUrl, storedKey)
+                if (_agentModels.value.isEmpty()) _agentModelsError.value = "Aucun modèle de texte disponible pour ce fournisseur."
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _agentModelsError.value = e.localizedMessage ?: "Impossible de charger les modèles."
+                _agentModels.value = emptyList()
+            } finally {
+                _agentModelsLoading.value = false
+            }
+        }
+    }
+
+    fun clearAgentUsage() {
+        viewModelScope.launch { themePreferencesStore.clearAgentUsage() }
     }
 
     fun clearAgentConversation() {
@@ -1172,7 +1377,7 @@ class StudyViewModel(
 
     private fun welcomeAgentMessage() = AgentChatMessage(
         isUser = false,
-        text = "Bonjour ! Je suis Light Agent. Je peux consulter ou créer vos tâches, valider vos devoirs, ajouter une matière L3, changer le thème dégradé ou lancer votre minuteur Focus."
+        text = "Bonjour ! Je suis Light, votre assistant de travail. Je peux consulter et organiser votre planning, gérer les tâches et les matières, lancer Focus, ou appliquer vos compétences personnalisées. Choisissez mes capacités et mon niveau de réflexion avec l’icône de réglages."
     )
 
     private fun unwrapFirestoreError(error: Throwable): FirebaseFirestoreException? =

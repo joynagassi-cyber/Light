@@ -30,60 +30,60 @@ val LightTypography = Typography(
     displaySmall = TextStyle(
         fontFamily = PlusJakartaFamily,
         fontWeight = FontWeight.Bold,
-        fontSize = 34.sp,
+        fontSize = LightTypeScale.display,
         lineHeight = 40.sp,
         letterSpacing = (-0.8).sp
     ),
     headlineMedium = TextStyle(
         fontFamily = PlusJakartaFamily,
         fontWeight = FontWeight.Bold,
-        fontSize = 26.sp,
-        lineHeight = 32.sp,
+        fontSize = 28.sp,
+        lineHeight = 36.sp,
         letterSpacing = (-0.5).sp
     ),
     headlineSmall = TextStyle(
         fontFamily = PlusJakartaFamily,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 20.sp,
-        lineHeight = 26.sp,
+        fontSize = LightTypeScale.title,
+        lineHeight = 32.sp,
         letterSpacing = (-0.3).sp
     ),
     titleLarge = TextStyle(
         fontFamily = PlusJakartaFamily,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 18.sp,
-        lineHeight = 24.sp,
+        fontSize = LightTypeScale.lead,
+        lineHeight = 28.sp,
         letterSpacing = (-0.2).sp
     ),
     titleMedium = TextStyle(
         fontFamily = PlusJakartaFamily,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 16.sp,
-        lineHeight = 22.sp
+        fontSize = 18.sp,
+        lineHeight = 24.sp
     ),
     titleSmall = TextStyle(
         fontFamily = PlusJakartaFamily,
         fontWeight = FontWeight.Medium,
-        fontSize = 14.sp,
-        lineHeight = 20.sp
+        fontSize = 16.sp,
+        lineHeight = 22.sp
     ),
     bodyLarge = TextStyle(
         fontFamily = InterFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = 15.sp,
-        lineHeight = 22.sp
+        fontSize = LightTypeScale.body,
+        lineHeight = 24.sp
     ),
     bodyMedium = TextStyle(
         fontFamily = InterFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = 14.sp,
-        lineHeight = 20.sp
+        fontSize = LightTypeScale.body,
+        lineHeight = 24.sp
     ),
     bodySmall = TextStyle(
         fontFamily = InterFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = 12.sp,
-        lineHeight = 16.sp
+        fontSize = LightTypeScale.small,
+        lineHeight = 20.sp
     ),
     labelLarge = TextStyle(
         fontFamily = PlusJakartaFamily,
@@ -100,7 +100,7 @@ val LightTypography = Typography(
     labelSmall = TextStyle(
         fontFamily = InterFamily,
         fontWeight = FontWeight.Medium,
-        fontSize = 11.sp,
-        lineHeight = 14.sp
+        fontSize = LightTypeScale.micro,
+        lineHeight = 16.sp
     )
 )

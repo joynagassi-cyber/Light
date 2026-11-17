@@ -8,6 +8,7 @@ import com.example.data.model.HabitCategory
 import com.example.data.model.NotificationFrequency
 import com.example.data.model.StudyCountdown
 import com.example.data.model.StudyHabit
+import com.example.data.model.StudyProject
 import com.example.data.model.StudyTask
 import com.example.data.model.TaskCategory
 import com.example.data.model.UserGender
@@ -31,6 +32,7 @@ class LocalTestStudyRepository : StudyWorkspaceRepository {
     private val profileFlow = MutableStateFlow<UserProfile?>(null)
     private val coursesFlow = MutableStateFlow<List<Course>>(emptyList())
     private val tasksFlow = MutableStateFlow<List<StudyTask>>(emptyList())
+    private val projectsFlow = MutableStateFlow<List<StudyProject>>(emptyList())
     private val sessionsFlow = MutableStateFlow<List<FocusSession>>(emptyList())
     private val habitsFlow = MutableStateFlow<List<StudyHabit>>(emptyList())
     private val countdownsFlow = MutableStateFlow<List<StudyCountdown>>(emptyList())
@@ -49,6 +51,9 @@ class LocalTestStudyRepository : StudyWorkspaceRepository {
                     .thenBy { it.scheduledTime }
             )
         }
+
+    override fun observeProjects(userId: String): Flow<List<StudyProject>> =
+        projectsFlow.map { list -> list.sortedBy { project -> project.dueDateIso } }
 
     override fun observeFocusSessions(userId: String): Flow<List<FocusSession>> =
         sessionsFlow.map { list -> list.reversed() }
@@ -89,12 +94,12 @@ class LocalTestStudyRepository : StudyWorkspaceRepository {
 
         if (coursesFlow.value.isEmpty()) {
             coursesFlow.value = listOf(
-                Course("gl301", userId, "GL-301", "Architecture Logicielle & Design Patterns", "Prof. Laurent", 0L, 1440L, 620L, 16.5),
-                Course("gl302", userId, "GL-302", "Systèmes Distribués & Cloud", "Prof. Moreau", 1L, 1200L, 480L, 15.2),
-                Course("gl303", userId, "GL-303", "Bases de Données Avancées & NoSQL", "Prof. Benali", 2L, 1080L, 540L, 17.0),
-                Course("gl304", userId, "GL-304", "Algorithmique & Graphes", "Prof. Chen", 3L, 1320L, 710L, 16.0),
-                Course("gl305", userId, "GL-305", "Génie des Exigences & DevOps CI/CD", "Prof. Dupuis", 4L, 960L, 350L, 15.8),
-                Course("gl306", userId, "GL-306", "Systèmes d'Exploitation & Concurrence", "Prof. Girard", 5L, 1200L, 420L, 14.8)
+                Course("gl301", userId, "GL-301", "Architecture Logicielle & Design Patterns", "Prof. Laurent", 0L, 1440L, 620L, 16.5, iconKey = "code"),
+                Course("gl302", userId, "GL-302", "Systèmes Distribués & Cloud", "Prof. Moreau", 1L, 1200L, 480L, 15.2, iconKey = "network"),
+                Course("gl303", userId, "GL-303", "Bases de Données Avancées & NoSQL", "Prof. Benali", 2L, 1080L, 540L, 17.0, iconKey = "database"),
+                Course("gl304", userId, "GL-304", "Algorithmique & Graphes", "Prof. Chen", 3L, 1320L, 710L, 16.0, iconKey = "math-symbols"),
+                Course("gl305", userId, "GL-305", "Génie des Exigences & DevOps CI/CD", "Prof. Dupuis", 4L, 960L, 350L, 15.8, iconKey = "sparkles"),
+                Course("gl306", userId, "GL-306", "Systèmes d'Exploitation & Concurrence", "Prof. Girard", 5L, 1200L, 420L, 14.8, iconKey = "device-laptop")
             )
         }
 
@@ -324,7 +329,8 @@ class LocalTestStudyRepository : StudyWorkspaceRepository {
         professor: String,
         colorIndex: Long,
         targetMinutes: Long,
-        grade: Double
+        grade: Double,
+        iconKey: String
     ): String {
         val id = UUID.randomUUID().toString()
         val course = Course(
@@ -336,7 +342,8 @@ class LocalTestStudyRepository : StudyWorkspaceRepository {
             colorIndex = colorIndex.coerceIn(0L, 15L),
             targetMinutes = targetMinutes.coerceIn(30L, 60000L),
             completedMinutes = 0L,
-            grade = grade.coerceIn(0.0, 20.0)
+            grade = grade.coerceIn(0.0, 20.0),
+            iconKey = iconKey.trim().ifEmpty { "book" }.take(40)
         )
         coursesFlow.update { it + course }
         return id
@@ -354,6 +361,34 @@ class LocalTestStudyRepository : StudyWorkspaceRepository {
         coursesFlow.update { list -> list.filterNot { it.id == courseId } }
     }
 
+    override suspend fun createProject(userId: String, title: String, description: String, startDateIso: String, dueDateIso: String): String {
+        val start = LocalDate.parse(startDateIso)
+        val due = LocalDate.parse(dueDateIso)
+        require(title.isNotBlank() && !due.isBefore(start))
+        val project = StudyProject(
+            id = UUID.randomUUID().toString(),
+            userId = userId,
+            title = title.trim().take(120),
+            description = description.trim().take(500),
+            startDateIso = start.toString(),
+            dueDateIso = due.toString()
+        )
+        projectsFlow.update { it + project }
+        return project.id
+    }
+
+    override suspend fun updateProject(project: StudyProject) {
+        val start = LocalDate.parse(project.startDateIso)
+        val due = LocalDate.parse(project.dueDateIso)
+        require(project.title.isNotBlank() && !due.isBefore(start) && project.status in setOf("active", "on_hold", "completed"))
+        projectsFlow.update { list -> list.map { if (it.id == project.id) project else it } }
+    }
+
+    override suspend fun deleteProject(userId: String, projectId: String) {
+        projectsFlow.update { it.filterNot { project -> project.id == projectId } }
+        tasksFlow.update { tasks -> tasks.map { if (it.projectId == projectId) it.copy(projectId = "") else it } }
+    }
+
     override suspend fun createTask(
         userId: String,
         courseId: String,
@@ -366,8 +401,12 @@ class LocalTestStudyRepository : StudyWorkspaceRepository {
         category: String,
         estimatedMinutes: Long,
         aiGenerated: Boolean,
-        quadrant: Long?
+        quadrant: Long?,
+        startDateIso: String,
+        projectId: String
     ): String {
+        val project = projectsFlow.value.firstOrNull { it.id == projectId }
+        require(projectId.isBlank() || project != null) { "Le projet sélectionné n'existe plus." }
         val id = UUID.randomUUID().toString()
         val safePriority = if (priority in listOf("high", "medium", "low")) priority else "medium"
         val task = StudyTask(
@@ -378,6 +417,8 @@ class LocalTestStudyRepository : StudyWorkspaceRepository {
             title = title.trim().take(140),
             notes = notes.trim().take(500),
             dueDateIso = dueDateIso.trim().take(20),
+            startDateIso = startDateIso.trim().take(20).ifBlank { dueDateIso.trim().take(20) },
+            projectId = projectId,
             scheduledTime = scheduledTime.trim().take(20),
             priority = safePriority,
             category = TaskCategory.sanitizeKey(category),
@@ -400,6 +441,7 @@ class LocalTestStudyRepository : StudyWorkspaceRepository {
                 priority = safePriority,
                 category = TaskCategory.sanitizeKey(task.category),
                 estimatedMinutes = task.estimatedMinutes.coerceIn(5L, 600L),
+                startDateIso = task.startDateIso.ifBlank { task.dueDateIso },
                 completed = false
             )
         }

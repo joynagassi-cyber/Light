@@ -28,7 +28,7 @@ import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.SelfImprovement
 import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material.icons.rounded.SmartToy
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -47,13 +47,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.ui.components.AppleCard
 import com.example.ui.theme.AppleAmber
-import com.example.ui.theme.AppleDivider
 import com.example.ui.theme.AppleEmerald
 import com.example.ui.theme.AppleIndigo
 import com.example.ui.theme.AppleRose
 import com.example.ui.theme.AppleSky
-import com.example.ui.theme.AppleTextPrimary
-import com.example.ui.theme.AppleTextSecondary
 import com.example.ui.theme.LocalLightGradient
 
 enum class MoreSubPage(
@@ -61,12 +58,13 @@ enum class MoreSubPage(
     val title: String,
     val subtitle: String
 ) {
-    AGENT("agent", "Light Agent IA", "Discutez et pilotez votre planning par commandes"),
-    PROGRESS("progress", "Progrès & Bilan", "Graphiques, objectifs, bilans et répartition"),
-    HABITS("habits", "Suivi des habitudes", "Rituels quotidiens, séries & galerie bien-être"),
-    COUNTDOWN("countdown", "Compte à rebours", "Souvenez-vous de chaque jour spécial"),
-    SEARCH("search", "Rechercher", "Effectuez facilement une recherche rapide"),
-    SETTINGS("settings", "Paramètres", "Thèmes dégradés, Focus, Audio & Sync Cloud")
+    AGENT("agent", "Assistant Light", "Préparez et ajustez votre planning par commandes"),
+    PROGRESS("progress", "Progression", "Objectifs, temps de concentration et résultats"),
+    HABITS("habits", "Habitudes & routines", "Rituels, séries et suivi quotidien"),
+    COUNTDOWN("countdown", "Échéances & jalons", "Examens, projets et dates importantes"),
+    SEARCH("search", "Rechercher", "Tâches, cours, habitudes et échéances"),
+    PROJECTS("projects", "Planning Gantt", "Tâches, matières, jalons et échéances"),
+    SETTINGS("settings", "Paramètres", "Profil, apparence, notifications et compte")
 }
 
 private data class IndexedPageRow(
@@ -90,7 +88,7 @@ fun MoreHubScreen(
     val indexedPages = listOf(
         IndexedPageRow(
             page = MoreSubPage.AGENT,
-            icon = Icons.Rounded.SmartToy,
+            icon = Icons.Rounded.AutoAwesome,
             color = gradient.accentColor,
             badge = "IA"
         ),
@@ -118,6 +116,12 @@ fun MoreHubScreen(
             badge = if (pendingTasksCount > 0) "$pendingTasksCount" else null
         ),
         IndexedPageRow(
+            page = MoreSubPage.PROJECTS,
+            icon = Icons.Rounded.DateRange,
+            color = AppleIndigo,
+            badge = if (pendingTasksCount > 0) "$pendingTasksCount" else null
+        ),
+        IndexedPageRow(
             page = MoreSubPage.SETTINGS,
             icon = Icons.Rounded.Settings,
             color = AppleAmber
@@ -139,22 +143,22 @@ fun MoreHubScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Plus & Pages indexées",
+                        text = "Explorer",
                         style = MaterialTheme.typography.headlineMedium,
-                        color = AppleTextPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Accès rapide à tous vos modules Light",
+                        text = "Vos outils de planification et de suivi réunis au même endroit.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = AppleTextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
                 Surface(
                     onClick = onOpenGradientPicker,
                     shape = CircleShape,
-                    color = Color.White,
-                    border = BorderStroke(0.8.dp, AppleDivider),
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
                     shadowElevation = 2.dp,
                     modifier = Modifier
                         .size(48.dp)
@@ -180,10 +184,10 @@ fun MoreHubScreen(
                 contentPadding = PaddingValues(vertical = 8.dp)
             ) {
                 Text(
-                    text = "PAGES INDEXÉES",
+                    text = "OUTILS & ESPACES",
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
-                    color = AppleTextSecondary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                 )
 
@@ -216,12 +220,12 @@ fun MoreHubScreen(
                             Text(
                                 text = row.page.title,
                                 style = MaterialTheme.typography.titleSmall,
-                                color = AppleTextPrimary
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 text = row.page.subtitle,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = AppleTextSecondary,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -245,13 +249,13 @@ fun MoreHubScreen(
                         Icon(
                             imageVector = Icons.Rounded.ChevronRight,
                             contentDescription = "Ouvrir ${row.page.title}",
-                            tint = AppleTextSecondary,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(18.dp)
                         )
                     }
                     if (idx < indexedPages.lastIndex) {
                         HorizontalDivider(
-                            color = AppleDivider.copy(alpha = 0.7f),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f),
                             modifier = Modifier.padding(start = 68.dp, end = 16.dp)
                         )
                     }
@@ -259,56 +263,6 @@ fun MoreHubScreen(
             }
         }
 
-        // Tab Bar Structure Card (matching reference "Barre d'onglets" screenshot)
-        item {
-            AppleCard(
-                modifier = Modifier.fillMaxWidth(),
-                cornerRadius = 24.dp,
-                contentPadding = PaddingValues(16.dp)
-            ) {
-                Text(
-                    text = "BARRE D'ONGLETS (5 ICÔNES)",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = AppleTextSecondary
-                )
-                Spacer(modifier = Modifier.height(10.dp))
 
-                val pinned = listOf(
-                    Triple(Icons.Rounded.Home, "1 · Accueil", "Tâches du jour & cours L3"),
-                    Triple(Icons.Rounded.CalendarMonth, "2 · Calendrier", "6 vues rangées sous le menu ⋮"),
-                    Triple(Icons.Rounded.Timer, "3 · Focus", "Pomodoro, Chronomètre & Audio"),
-                    Triple(Icons.Rounded.GridView, "4 · Matrice d'Eisenhower", "Urgence & importance en 4 quadrants")
-                )
-
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    pinned.forEach { (icon, title, desc) ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Icon(
-                                imageVector = icon,
-                                contentDescription = null,
-                                tint = gradient.accentColor,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Column {
-                                Text(
-                                    text = title,
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = AppleTextPrimary
-                                )
-                                Text(
-                                    text = desc,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = AppleTextSecondary
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
     }
 }

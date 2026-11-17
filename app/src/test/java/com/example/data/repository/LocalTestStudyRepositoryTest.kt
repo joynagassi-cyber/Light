@@ -65,8 +65,70 @@ class LocalTestStudyRepositoryTest {
             dueDateIso = "2026-11-16",
             scheduledTime = "15:00",
             priority = "high",
-            estimatedMinutes = 45L
+            estimatedMinutes = 45L,
+            startDateIso = "2026-11-10"
         )
-        assertTrue(repo.observeTasks(uid).first().any { it.id == taskId })
+        assertTrue(repo.observeTasks(uid).first().any { it.id == taskId && it.startDateIso == "2026-11-10" })
     }
+
+    @Test
+    fun courses_storeSelectedIconKeyAndSeedRecognizableSubjectIcons() = runBlocking {
+        val repo = LocalTestStudyRepository()
+        val uid = "icon_test_user"
+        repo.ensureUserProfileAndSeedIfNew(uid, "Icon Test", "icons@local.light")
+
+        val seeded = repo.observeCourses(uid).first()
+        assertEquals("code", seeded.first { it.code == "GL-301" }.iconKey)
+        assertEquals("database", seeded.first { it.code == "GL-303" }.iconKey)
+
+        val courseId = repo.createCourse(
+            userId = uid,
+            code = "BIO-101",
+            title = "Biologie",
+            professor = "",
+            colorIndex = 2L,
+            targetMinutes = 1200L,
+            grade = 15.0,
+            iconKey = "microscope"
+        )
+        assertEquals("microscope", repo.observeCourses(uid).first().first { it.id == courseId }.iconKey)
+    }
+
+    @Test
+    fun localProjects_supportCrudAndDetachLinkedTasksOnDelete() = runBlocking {
+        val repo = LocalTestStudyRepository()
+        val projectId = repo.createProject(
+            userId = "local",
+            title = "Refonte mobile",
+            description = "Livraison progressive",
+            startDateIso = "2026-11-01",
+            dueDateIso = "2026-12-01"
+        )
+        val project = repo.observeProjects("local").first().single()
+        assertEquals(projectId, project.id)
+        assertEquals("active", project.status)
+
+        repo.updateProject(project.copy(title = "Refonte application", status = "on_hold"))
+        assertEquals("on_hold", repo.observeProjects("local").first().single().status)
+
+        val taskId = repo.createTask(
+            userId = "local",
+            courseId = "",
+            courseTitle = "",
+            title = "Prototype écran",
+            notes = "",
+            dueDateIso = "2026-11-20",
+            scheduledTime = "10:00",
+            priority = "medium",
+            estimatedMinutes = 45L,
+            projectId = projectId
+        )
+        assertEquals(projectId, repo.observeTasks("local").first().single { it.id == taskId }.projectId)
+
+        repo.deleteProject("local", projectId)
+        assertTrue(repo.observeProjects("local").first().isEmpty())
+        val detachedTask = repo.observeTasks("local").first().single { it.id == taskId }
+        assertEquals("", detachedTask.projectId)
+    }
+
 }

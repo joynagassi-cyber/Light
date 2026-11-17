@@ -56,9 +56,6 @@ import com.example.data.model.TaskCategory
 import com.example.ui.components.AppleCard
 import com.example.ui.components.TaskCategoryPill
 import com.example.ui.components.accentColor
-import com.example.ui.theme.AppleDivider
-import com.example.ui.theme.AppleTextPrimary
-import com.example.ui.theme.AppleTextSecondary
 import com.example.ui.theme.LocalLightGradient
 import java.time.LocalDate
 import java.util.Locale
@@ -137,14 +134,14 @@ fun SearchScreen(
         item {
             Column {
                 Text(
-                    text = "Rechercher",
+                    text = "Recherche globale",
                     style = MaterialTheme.typography.headlineMedium,
-                    color = AppleTextPrimary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "Effectuez facilement une recherche rapide",
+                    text = "Retrouvez rapidement tâches, cours et habitudes",
                     style = MaterialTheme.typography.bodySmall,
-                    color = AppleTextSecondary
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -152,8 +149,8 @@ fun SearchScreen(
         item {
             Surface(
                 shape = RoundedCornerShape(22.dp),
-                color = Color.White,
-                border = BorderStroke(0.9.dp, Color.White),
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(0.9.dp, MaterialTheme.colorScheme.outlineVariant),
                 shadowElevation = 3.dp,
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -174,7 +171,7 @@ fun SearchScreen(
                                 Icon(
                                     imageVector = Icons.Rounded.Close,
                                     contentDescription = "Effacer la recherche",
-                                    tint = AppleTextSecondary
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
@@ -213,7 +210,7 @@ fun SearchScreen(
                         border = FilterChipDefaults.filterChipBorder(
                             enabled = true,
                             selected = selected,
-                            borderColor = AppleDivider,
+                            borderColor = MaterialTheme.colorScheme.outlineVariant,
                             selectedBorderColor = gradient.accentColor
                         )
                     )
@@ -226,7 +223,7 @@ fun SearchScreen(
                 Text(
                     text = "Tâches (${matchedTasks.size})",
                     style = MaterialTheme.typography.titleSmall,
-                    color = AppleTextSecondary
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             items(matchedTasks.take(15), key = { "task_${it.id}" }) { task ->
@@ -244,7 +241,7 @@ fun SearchScreen(
                             Icon(
                                 imageVector = if (task.completed) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
                                 contentDescription = "Basculer",
-                                tint = if (task.completed) cat.accentColor() else AppleTextSecondary
+                                tint = if (task.completed) cat.accentColor() else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         Column(modifier = Modifier.weight(1f)) {
@@ -253,7 +250,7 @@ fun SearchScreen(
                             Text(
                                 text = task.title,
                                 style = MaterialTheme.typography.titleSmall,
-                                color = if (task.completed) AppleTextSecondary else AppleTextPrimary,
+                                color = if (task.completed) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
                                 textDecoration = if (task.completed) TextDecoration.LineThrough else TextDecoration.None,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -261,7 +258,7 @@ fun SearchScreen(
                             Text(
                                 text = "${task.courseTitle} · ${task.dueDateIso}",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = AppleTextSecondary
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         if (!task.completed) {
@@ -283,7 +280,7 @@ fun SearchScreen(
                 Text(
                     text = "Matières L3 (${matchedCourses.size})",
                     style = MaterialTheme.typography.titleSmall,
-                    color = AppleTextSecondary
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             items(matchedCourses, key = { "course_${it.id}" }) { course ->
@@ -305,12 +302,12 @@ fun SearchScreen(
                             Text(
                                 text = "${course.code} · ${course.title}",
                                 style = MaterialTheme.typography.titleSmall,
-                                color = AppleTextPrimary
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 text = "${course.professor} · ${course.completedMinutes / 60}h / ${course.targetMinutes / 60}h",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = AppleTextSecondary
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -323,7 +320,7 @@ fun SearchScreen(
                 Text(
                     text = "Habitudes (${matchedHabits.size})",
                     style = MaterialTheme.typography.titleSmall,
-                    color = AppleTextSecondary
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             items(matchedHabits, key = { "habit_${it.id}" }) { habit ->
@@ -346,19 +343,19 @@ fun SearchScreen(
                             Text(
                                 text = habit.title,
                                 style = MaterialTheme.typography.titleSmall,
-                                color = AppleTextPrimary
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 text = "Série : ${habit.streakDays}j",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = AppleTextSecondary
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         IconButton(onClick = { onToggleHabitToday(habit) }, modifier = Modifier.size(44.dp)) {
                             Icon(
                                 imageVector = if (done) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
                                 contentDescription = "Valider",
-                                tint = if (done) gradient.accentColor else AppleTextSecondary
+                                tint = if (done) gradient.accentColor else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -371,7 +368,7 @@ fun SearchScreen(
                 Text(
                     text = "Comptes à rebours (${matchedCountdowns.size})",
                     style = MaterialTheme.typography.titleSmall,
-                    color = AppleTextSecondary
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             items(matchedCountdowns, key = { "cd_${it.id}" }) { cd ->
@@ -393,12 +390,12 @@ fun SearchScreen(
                             Text(
                                 text = cd.title,
                                 style = MaterialTheme.typography.titleSmall,
-                                color = AppleTextPrimary
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 text = "Date cible : ${cd.targetDateIso}",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = AppleTextSecondary
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -412,12 +409,12 @@ fun SearchScreen(
                     Text(
                         text = "Aucun résultat pour \"$query\"",
                         style = MaterialTheme.typography.titleSmall,
-                        color = AppleTextPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = "Essayez un mot-clé de matière, de tâche ou une catégorie.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = AppleTextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }

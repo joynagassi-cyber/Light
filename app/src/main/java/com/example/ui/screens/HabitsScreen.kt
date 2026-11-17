@@ -2,6 +2,7 @@ package com.example.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -22,24 +24,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.AutoAwesome
-import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.DeleteOutline
-import androidx.compose.material.icons.rounded.FitnessCenter
 import androidx.compose.material.icons.rounded.LocalFireDepartment
-import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material.icons.rounded.PhonelinkErase
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
-import androidx.compose.material.icons.rounded.RemoveRedEye
-import androidx.compose.material.icons.rounded.SelfImprovement
-import androidx.compose.material.icons.rounded.SentimentSatisfiedAlt
-import androidx.compose.material.icons.rounded.Translate
-import androidx.compose.material.icons.rounded.WaterDrop
-import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -61,32 +53,45 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.data.model.HabitCategory
 import com.example.data.model.StudyHabit
 import com.example.ui.components.AppleCard
+import com.example.ui.components.CatalogColorPicker
+import com.example.ui.components.CatalogIcon
+import com.example.ui.components.CatalogIconPickerSheet
+import com.example.ui.components.catalogIconColor
+import com.example.ui.components.calendarMonthGridDates
 import com.example.ui.components.GradientHeroCard
+import com.example.ui.components.EmptyStateCard
 import com.example.ui.theme.AppleAmber
-import com.example.ui.theme.AppleDivider
 import com.example.ui.theme.AppleEmerald
-import com.example.ui.theme.AppleIndigo
-import com.example.ui.theme.AppleRose
-import com.example.ui.theme.AppleSky
-import com.example.ui.theme.AppleTextPrimary
-import com.example.ui.theme.AppleTextSecondary
 import com.example.ui.theme.LocalLightGradient
 import java.time.LocalDate
+import java.time.YearMonth
+import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
+
+private enum class HabitHistoryMode { WEEK, MONTH }
+
+internal fun completedHabitDatesInMonth(completedDatesIso: Set<String>, month: YearMonth): Set<LocalDate> =
+    completedDatesIso.mapNotNull { value -> runCatching { LocalDate.parse(value) }.getOrNull() }
+        .filter { YearMonth.from(it) == month }
+        .toSet()
 
 private data class HabitPreset(
     val title: String,
@@ -112,33 +117,7 @@ private val HabitGalleryPresets = listOf(
     HabitPreset("Respiration & pleine conscience", "5 min de calme avant les révisions", HabitCategory.MINDSET, "mind", 3L)
 )
 
-private val HabitColors = listOf(
-    AppleIndigo,
-    AppleRose,
-    AppleAmber,
-    AppleEmerald,
-    AppleSky,
-    Color(0xFF7C3AED),
-    Color(0xFFEC4899)
-)
-
-private fun habitBadgeColor(index: Long): Color =
-    HabitColors[(index.toInt()).mod(HabitColors.size)]
-
-private fun habitIcon(iconKey: String): ImageVector = when (iconKey) {
-    "sun" -> Icons.Rounded.WbSunny
-    "moon" -> Icons.Rounded.Bedtime
-    "eye" -> Icons.Rounded.RemoveRedEye
-    "water" -> Icons.Rounded.WaterDrop
-    "smile" -> Icons.Rounded.SentimentSatisfiedAlt
-    "music" -> Icons.Rounded.MusicNote
-    "phone_off" -> Icons.Rounded.PhonelinkErase
-    "book" -> Icons.AutoMirrored.Rounded.MenuBook
-    "language" -> Icons.Rounded.Translate
-    "fitness" -> Icons.Rounded.FitnessCenter
-    "mind" -> Icons.Rounded.SelfImprovement
-    else -> Icons.Rounded.AutoAwesome
-}
+private fun habitBadgeColor(index: Long): Color = catalogIconColor(index)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -153,6 +132,12 @@ fun HabitsScreen(
     val today = remember { LocalDate.now() }
     val todayIso = today.toString()
     val last7Days = remember(today) { (6 downTo 0).map { today.minusDays(it.toLong()) } }
+    var historyMode by rememberSaveable { mutableStateOf(HabitHistoryMode.WEEK) }
+    var monthIso by rememberSaveable { mutableStateOf(YearMonth.from(today).toString()) }
+    val selectedMonth = remember(monthIso) {
+        runCatching { YearMonth.parse(monthIso) }.getOrElse { YearMonth.from(today) }
+    }
+    val selectedMonthDates = remember(selectedMonth) { calendarMonthGridDates(selectedMonth) }
 
     var showGallerySheet by remember { mutableStateOf(false) }
     var showCreateDialog by remember { mutableStateOf(false) }
@@ -174,14 +159,14 @@ fun HabitsScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Suivi des habitudes",
+                        text = "Habitudes & routines",
                         style = MaterialTheme.typography.headlineMedium,
-                        color = AppleTextPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Discipline douce & bien-être étudiant",
+                        text = "Rituels quotidiens, séries et bien-être",
                         style = MaterialTheme.typography.bodySmall,
-                        color = AppleTextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
@@ -229,7 +214,7 @@ fun HabitsScreen(
                         Text(
                             text = "Check-in du jour",
                             style = MaterialTheme.typography.labelLarge,
-                            color = Color.White.copy(alpha = 0.86f)
+                            color = Color.White
                         )
                         Text(
                             text = "$completedToday / ${habits.size} complétées",
@@ -253,31 +238,96 @@ fun HabitsScreen(
             }
         }
 
-        if (habits.isEmpty()) {
-            item {
-                AppleCard(
+        if (habits.isNotEmpty()) {
+            item(key = "habit_history_mode") {
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    onClick = { showGallerySheet = true }
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "Aucune habitude configurée",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = AppleTextPrimary
+                    FilterChip(
+                        selected = historyMode == HabitHistoryMode.WEEK,
+                        onClick = { historyMode = HabitHistoryMode.WEEK },
+                        label = { Text("7 jours") },
+                        modifier = Modifier.testTag("habit_history_week")
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Ouvrez la Galerie pour choisir des rituels Santé, Vie, Sports ou Études.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = AppleTextSecondary
+                    FilterChip(
+                        selected = historyMode == HabitHistoryMode.MONTH,
+                        onClick = { historyMode = HabitHistoryMode.MONTH },
+                        label = { Text("Mois") },
+                        modifier = Modifier.testTag("habit_history_month")
                     )
                 }
+            }
+
+            if (historyMode == HabitHistoryMode.MONTH) {
+                item(key = "habit_month_navigation") {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(
+                            onClick = { monthIso = selectedMonth.minusMonths(1).toString() },
+                            modifier = Modifier.size(40.dp).testTag("habit_previous_month")
+                        ) {
+                            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, contentDescription = "Mois précédent")
+                        }
+                        Text(
+                            selectedMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.FRENCH))
+                                .replaceFirstChar { it.uppercase() },
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(
+                            onClick = { monthIso = selectedMonth.plusMonths(1).toString() },
+                            modifier = Modifier.size(40.dp).testTag("habit_next_month")
+                        ) {
+                            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = "Mois suivant")
+                        }
+                    }
+                }
+                item(key = "habit_month_weekdays") {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Row(Modifier.fillMaxWidth()) {
+                            listOf("Lu", "Ma", "Me", "Je", "Ve", "Sa", "Di").forEach { day ->
+                                Text(
+                                    day,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
+                        Text(
+                            "Cases colorées : validées · cadre : aujourd'hui",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+
+        if (habits.isEmpty()) {
+            item {
+                EmptyStateCard(
+                    title = "Aucune habitude configurée",
+                    description = "Choisissez un rituel Santé, Vie, Sports ou Études pour démarrer.",
+                    actionLabel = "Ouvrir la galerie",
+                    onAction = { showGallerySheet = true }
+                )
             }
         } else {
             items(habits, key = { it.id }) { habit ->
                 HabitTrackerCard(
                     habit = habit,
+                    today = today,
                     todayIso = todayIso,
                     last7Days = last7Days,
+                    historyMode = historyMode,
+                    selectedMonth = selectedMonth,
+                    monthDates = selectedMonthDates,
                     onToggleToday = { onToggleHabitToday(habit) },
                     onDelete = { onDeleteHabit(habit.id) }
                 )
@@ -319,13 +369,20 @@ fun HabitsScreen(
 @Composable
 private fun HabitTrackerCard(
     habit: StudyHabit,
+    today: LocalDate,
     todayIso: String,
     last7Days: List<LocalDate>,
+    historyMode: HabitHistoryMode,
+    selectedMonth: YearMonth,
+    monthDates: List<LocalDate?>,
     onToggleToday: () -> Unit,
     onDelete: () -> Unit
 ) {
     val badgeColor = habitBadgeColor(habit.colorIndex)
     val doneToday = habit.completedDates.contains(todayIso)
+    val monthCompletionDates = remember(habit.completedDates, selectedMonth) {
+        completedHabitDatesInMonth(habit.completedDates, selectedMonth)
+    }
 
     AppleCard(
         modifier = Modifier.fillMaxWidth(),
@@ -344,8 +401,8 @@ private fun HabitTrackerCard(
                     .background(badgeColor.copy(alpha = 0.16f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = habitIcon(habit.iconKey),
+                CatalogIcon(
+                    iconKey = habit.iconKey,
                     contentDescription = null,
                     tint = badgeColor,
                     modifier = Modifier.size(24.dp)
@@ -360,7 +417,7 @@ private fun HabitTrackerCard(
                     Text(
                         text = habit.title,
                         style = MaterialTheme.typography.titleSmall,
-                        color = AppleTextPrimary,
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false)
@@ -393,45 +450,54 @@ private fun HabitTrackerCard(
                     Text(
                         text = habit.subtitle,
                         style = MaterialTheme.typography.bodySmall,
-                        color = AppleTextSecondary,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    last7Days.forEach { d ->
-                        val checked = habit.completedDates.contains(d.toString())
-                        val dayLbl = d.dayOfWeek.getDisplayName(TextStyle.NARROW, Locale.FRENCH).uppercase()
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Box(
-                                modifier = Modifier
-                                    .size(18.dp)
-                                    .clip(CircleShape)
-                                    .background(
-                                        if (checked) badgeColor else badgeColor.copy(alpha = 0.12f)
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (checked) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Check,
-                                        contentDescription = null,
-                                        tint = Color.White,
-                                        modifier = Modifier.size(11.dp)
-                                    )
+                if (historyMode == HabitHistoryMode.WEEK) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        last7Days.forEach { d ->
+                            val checked = habit.completedDates.contains(d.toString())
+                            val dayLbl = d.dayOfWeek.getDisplayName(TextStyle.NARROW, Locale.FRENCH).uppercase()
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(18.dp)
+                                        .clip(CircleShape)
+                                        .background(
+                                            if (checked) badgeColor else badgeColor.copy(alpha = 0.12f)
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (checked) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Check,
+                                            contentDescription = null,
+                                            tint = Color.White,
+                                            modifier = Modifier.size(11.dp)
+                                        )
+                                    }
                                 }
+                                Text(
+                                    text = dayLbl,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
-                            Text(
-                                text = dayLbl,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = AppleTextSecondary
-                            )
                         }
                     }
+                } else {
+                    Text(
+                        "${monthCompletionDates.size}/${selectedMonth.lengthOfMonth()} jours",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = badgeColor,
+                        modifier = Modifier.padding(top = 3.dp)
+                    )
                 }
             }
 
@@ -445,7 +511,7 @@ private fun HabitTrackerCard(
                     Icon(
                         imageVector = if (doneToday) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
                         contentDescription = if (doneToday) "Annuler pour aujourd'hui" else "Valider aujourd'hui",
-                        tint = if (doneToday) badgeColor else AppleTextSecondary,
+                        tint = if (doneToday) badgeColor else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(28.dp)
                     )
                 }
@@ -456,9 +522,62 @@ private fun HabitTrackerCard(
                     Icon(
                         imageVector = Icons.Rounded.DeleteOutline,
                         contentDescription = "Supprimer l'habitude",
-                        tint = AppleTextSecondary,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(18.dp)
                     )
+                }
+            }
+        }
+        if (historyMode == HabitHistoryMode.MONTH) {
+            Spacer(Modifier.height(12.dp))
+            val completedDayTextColor = if (badgeColor.luminance() > 0.45f) Color.Black else Color.White
+            Column(
+                modifier = Modifier.fillMaxWidth().testTag("habit_month_grid_${habit.id}"),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                monthDates.chunked(7).forEach { week ->
+                    Row(Modifier.fillMaxWidth()) {
+                        week.forEach { date ->
+                            if (date == null) {
+                                Spacer(Modifier.weight(1f).height(34.dp))
+                            } else {
+                                val isComplete = date in monthCompletionDates
+                                val isToday = date == today
+                                val isFuture = date.isAfter(today)
+                                val dayDescription = remember(date, isComplete, isToday, isFuture) {
+                                    val label = date.format(DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.FRENCH))
+                                        .replaceFirstChar { it.uppercase() }
+                                    val relative = if (isToday) ", aujourd'hui" else ""
+                                    when {
+                                        isFuture -> "$label, à venir"
+                                        isComplete -> "$label$relative, validée"
+                                        else -> "$label$relative, non validée"
+                                    }
+                                }
+                                Box(
+                                    modifier = Modifier.weight(1f).padding(2.dp).height(34.dp)
+                                        .clip(RoundedCornerShape(9.dp))
+                                        .background(when {
+                                            isComplete -> badgeColor
+                                            isToday -> badgeColor.copy(alpha = 0.22f)
+                                            isFuture -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f)
+                                            else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.62f)
+                                        })
+                                        .then(if (isToday) Modifier.border(1.dp, badgeColor, RoundedCornerShape(9.dp)) else Modifier)
+                                        .semantics(mergeDescendants = true) { contentDescription = dayDescription }
+                                        .testTag("habit_month_day_${habit.id}_$date"),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = date.dayOfMonth.toString(),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = if (isToday || isComplete) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (isComplete) completedDayTextColor else if (isFuture) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -488,7 +607,7 @@ private fun HabitGallerySheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = Color.White,
+        containerColor = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
     ) {
         Column(
@@ -500,12 +619,12 @@ private fun HabitGallerySheet(
             Text(
                 text = "Galerie d'habitudes",
                 style = MaterialTheme.typography.headlineSmall,
-                color = AppleTextPrimary
+                color = MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = "Choisissez un rituel ou créez le vôtre",
                 style = MaterialTheme.typography.bodySmall,
-                color = AppleTextSecondary
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -543,8 +662,8 @@ private fun HabitGallerySheet(
                     val alreadyAdded = existingTitles.contains(preset.title.lowercase())
                     Surface(
                         shape = RoundedCornerShape(18.dp),
-                        color = Color(0xFFF6F7FB),
-                        border = BorderStroke(0.8.dp, AppleDivider),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                        border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
@@ -559,8 +678,8 @@ private fun HabitGallerySheet(
                                     .background(badgeColor.copy(alpha = 0.16f)),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(
-                                    imageVector = habitIcon(preset.iconKey),
+                                CatalogIcon(
+                                    iconKey = preset.iconKey,
                                     contentDescription = null,
                                     tint = badgeColor,
                                     modifier = Modifier.size(22.dp)
@@ -570,12 +689,12 @@ private fun HabitGallerySheet(
                                 Text(
                                     text = preset.title,
                                     style = MaterialTheme.typography.titleSmall,
-                                    color = AppleTextPrimary
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
                                     text = preset.subtitle,
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = AppleTextSecondary,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 2
                                 )
                             }
@@ -626,15 +745,17 @@ private fun CreateHabitDialog(
     var category by remember { mutableStateOf(HabitCategory.STUDY) }
     var iconKey by remember { mutableStateOf("sparkles") }
     var colorIndex by remember { mutableLongStateOf(0L) }
-
-    val iconOptions = listOf("sparkles", "sun", "eye", "book", "fitness", "mind", "music", "water")
+    var showIconPicker by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = Color.White,
+        containerColor = MaterialTheme.colorScheme.surface,
         title = { Text("Nouvelle habitude") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(
+                modifier = Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
@@ -666,38 +787,34 @@ private fun CreateHabitDialog(
                     }
                 }
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    iconOptions.forEachIndexed { idx, key ->
-                        val selected = iconKey == key
-                        val col = habitBadgeColor(idx.toLong())
-                        Surface(
-                            onClick = {
-                                iconKey = key
-                                colorIndex = idx.toLong()
-                            },
-                            shape = CircleShape,
-                            color = if (selected) col.copy(alpha = 0.22f) else Color(0xFFF3F4F8),
-                            border = BorderStroke(
-                                if (selected) 1.5.dp else 0.8.dp,
-                                if (selected) col else AppleDivider
-                            ),
-                            modifier = Modifier.size(42.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = habitIcon(key),
-                                    contentDescription = key,
-                                    tint = col,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = habitBadgeColor(colorIndex).copy(alpha = 0.14f),
+                        modifier = Modifier.size(42.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            CatalogIcon(
+                                iconKey = iconKey,
+                                contentDescription = null,
+                                tint = habitBadgeColor(colorIndex),
+                                modifier = Modifier.size(22.dp)
+                            )
                         }
                     }
+                    OutlinedButton(onClick = { showIconPicker = true }) {
+                        Text("Parcourir les icônes")
+                    }
                 }
+                Text("Couleur", style = MaterialTheme.typography.labelMedium)
+                CatalogColorPicker(
+                    selectedIndex = colorIndex,
+                    onColorSelected = { colorIndex = it },
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         },
         confirmButton = {
@@ -714,8 +831,16 @@ private fun CreateHabitDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Annuler", color = AppleTextSecondary)
+                Text("Annuler", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     )
+    if (showIconPicker) {
+        CatalogIconPickerSheet(
+            selectedIconKey = iconKey,
+            selectedColor = habitBadgeColor(colorIndex),
+            onIconSelected = { iconKey = it },
+            onDismiss = { showIconPicker = false }
+        )
+    }
 }

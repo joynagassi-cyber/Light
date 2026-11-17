@@ -54,6 +54,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
@@ -64,10 +65,9 @@ import com.example.audio.AudioCategory
 import com.example.audio.FocusAudioCatalog
 import com.example.audio.FocusAudioTrack
 import com.example.ui.FocusAudioUiState
-import com.example.ui.theme.AppleDivider
-import com.example.ui.theme.AppleTextPrimary
-import com.example.ui.theme.AppleTextSecondary
 import com.example.ui.theme.LocalLightGradient
+import com.example.ui.theme.appBrush
+import com.example.ui.theme.appVerticalBrush
 import kotlin.math.roundToInt
 
 @Composable
@@ -77,9 +77,15 @@ fun FocusAudioCard(
     onTogglePlayPause: () -> Unit,
     onVolumeChange: (Float) -> Unit,
     onToggleAutoPlay: (Boolean) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    accentColor: Color? = null,
+    softContainerColor: Color? = null,
+    activeBrush: Brush? = null
 ) {
     val gradient = LocalLightGradient.current
+    val accent = accentColor ?: gradient.accentColor
+    val softContainer = softContainerColor ?: gradient.softContainer
+    val playingBrush = activeBrush ?: gradient.appBrush()
     var selectedCategory by remember { mutableStateOf(AudioCategory.ALL) }
 
     val filteredTracks = remember(selectedCategory) {
@@ -106,8 +112,8 @@ fun FocusAudioCard(
                     .size(44.dp)
                     .clip(RoundedCornerShape(14.dp))
                     .background(
-                        if (audioState.isPlaying) gradient.linearBrush()
-                        else BrushBackgroundFallback(gradient.softContainer)
+                        if (audioState.isPlaying) playingBrush
+                        else BrushBackgroundFallback(softContainer)
                     ),
                 contentAlignment = Alignment.Center
             ) {
@@ -117,7 +123,7 @@ fun FocusAudioCard(
                     Icon(
                         imageVector = Icons.Rounded.Headphones,
                         contentDescription = null,
-                        tint = gradient.accentColor,
+                        tint = accent,
                         modifier = Modifier.size(22.dp)
                     )
                 }
@@ -128,7 +134,7 @@ fun FocusAudioCard(
                     text = "Ambiance sonore & Lo-Fi",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = AppleTextPrimary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = if (audioState.isPlaying) {
@@ -137,7 +143,7 @@ fun FocusAudioCard(
                         "${audioState.selectedTrack.title} · En pause"
                     },
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (audioState.isPlaying) gradient.accentColor else AppleTextSecondary,
+                    color = if (audioState.isPlaying) accent else MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -146,7 +152,7 @@ fun FocusAudioCard(
             Surface(
                 onClick = onTogglePlayPause,
                 shape = CircleShape,
-                color = if (audioState.isPlaying) gradient.accentColor else gradient.softContainer,
+                color = if (audioState.isPlaying) accent else softContainer,
                 modifier = Modifier
                     .size(48.dp)
                     .testTag("audio_play_pause_button")
@@ -155,7 +161,7 @@ fun FocusAudioCard(
                     Icon(
                         imageVector = if (audioState.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                         contentDescription = if (audioState.isPlaying) "Mettre l'audio en pause" else "Lire la piste audio",
-                        tint = if (audioState.isPlaying) Color.White else gradient.accentColor,
+                        tint = if (audioState.isPlaying) Color.White else accent,
                         modifier = Modifier.size(24.dp)
                     )
                 }
@@ -178,14 +184,14 @@ fun FocusAudioCard(
                     onClick = { selectedCategory = cat },
                     label = { Text(cat.label) },
                     colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = gradient.softContainer,
-                        selectedLabelColor = gradient.accentColor
+                        selectedContainerColor = softContainer,
+                        selectedLabelColor = accent
                     ),
                     border = FilterChipDefaults.filterChipBorder(
                         enabled = true,
                         selected = isSelected,
-                        borderColor = AppleDivider,
-                        selectedBorderColor = gradient.accentColor
+                        borderColor = MaterialTheme.colorScheme.outlineVariant,
+                        selectedBorderColor = accent
                     ),
                     modifier = Modifier.testTag("audio_category_${cat.name.lowercase()}")
                 )
@@ -212,13 +218,13 @@ fun FocusAudioCard(
                         .testTag("audio_track_${track.id}"),
                     shape = RoundedCornerShape(18.dp),
                     color = when {
-                        isPlayingThis -> gradient.softContainer
-                        isSelected -> gradient.softContainer.copy(alpha = 0.65f)
-                        else -> Color(0xFFF6F7FB)
+                        isPlayingThis -> softContainer
+                        isSelected -> softContainer.copy(alpha = 0.65f)
+                        else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
                     },
                     border = BorderStroke(
                         width = if (isSelected) 1.4.dp else 0.8.dp,
-                        color = if (isSelected) gradient.accentColor else AppleDivider
+                        color = if (isSelected) accent else MaterialTheme.colorScheme.outlineVariant
                     )
                 ) {
                     Column(
@@ -235,7 +241,7 @@ fun FocusAudioCard(
                                     .size(32.dp)
                                     .clip(RoundedCornerShape(10.dp))
                                     .background(
-                                        if (isSelected) gradient.accentColor
+                                        if (isSelected) accent
                                         else Color.White
                                     ),
                                 contentAlignment = Alignment.Center
@@ -243,18 +249,18 @@ fun FocusAudioCard(
                                 Icon(
                                     imageVector = track.icon(),
                                     contentDescription = null,
-                                    tint = if (isSelected) Color.White else gradient.accentColor,
+                                    tint = if (isSelected) Color.White else accent,
                                     modifier = Modifier.size(18.dp)
                                 )
                             }
                             Surface(
                                 shape = CircleShape,
-                                color = if (isSelected) Color.White else gradient.softContainer
+                                color = if (isSelected) Color.White else softContainer
                             ) {
                                 Text(
                                     text = track.category.label,
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = gradient.accentColor,
+                                    color = accent,
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                                 )
                             }
@@ -264,14 +270,14 @@ fun FocusAudioCard(
                             text = track.title,
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
-                            color = AppleTextPrimary,
+                            color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
                             text = track.subtitle,
                             style = MaterialTheme.typography.labelSmall,
-                            color = AppleTextSecondary,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -291,7 +297,7 @@ fun FocusAudioCard(
             Icon(
                 imageVector = Icons.AutoMirrored.Rounded.VolumeDown,
                 contentDescription = "Volume minimum",
-                tint = AppleTextSecondary,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(20.dp)
             )
             Slider(
@@ -299,9 +305,9 @@ fun FocusAudioCard(
                 onValueChange = onVolumeChange,
                 valueRange = 0f..1f,
                 colors = SliderDefaults.colors(
-                    thumbColor = gradient.accentColor,
-                    activeTrackColor = gradient.accentColor,
-                    inactiveTrackColor = gradient.softContainer
+                    thumbColor = accent,
+                    activeTrackColor = accent,
+                    inactiveTrackColor = softContainer
                 ),
                 modifier = Modifier
                     .weight(1f)
@@ -310,13 +316,13 @@ fun FocusAudioCard(
             Icon(
                 imageVector = Icons.AutoMirrored.Rounded.VolumeUp,
                 contentDescription = "Volume maximum",
-                tint = gradient.accentColor,
+                tint = accent,
                 modifier = Modifier.size(20.dp)
             )
             Text(
                 text = "${(audioState.volume * 100).roundToInt()}%",
                 style = MaterialTheme.typography.labelSmall,
-                color = AppleTextSecondary,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.width(34.dp)
             )
         }
@@ -332,12 +338,12 @@ fun FocusAudioCard(
                     text = "Lancer automatiquement avec Focus",
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.Medium,
-                    color = AppleTextPrimary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = "Synchronise la lecture avec Démarrer / Pause",
                     style = MaterialTheme.typography.labelSmall,
-                    color = AppleTextSecondary
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             Switch(
@@ -345,7 +351,7 @@ fun FocusAudioCard(
                 onCheckedChange = onToggleAutoPlay,
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = Color.White,
-                    checkedTrackColor = gradient.accentColor
+                    checkedTrackColor = accent
                 ),
                 modifier = Modifier.testTag("audio_autoplay_switch")
             )

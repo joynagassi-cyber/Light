@@ -34,9 +34,7 @@ import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.Schedule
-import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material.icons.rounded.SmartToy
 import androidx.compose.material.icons.rounded.TaskAlt
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -56,6 +54,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -69,18 +68,19 @@ import com.example.data.model.TaskCategory
 import com.example.data.model.UserProfile
 import com.example.data.model.adaptation
 import com.example.ui.components.AppleCard
+import com.example.ui.components.CatalogIcon
+import com.example.ui.components.catalogIconColor
 import com.example.ui.components.GradientHeroCard
-import com.example.ui.components.SyncStatusPill
+import com.example.ui.components.EmptyStateCard
 import com.example.ui.components.TaskCategoryPill
 import com.example.ui.components.accentColor
 import com.example.ui.theme.AppleAmber
-import com.example.ui.theme.AppleDivider
 import com.example.ui.theme.AppleEmerald
 import com.example.ui.theme.AppleRose
 import com.example.ui.theme.AppleSky
-import com.example.ui.theme.AppleTextPrimary
-import com.example.ui.theme.AppleTextSecondary
 import com.example.ui.theme.LocalLightGradient
+import com.example.ui.theme.appBrush
+import com.example.ui.theme.appVerticalBrush
 import java.time.LocalDate
 import java.util.Locale
 
@@ -119,20 +119,14 @@ fun HomeDashboardScreen(
         .sumOf { it.durationMinutes }
     val weeklyHoursText = "${weeklyMinutes / 60}h ${(weeklyMinutes % 60).toString().padStart(2, '0')}m"
 
-    val avgGrade = if (courses.isNotEmpty()) {
-        courses.map { it.grade }.average()
-    } else {
-        16.0
-    }
-
     val adapt = profile.adaptation()
     val firstName = profile?.displayName?.trim()?.split(" ")?.firstOrNull()?.takeIf { it.isNotBlank() }
-        ?: adapt.roleLabel
+    val greeting = firstName?.let { "Bonjour, $it" } ?: "Bonjour"
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 28.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp)
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
             Row(
@@ -147,9 +141,9 @@ fun HomeDashboardScreen(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(48.dp)
+                            .size(44.dp)
                             .clip(CircleShape)
-                            .background(gradient.linearBrush())
+                            .background(gradient.appBrush())
                             .padding(2.dp)
                     ) {
                         if (!photoUrl.isNullOrBlank()) {
@@ -173,18 +167,17 @@ fun HomeDashboardScreen(
                         }
                     }
 
-                    Column {
+                    Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
                         Text(
-                            text = "Bonjour, $firstName",
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = AppleTextPrimary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            text = stringResource(R.string.app_name),
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = gradient.accentColor
                         )
                         Text(
-                            text = "${adapt.headerSubtitle} · ${adapt.ageBadge}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = AppleTextSecondary,
+                            text = greeting,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -195,12 +188,11 @@ fun HomeDashboardScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    SyncStatusPill()
                     Surface(
                         onClick = onOpenGradientPicker,
                         shape = CircleShape,
-                        color = Color.White,
-                        border = androidx.compose.foundation.BorderStroke(0.8.dp, AppleDivider),
+                        color = MaterialTheme.colorScheme.surface,
+                        border = androidx.compose.foundation.BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
                         shadowElevation = 2.dp,
                         modifier = Modifier
                             .size(44.dp)
@@ -218,8 +210,8 @@ fun HomeDashboardScreen(
                     Surface(
                         onClick = onOpenSettings,
                         shape = CircleShape,
-                        color = Color.White,
-                        border = androidx.compose.foundation.BorderStroke(0.8.dp, AppleDivider),
+                        color = MaterialTheme.colorScheme.surface,
+                        border = androidx.compose.foundation.BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
                         shadowElevation = 2.dp,
                         modifier = Modifier
                             .size(44.dp)
@@ -229,7 +221,7 @@ fun HomeDashboardScreen(
                             Icon(
                                 imageVector = Icons.Rounded.Settings,
                                 contentDescription = "Ouvrir les paramètres",
-                                tint = AppleTextPrimary,
+                                tint = MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.size(19.dp)
                             )
                         }
@@ -260,7 +252,7 @@ fun HomeDashboardScreen(
                         horizontalArrangement = Arrangement.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.SmartToy,
+                            imageVector = Icons.Rounded.AutoAwesome,
                             contentDescription = null,
                             tint = gradient.accentColor,
                             modifier = Modifier.size(18.dp)
@@ -278,7 +270,7 @@ fun HomeDashboardScreen(
                     onClick = onOpenStopwatch,
                     shape = RoundedCornerShape(16.dp),
                     color = Color.White.copy(alpha = 0.92f),
-                    border = androidx.compose.foundation.BorderStroke(0.8.dp, AppleDivider),
+                    border = androidx.compose.foundation.BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
                     modifier = Modifier
                         .weight(1f)
                         .height(48.dp)
@@ -292,14 +284,14 @@ fun HomeDashboardScreen(
                         Icon(
                             imageVector = Icons.Rounded.AvTimer,
                             contentDescription = null,
-                            tint = AppleTextPrimary,
+                            tint = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = "Chronomètre",
                             style = MaterialTheme.typography.labelLarge,
-                            color = AppleTextPrimary
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }
@@ -317,7 +309,7 @@ fun HomeDashboardScreen(
                         Text(
                             text = "Objectif du jour",
                             style = MaterialTheme.typography.labelLarge,
-                            color = Color.White.copy(alpha = 0.86f)
+                            color = Color.White
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
@@ -374,14 +366,14 @@ fun HomeDashboardScreen(
                     Text(
                         text = adapt.heroQuote,
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.9f),
+                        color = Color.White,
                         modifier = Modifier.weight(1f)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Surface(
                         onClick = onNavigateToPlanner,
                         shape = CircleShape,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.surface,
                         modifier = Modifier.testTag("hero_smart_plan_cta")
                     ) {
                         Row(
@@ -408,53 +400,37 @@ fun HomeDashboardScreen(
         }
 
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    BentoMetricCard(
-                        icon = Icons.Rounded.Book,
-                        iconTint = gradient.accentColor,
-                        iconBg = gradient.softContainer,
-                        value = "${courses.size}",
-                        label = adapt.workspaceSectionTitle,
-                        modifier = Modifier.weight(1f),
-                        onClick = onNavigateToProgress
-                    )
-                    BentoMetricCard(
-                        icon = Icons.Rounded.TaskAlt,
-                        iconTint = AppleEmerald,
-                        iconBg = AppleEmerald.copy(alpha = 0.12f),
-                        value = "${todayTasks.count { !it.completed }}",
-                        label = "À faire aujourd'hui",
-                        modifier = Modifier.weight(1f),
-                        onClick = onNavigateToPlanner
-                    )
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    BentoMetricCard(
-                        icon = Icons.Rounded.Schedule,
-                        iconTint = AppleSky,
-                        iconBg = AppleSky.copy(alpha = 0.12f),
-                        value = weeklyHoursText,
-                        label = "Focus cette semaine",
-                        modifier = Modifier.weight(1f),
-                        onClick = onNavigateToProgress
-                    )
-                    BentoMetricCard(
-                        icon = Icons.Rounded.School,
-                        iconTint = AppleAmber,
-                        iconBg = AppleAmber.copy(alpha = 0.12f),
-                        value = String.format(Locale.FRANCE, "%.1f/20", avgGrade),
-                        label = adapt.metricScoreLabel,
-                        modifier = Modifier.weight(1f),
-                        onClick = onNavigateToProgress
-                    )
-                }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                BentoMetricCard(
+                    icon = Icons.Rounded.Book,
+                    iconTint = gradient.accentColor,
+                    iconBg = gradient.softContainer,
+                    value = "${courses.size}",
+                    label = "Matières",
+                    modifier = Modifier.weight(1f),
+                    onClick = onNavigateToProgress
+                )
+                BentoMetricCard(
+                    icon = Icons.Rounded.TaskAlt,
+                    iconTint = AppleEmerald,
+                    iconBg = AppleEmerald.copy(alpha = 0.12f),
+                    value = "${todayTasks.count { !it.completed }}",
+                    label = "À faire aujourd'hui",
+                    modifier = Modifier.weight(1f),
+                    onClick = onNavigateToPlanner
+                )
+                BentoMetricCard(
+                    icon = Icons.Rounded.Schedule,
+                    iconTint = AppleSky,
+                    iconBg = AppleSky.copy(alpha = 0.12f),
+                    value = weeklyHoursText,
+                    label = "Focus · 7 jours",
+                    modifier = Modifier.weight(1f),
+                    onClick = onNavigateToProgress
+                )
             }
         }
 
@@ -467,7 +443,7 @@ fun HomeDashboardScreen(
                 Text(
                     text = adapt.scheduleSectionTitle,
                     style = MaterialTheme.typography.titleLarge,
-                    color = AppleTextPrimary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -499,22 +475,12 @@ fun HomeDashboardScreen(
 
         if (todayTasks.isEmpty()) {
             item {
-                AppleCard(
-                    modifier = Modifier.fillMaxWidth(),
-                    onClick = onOpenCreateTask
-                ) {
-                    Text(
-                        text = "Journée libre",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = AppleTextPrimary
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Aucune tâche prévue pour aujourd'hui. Appuyez ici pour créer une session d'étude.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = AppleTextSecondary
-                    )
-                }
+                EmptyStateCard(
+                    title = "Journée libre",
+                    description = "Aucune tâche prévue aujourd'hui. Ajoutez-en une pour définir votre prochaine étape.",
+                    actionLabel = "Créer une tâche",
+                    onAction = onOpenCreateTask
+                )
             }
         } else {
             items(todayTasks.take(4), key = { it.id }) { task ->
@@ -535,7 +501,7 @@ fun HomeDashboardScreen(
                 Text(
                     text = adapt.workspaceSectionTitle,
                     style = MaterialTheme.typography.titleLarge,
-                    color = AppleTextPrimary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 TextButton(onClick = onNavigateToProgress) {
                     Text("Détails", color = gradient.accentColor)
@@ -572,17 +538,17 @@ private fun BentoMetricCard(
     AppleCard(
         modifier = modifier,
         onClick = onClick,
-        cornerRadius = 20.dp,
-        contentPadding = PaddingValues(14.dp)
+        cornerRadius = 16.dp,
+        contentPadding = PaddingValues(12.dp)
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Box(
                 modifier = Modifier
-                    .size(38.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .size(32.dp)
+                    .clip(RoundedCornerShape(8.dp))
                     .background(iconBg),
                 contentAlignment = Alignment.Center
             ) {
@@ -590,24 +556,22 @@ private fun BentoMetricCard(
                     imageVector = icon,
                     contentDescription = null,
                     tint = iconTint,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(18.dp)
                 )
             }
-            Column {
-                Text(
-                    text = value,
-                    style = MaterialTheme.typography.titleLarge,
-                    color = AppleTextPrimary,
-                    maxLines = 1
-                )
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = AppleTextSecondary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
@@ -647,7 +611,7 @@ private fun TodayTaskCard(
                 Icon(
                     imageVector = if (task.completed) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
                     contentDescription = if (task.completed) "Marquer comme non terminée" else "Marquer comme terminée",
-                    tint = if (task.completed) categoryColor else AppleTextSecondary,
+                    tint = if (task.completed) categoryColor else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(24.dp)
                 )
             }
@@ -683,7 +647,7 @@ private fun TodayTaskCard(
                 Text(
                     text = task.title,
                     style = MaterialTheme.typography.titleSmall,
-                    color = if (task.completed) AppleTextSecondary else AppleTextPrimary,
+                    color = if (task.completed) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
                     textDecoration = if (task.completed) TextDecoration.LineThrough else TextDecoration.None,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -692,7 +656,7 @@ private fun TodayTaskCard(
                 Text(
                     text = "${task.scheduledTime.ifBlank { "Flexible" }} · ${task.estimatedMinutes} min",
                     style = MaterialTheme.typography.bodySmall,
-                    color = AppleTextSecondary
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
@@ -722,18 +686,9 @@ private fun CourseMiniCard(
     course: Course,
     onClick: () -> Unit
 ) {
-    val gradient = LocalLightGradient.current
     val progress = (course.completedMinutes.toFloat() / course.targetMinutes.coerceAtLeast(1).toFloat())
         .coerceIn(0f, 1f)
-    val paletteColors = listOf(
-        gradient.accentColor,
-        AppleSky,
-        AppleEmerald,
-        AppleAmber,
-        AppleRose,
-        Color(0xFF8B5CF6)
-    )
-    val accent = paletteColors[(course.colorIndex.toInt()).mod(paletteColors.size)]
+    val accent = catalogIconColor(course.colorIndex)
 
     AppleCard(
         modifier = Modifier.width(205.dp),
@@ -750,34 +705,45 @@ private fun CourseMiniCard(
                 shape = RoundedCornerShape(10.dp),
                 color = accent.copy(alpha = 0.14f)
             ) {
-                Text(
-                    text = course.code,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = accent,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                )
+                Row(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(5.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CatalogIcon(
+                        iconKey = course.iconKey,
+                        contentDescription = null,
+                        tint = accent,
+                        modifier = Modifier.size(17.dp)
+                    )
+                    Text(
+                        text = course.code,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = accent
+                    )
+                }
             }
             Text(
                 text = String.format(Locale.FRANCE, "%.1f/20", course.grade),
                 style = MaterialTheme.typography.labelMedium,
-                color = AppleTextSecondary
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
         Spacer(modifier = Modifier.height(10.dp))
         Text(
             text = course.title,
             style = MaterialTheme.typography.titleSmall,
-            color = AppleTextPrimary,
+            color = MaterialTheme.colorScheme.onSurface,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.height(40.dp)
+            modifier = Modifier.height(48.dp)
         )
         Spacer(modifier = Modifier.height(6.dp))
         Text(
             text = course.professor.ifBlank { "Département Info" },
             style = MaterialTheme.typography.bodySmall,
-            color = AppleTextSecondary,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
@@ -796,7 +762,7 @@ private fun CourseMiniCard(
         Text(
             text = "${course.completedMinutes / 60}h / ${course.targetMinutes / 60}h · ${(progress * 100).toInt()}%",
             style = MaterialTheme.typography.labelSmall,
-            color = AppleTextSecondary
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }

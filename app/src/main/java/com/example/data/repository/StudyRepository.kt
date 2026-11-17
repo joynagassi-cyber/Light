@@ -12,6 +12,7 @@ import com.example.data.model.HabitCategory
 import com.example.data.model.NotificationFrequency
 import com.example.data.model.StudyCountdown
 import com.example.data.model.StudyHabit
+import com.example.data.model.StudyProject
 import com.example.data.model.StudyTask
 import com.example.data.model.TaskCategory
 import com.example.data.model.UserGender
@@ -45,6 +46,7 @@ class StudyRepository(
     private fun userDoc(userId: String) = db.collection("users").document(userId)
     private fun coursesCol(userId: String) = userDoc(userId).collection("courses")
     private fun tasksCol(userId: String) = userDoc(userId).collection("tasks")
+    private fun projectsCol(userId: String) = userDoc(userId).collection("projects")
     private fun sessionsCol(userId: String) = userDoc(userId).collection("focusSessions")
     private fun habitsCol(userId: String) = userDoc(userId).collection("habits")
     private fun countdownsCol(userId: String) = userDoc(userId).collection("countdowns")
@@ -109,6 +111,23 @@ class StudyRepository(
                 if (firestoreError == null && error is CancellationException) throw error
                 if (auth.currentUser?.uid == userId) {
                     handleFirestoreError(firestoreError ?: error, OperationType.LIST, "users/$userId/tasks")
+                }
+                throw error
+            }
+
+    override fun observeProjects(userId: String): Flow<List<StudyProject>> =
+        projectsCol(userId).snapshots()
+            .map { snapshot ->
+                snapshot.toObjects(StudyProject::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)
+                    .sortedBy { it.dueDateIso }
+            }
+            .catch { error ->
+                val firestoreError = generateSequence(error) { it.cause }
+                    .filterIsInstance<FirebaseFirestoreException>()
+                    .firstOrNull()
+                if (firestoreError == null && error is CancellationException) throw error
+                if (auth.currentUser?.uid == userId) {
+                    handleFirestoreError(firestoreError ?: error, OperationType.LIST, "users/$userId/projects")
                 }
                 throw error
             }
@@ -214,12 +233,12 @@ class StudyRepository(
 
         val today = LocalDate.now()
         val starterCourses = listOf(
-            CourseSeed("gl301", "GL-301", "Architecture Logicielle & Design Patterns", "Prof. Laurent", 0L, 1440L, 620L, 16.5),
-            CourseSeed("gl302", "GL-302", "Systèmes Distribués & Cloud", "Prof. Moreau", 1L, 1200L, 480L, 15.2),
-            CourseSeed("gl303", "GL-303", "Bases de Données Avancées & NoSQL", "Prof. Benali", 2L, 1080L, 540L, 17.0),
-            CourseSeed("gl304", "GL-304", "Algorithmique & Graphes", "Prof. Chen", 3L, 1320L, 710L, 16.0),
-            CourseSeed("gl305", "GL-305", "Génie des Exigences & DevOps CI/CD", "Prof. Dupuis", 4L, 960L, 350L, 15.8),
-            CourseSeed("gl306", "GL-306", "Systèmes d'Exploitation & Concurrence", "Prof. Girard", 5L, 1200L, 420L, 14.8)
+            CourseSeed("gl301", "GL-301", "Architecture Logicielle & Design Patterns", "Prof. Laurent", 0L, 1440L, 620L, 16.5, "code"),
+            CourseSeed("gl302", "GL-302", "Systèmes Distribués & Cloud", "Prof. Moreau", 1L, 1200L, 480L, 15.2, "network"),
+            CourseSeed("gl303", "GL-303", "Bases de Données Avancées & NoSQL", "Prof. Benali", 2L, 1080L, 540L, 17.0, "database"),
+            CourseSeed("gl304", "GL-304", "Algorithmique & Graphes", "Prof. Chen", 3L, 1320L, 710L, 16.0, "math-symbols"),
+            CourseSeed("gl305", "GL-305", "Génie des Exigences & DevOps CI/CD", "Prof. Dupuis", 4L, 960L, 350L, 15.8, "code"),
+            CourseSeed("gl306", "GL-306", "Systèmes d'Exploitation & Concurrence", "Prof. Girard", 5L, 1200L, 420L, 14.8, "device-laptop")
         )
 
         val batch = db.batch()
@@ -232,6 +251,7 @@ class StudyRepository(
                     "code" to c.code,
                     "title" to c.title,
                     "professor" to c.professor,
+                    "iconKey" to c.iconKey,
                     "colorIndex" to c.colorIndex,
                     "targetMinutes" to c.targetMinutes,
                     "completedMinutes" to c.completedMinutes,
@@ -578,7 +598,8 @@ class StudyRepository(
         professor: String,
         colorIndex: Long,
         targetMinutes: Long,
-        grade: Double
+        grade: Double,
+        iconKey: String
     ): String {
         requireSignedInUid()
         val docRef = coursesCol(userId).document()
@@ -587,6 +608,7 @@ class StudyRepository(
             "code" to code.trim().take(20),
             "title" to title.trim().take(100),
             "professor" to professor.trim().take(80),
+            "iconKey" to iconKey.trim().ifEmpty { "book" }.take(40),
             "colorIndex" to colorIndex.coerceIn(0L, 15L),
             "targetMinutes" to targetMinutes.coerceIn(30L, 60000L),
             "completedMinutes" to 0L,
@@ -634,6 +656,95 @@ class StudyRepository(
         }
     }
 
+    override suspend fun createProject(
+        userId: String,
+        title: String,
+        description: String,
+        startDateIso: String,
+        dueDateIso: String
+    ): String {
+        require(requireSignedInUid() == userId) { "Utilisateur non autorisé." }
+        val safeTitle = title.trim().take(120)
+        require(safeTitle.isNotBlank()) { "Le nom du projet est obligatoire." }
+        val start = LocalDate.parse(startDateIso)
+        val due = LocalDate.parse(dueDateIso)
+        require(!due.isBefore(start)) { "L'échéance doit être postérieure au début." }
+        val docRef = projectsCol(userId).document()
+        try {
+            docRef.set(
+                mapOf(
+                    "userId" to userId,
+                    "title" to safeTitle,
+                    "description" to description.trim().take(500),
+                    "startDateIso" to start.toString(),
+                    "dueDateIso" to due.toString(),
+                    "status" to "active",
+                    "createdAt" to FieldValue.serverTimestamp(),
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+            ).await()
+            return docRef.id
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.CREATE, docRef.path)
+            throw e
+        }
+    }
+
+    override suspend fun updateProject(project: StudyProject) {
+        require(requireSignedInUid() == project.userId) { "Utilisateur non autorisé." }
+        val start = LocalDate.parse(project.startDateIso)
+        val due = LocalDate.parse(project.dueDateIso)
+        require(!due.isBefore(start)) { "L'échéance doit être postérieure au début." }
+        require(project.status in setOf("active", "on_hold", "completed"))
+        val docRef = projectsCol(project.userId).document(project.id)
+        try {
+            docRef.update(
+                mapOf(
+                    "title" to project.title.trim().take(120),
+                    "description" to project.description.trim().take(500),
+                    "startDateIso" to start.toString(),
+                    "dueDateIso" to due.toString(),
+                    "status" to project.status,
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+            ).await()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.UPDATE, docRef.path)
+            throw e
+        }
+    }
+
+    override suspend fun deleteProject(userId: String, projectId: String) {
+        val docRef = projectsCol(userId).document(projectId)
+        try {
+            require(requireSignedInUid() == userId) { "Utilisateur non autorisé." }
+            val linkedTasks = tasksCol(userId).whereEqualTo("projectId", projectId).get().await().documents
+            linkedTasks.chunked(400).forEach { chunk ->
+                val batch = db.batch()
+                chunk.forEach { task ->
+                    batch.update(
+                        task.reference,
+                        mapOf(
+                            "projectId" to "",
+                            "updatedAt" to FieldValue.serverTimestamp()
+                        )
+                    )
+                }
+                batch.commit().await()
+            }
+            docRef.delete().await()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.DELETE, docRef.path)
+            throw e
+        }
+    }
+
     override suspend fun createTask(
         userId: String,
         courseId: String,
@@ -646,9 +757,16 @@ class StudyRepository(
         category: String,
         estimatedMinutes: Long,
         aiGenerated: Boolean,
-        quadrant: Long?
+        quadrant: Long?,
+        startDateIso: String,
+        projectId: String
     ): String {
-        requireSignedInUid()
+        require(requireSignedInUid() == userId) { "Utilisateur non autorisé." }
+        val safeProjectId = projectId.trim().take(128)
+        if (safeProjectId.isNotBlank()) {
+            val project = projectsCol(userId).document(safeProjectId).get().await()
+            require(project.exists()) { "Le projet sélectionné n'existe plus." }
+        }
         val docRef = tasksCol(userId).document()
         val safePriority = if (priority in listOf("high", "medium", "low")) priority else "medium"
         val safeCategory = TaskCategory.sanitizeKey(category)
@@ -659,6 +777,8 @@ class StudyRepository(
             put("title", title.trim().take(140))
             put("notes", notes.trim().take(500))
             put("dueDateIso", dueDateIso.trim().take(20))
+            put("startDateIso", startDateIso.trim().take(20).ifBlank { dueDateIso.trim().take(20) })
+            put("projectId", safeProjectId)
             put("scheduledTime", scheduledTime.trim().take(20))
             put("priority", safePriority)
             put("category", safeCategory)
@@ -699,6 +819,8 @@ class StudyRepository(
                     "title" to task.title.trim().take(140),
                     "notes" to task.notes.trim().take(500),
                     "dueDateIso" to task.dueDateIso.trim().take(20),
+                    "startDateIso" to task.startDateIso.trim().take(20).ifBlank { task.dueDateIso.trim().take(20) },
+                    "projectId" to task.projectId.trim().take(128),
                     "scheduledTime" to task.scheduledTime.trim().take(20),
                     "priority" to safePriority,
                     "category" to safeCategory,
@@ -972,7 +1094,8 @@ class StudyRepository(
         val colorIndex: Long,
         val targetMinutes: Long,
         val completedMinutes: Long,
-        val grade: Double
+        val grade: Double,
+        val iconKey: String = "book"
     )
 
     private data class TaskSeed(

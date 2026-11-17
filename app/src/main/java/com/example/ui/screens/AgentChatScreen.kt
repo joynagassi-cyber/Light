@@ -31,6 +31,7 @@ import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -52,14 +53,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.data.model.AgentModelOption
+import com.example.data.model.AgentUsageRecord
+import com.example.data.model.AgentSkill
+import com.example.data.preferences.StudyAppSettings
 import com.example.data.repository.AgentChatMessage
-import com.example.ui.theme.AppleCardSurface
-import com.example.ui.theme.AppleDivider
 import com.example.ui.theme.AppleEmerald
 import com.example.ui.theme.AppleRose
-import com.example.ui.theme.AppleTextPrimary
-import com.example.ui.theme.AppleTextSecondary
 import com.example.ui.theme.LocalLightGradient
+import com.example.ui.theme.appBrush
+import com.example.ui.theme.appVerticalBrush
 
 @Composable
 fun AgentChatScreen(
@@ -68,10 +71,21 @@ fun AgentChatScreen(
     onSendMessage: (String) -> Unit,
     onClearConversation: () -> Unit,
     onOpenSettings: () -> Unit,
+    settings: StudyAppSettings,
+    apiKeyConfigured: Boolean,
+    agentModels: List<AgentModelOption>,
+    agentModelsLoading: Boolean,
+    agentModelsError: String?,
+    agentUsage: List<AgentUsageRecord>,
+    onClearAgentUsage: () -> Unit,
+    onLoadAgentModels: (String, String, String?) -> Unit,
+    onSaveAgentSettings: (String, String, String, String, Set<String>, List<AgentSkill>, String?, Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val gradient = LocalLightGradient.current
     var inputText by rememberSaveable { mutableStateOf("") }
+    var showAgentSettings by rememberSaveable { mutableStateOf(false) }
+    var showUsageHistory by rememberSaveable { mutableStateOf(false) }
     val listState = rememberLazyListState()
 
     val quickPrompts = listOf(
@@ -108,7 +122,7 @@ fun AgentChatScreen(
                     modifier = Modifier
                         .size(44.dp)
                         .clip(RoundedCornerShape(15.dp))
-                        .background(gradient.linearBrush()),
+                        .background(gradient.appBrush()),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -122,12 +136,12 @@ fun AgentChatScreen(
                     Text(
                         text = "Light Agent IA",
                         style = MaterialTheme.typography.headlineSmall,
-                        color = AppleTextPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = "Discutez & opérez directement votre planning",
                         style = MaterialTheme.typography.bodySmall,
-                        color = AppleTextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -136,8 +150,8 @@ fun AgentChatScreen(
                 Surface(
                     onClick = onClearConversation,
                     shape = CircleShape,
-                    color = Color.White,
-                    border = BorderStroke(0.8.dp, AppleDivider),
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
                     modifier = Modifier
                         .size(48.dp)
                         .testTag("agent_clear_button")
@@ -146,16 +160,27 @@ fun AgentChatScreen(
                         Icon(
                             imageVector = Icons.Rounded.DeleteOutline,
                             contentDescription = "Réinitialiser la conversation",
-                            tint = AppleTextSecondary,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(20.dp)
                         )
                     }
                 }
                 Surface(
+                    onClick = { showAgentSettings = true },
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
+                    modifier = Modifier.size(48.dp).testTag("agent_configuration_button")
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(Icons.Rounded.Tune, contentDescription = "Configurer l’agent", tint = gradient.accentColor)
+                    }
+                }
+                Surface(
                     onClick = onOpenSettings,
                     shape = CircleShape,
-                    color = Color.White,
-                    border = BorderStroke(0.8.dp, AppleDivider),
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
                     modifier = Modifier
                         .size(48.dp)
                         .testTag("agent_settings_button")
@@ -214,6 +239,17 @@ fun AgentChatScreen(
                     }
                 }
             }
+            Surface(
+                onClick = { showUsageHistory = true },
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant)
+            ) {
+                Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Icon(Icons.Rounded.Description, contentDescription = null, tint = gradient.accentColor, modifier = Modifier.size(15.dp))
+                    Text("Historique / coûts", style = MaterialTheme.typography.labelMedium, color = gradient.accentColor)
+                }
+            }
         }
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -246,8 +282,8 @@ fun AgentChatScreen(
                             Surface(
                                 onClick = { if (!isBusy) onSendMessage(prompt) },
                                 shape = CircleShape,
-                                color = AppleCardSurface.copy(alpha = 0.92f),
-                                border = BorderStroke(0.8.dp, Color.White),
+                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                                border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
                                 shadowElevation = 1.dp,
                                 modifier = Modifier.testTag("agent_suggestion_card_$idx")
                             ) {
@@ -265,7 +301,7 @@ fun AgentChatScreen(
                                     Text(
                                         text = cardLabel,
                                         style = MaterialTheme.typography.bodyMedium,
-                                        color = AppleTextPrimary
+                                        color = MaterialTheme.colorScheme.onSurface
                                     )
                                 }
                             }
@@ -278,8 +314,8 @@ fun AgentChatScreen(
                 item {
                     Surface(
                         shape = RoundedCornerShape(18.dp),
-                        color = AppleCardSurface.copy(alpha = 0.92f),
-                        border = BorderStroke(0.8.dp, AppleDivider),
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                        border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
                         shadowElevation = 1.dp
                     ) {
                         Row(
@@ -295,7 +331,7 @@ fun AgentChatScreen(
                             Text(
                                 text = "Light Agent réfléchit et exécute...",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = AppleTextSecondary
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -308,8 +344,8 @@ fun AgentChatScreen(
         // Floating iOS-style composer
         Surface(
             shape = RoundedCornerShape(26.dp),
-            color = AppleCardSurface,
-            border = BorderStroke(0.9.dp, Color.White),
+            color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(0.9.dp, MaterialTheme.colorScheme.outlineVariant),
             shadowElevation = 4.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -326,7 +362,7 @@ fun AgentChatScreen(
                         Text(
                             text = "Demandez une action à Light Agent...",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = AppleTextSecondary
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     },
                     maxLines = 3,
@@ -370,6 +406,26 @@ fun AgentChatScreen(
             }
         }
     }
+
+    if (showUsageHistory) {
+        AgentUsageHistoryDialog(records = agentUsage, onClear = onClearAgentUsage, onDismiss = { showUsageHistory = false })
+    }
+
+    if (showAgentSettings) {
+        AgentSettingsDialog(
+            settings = settings,
+            apiKeyConfigured = apiKeyConfigured,
+            models = agentModels,
+            modelsLoading = agentModelsLoading,
+            modelsError = agentModelsError,
+            onLoadModels = onLoadAgentModels,
+            onDismiss = { showAgentSettings = false },
+            onSave = { provider, baseUrl, model, reflection, capabilities, skills, apiKey, clearApiKey ->
+                onSaveAgentSettings(provider, baseUrl, model, reflection, capabilities, skills, apiKey, clearApiKey)
+                showAgentSettings = false
+            }
+        )
+    }
 }
 
 @Composable
@@ -389,7 +445,7 @@ private fun AgentMessageBubble(message: AgentChatMessage) {
             color = when {
                 message.isError -> AppleRose.copy(alpha = 0.12f)
                 message.isUser -> gradient.accentColor
-                else -> AppleCardSurface.copy(alpha = 0.94f)
+                else -> MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
             },
             border = if (message.isUser) null else BorderStroke(
                 0.8.dp,
@@ -441,7 +497,7 @@ private fun AgentMessageBubble(message: AgentChatMessage) {
                     color = when {
                         message.isError -> AppleRose
                         message.isUser -> Color.White
-                        else -> AppleTextPrimary
+                        else -> MaterialTheme.colorScheme.onSurface
                     }
                 )
             }

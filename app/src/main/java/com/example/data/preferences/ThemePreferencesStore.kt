@@ -8,7 +8,26 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.example.data.model.AgentCapabilities
+import com.example.data.model.AgentProvider
+import com.example.data.model.AgentSkill
+import com.example.data.model.AgentUsageRecord
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.longOrNull
+import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.put
+import java.util.UUID
 import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -27,8 +46,26 @@ data class StudyAppSettings(
     val autoPlayAudioWithFocus: Boolean = false,
     val notificationsEnabled: Boolean = true,
     val notificationFrequency: String = "daily",
-    val googleAuthPausedForTesting: Boolean = true
+    val googleAuthPausedForTesting: Boolean = true,
+    val selectedThemeId: String = "gradient",
+    val appearanceMode: String = "light",
+    val glassEnabled: Boolean = false,
+    val focusIllustrationId: String = "student",
+    val focusThemeId: String = "lunar",
+    val agentProvider: String = "agnes_ai",
+    val agentBaseUrl: String = "https://apihub.agnes-ai.com/v1",
+    val agentModel: String = "agnes-2.5-flash",
+    val agentReflection: String = "balanced",
+    val agentCapabilities: Set<String> = AgentCapabilities.defaults,
+    val agentSkills: List<AgentSkill> = emptyList(),
+    val doclingBaseUrl: String = ""
 )
+
+private val FOCUS_ILLUSTRATION_IDS = setOf(
+    "student", "coder", "planner", "desk_writer", "book_reader", "flashcards",
+    "lab_student", "music_student", "math_student", "group_study", "tablet_notes", "speech_practice"
+)
+private val FOCUS_THEME_IDS = setOf("lunar", "ocean", "forest", "desk", "nebula", "mountain")
 
 class ThemePreferencesStore(private val context: Context) {
     private val gradientKey = stringPreferencesKey("selected_gradient_id")
@@ -44,6 +81,21 @@ class ThemePreferencesStore(private val context: Context) {
     private val notificationsEnabledKey = booleanPreferencesKey("notifications_enabled")
     private val notificationFrequencyKey = stringPreferencesKey("notification_frequency")
     private val googleAuthPausedKey = booleanPreferencesKey("google_auth_paused_for_testing")
+    private val selectedThemeKey = stringPreferencesKey("selected_theme_id")
+    private val appearanceModeKey = stringPreferencesKey("appearance_mode")
+    private val glassEnabledKey = booleanPreferencesKey("glass_enabled")
+    private val focusIllustrationKey = stringPreferencesKey("focus_illustration_id")
+    private val focusThemeKey = stringPreferencesKey("focus_theme_id")
+    private val agentProviderKey = stringPreferencesKey("agent_provider")
+    private val agentBaseUrlKey = stringPreferencesKey("agent_base_url")
+    private val agentModelKey = stringPreferencesKey("agent_model")
+    private val agentReflectionKey = stringPreferencesKey("agent_reflection")
+    private val agentCapabilitiesKey = stringPreferencesKey("agent_capabilities")
+    private val agentSkillsKey = stringPreferencesKey("agent_skills")
+    private fun agentApiKeyStore(providerId: String) = AgentApiKeyStore(context.applicationContext, "agent_${AgentProvider.fromId(providerId).id}")
+    private val doclingTokenStore by lazy { AgentApiKeyStore(context.applicationContext, "docling") }
+    private val doclingBaseUrlKey = stringPreferencesKey("docling_base_url")
+    private val agentUsageKey = stringPreferencesKey("agent_usage_history")
 
     val selectedGradientId: Flow<String> = context.lightDataStore.data.map { prefs ->
         prefs[gradientKey] ?: "aurore_lavande"
@@ -54,6 +106,8 @@ class ThemePreferencesStore(private val context: Context) {
     }
 
     val appSettings: Flow<StudyAppSettings> = context.lightDataStore.data.map { prefs ->
+        val savedAppearance = prefs[appearanceModeKey] ?: "light"
+        val savedAgentProvider = AgentProvider.fromId(prefs[agentProviderKey])
         StudyAppSettings(
             selectedGradientId = prefs[gradientKey] ?: "aurore_lavande",
             pomodoroMinutes = (prefs[pomodoroMinutesKey] ?: 25).coerceIn(10, 90),
@@ -67,8 +121,25 @@ class ThemePreferencesStore(private val context: Context) {
             autoPlayAudioWithFocus = prefs[autoPlayAudioKey] ?: false,
             notificationsEnabled = prefs[notificationsEnabledKey] ?: true,
             notificationFrequency = prefs[notificationFrequencyKey] ?: "daily",
-            googleAuthPausedForTesting = prefs[googleAuthPausedKey] ?: true
+            googleAuthPausedForTesting = prefs[googleAuthPausedKey] ?: true,
+            selectedThemeId = prefs[selectedThemeKey] ?: "gradient",
+            appearanceMode = savedAppearance.takeUnless { it == "glass" } ?: "light",
+            glassEnabled = prefs[glassEnabledKey] ?: (savedAppearance == "glass"),
+            focusIllustrationId = prefs[focusIllustrationKey]?.takeIf { it in FOCUS_ILLUSTRATION_IDS } ?: "student",
+            focusThemeId = prefs[focusThemeKey]?.takeIf { it in FOCUS_THEME_IDS } ?: "lunar",
+            agentProvider = savedAgentProvider.id,
+            agentBaseUrl = prefs[agentBaseUrlKey]?.takeIf { it.isNotBlank() } ?: savedAgentProvider.baseUrl,
+            agentModel = prefs[agentModelKey]?.takeIf { it.isNotBlank() } ?: savedAgentProvider.defaultModel,
+            agentReflection = prefs[agentReflectionKey]?.takeIf { it in setOf("quick", "balanced", "deep") } ?: "balanced",
+            agentCapabilities = prefs[agentCapabilitiesKey]?.split(",")?.filter { key -> AgentCapabilities.all.any { it.first == key } }?.toSet()
+                ?: AgentCapabilities.defaults,
+            agentSkills = decodeAgentSkills(prefs[agentSkillsKey]),
+            doclingBaseUrl = prefs[doclingBaseUrlKey] ?: ""
         )
+    }
+
+    val agentUsage: Flow<List<AgentUsageRecord>> = context.lightDataStore.data.map { prefs ->
+        decodeAgentUsage(prefs[agentUsageKey])
     }
 
     suspend fun saveSelectedGradient(gradientId: String) {
@@ -126,6 +197,152 @@ class ThemePreferencesStore(private val context: Context) {
             prefs[notificationsEnabledKey] = enabled
             prefs[notificationFrequencyKey] = frequency
         }
+    }
+
+    suspend fun updateSelectedTheme(themeId: String) {
+        val validThemeIds = setOf("gradient", "paper", "graphite", "ocean", "forest", "plum", "sand", "rose", "cobalt", "saffron", "mint")
+        context.lightDataStore.edit { prefs ->
+            prefs[selectedThemeKey] = themeId.takeIf { it in validThemeIds } ?: "gradient"
+        }
+    }
+
+    suspend fun updateAppearanceMode(mode: String) {
+        context.lightDataStore.edit { prefs ->
+            if (glassEnabledKey !in prefs && prefs[appearanceModeKey] == "glass") {
+                prefs[glassEnabledKey] = true
+            }
+            prefs[appearanceModeKey] = mode.takeIf { it in setOf("light", "oled") } ?: "light"
+        }
+    }
+
+    suspend fun updateGlassEnabled(enabled: Boolean) {
+        context.lightDataStore.edit { prefs ->
+            prefs[glassEnabledKey] = enabled
+        }
+    }
+
+    suspend fun updateFocusIllustration(id: String) {
+        context.lightDataStore.edit { prefs ->
+            prefs[focusIllustrationKey] = id.takeIf { it in FOCUS_ILLUSTRATION_IDS } ?: "student"
+        }
+    }
+
+    suspend fun updateFocusTheme(id: String) {
+        context.lightDataStore.edit { prefs ->
+            prefs[focusThemeKey] = id.takeIf { it in FOCUS_THEME_IDS } ?: "lunar"
+        }
+    }
+
+    suspend fun updateAgentPreferences(
+        provider: String,
+        baseUrl: String,
+        model: String,
+        reflection: String,
+        capabilities: Set<String>,
+        skills: List<AgentSkill>
+    ) {
+        context.lightDataStore.edit { prefs ->
+            prefs[agentProviderKey] = AgentProvider.fromId(provider).id
+            prefs[agentBaseUrlKey] = baseUrl.trim().take(500)
+            prefs[agentModelKey] = model.trim().take(120)
+            prefs[agentReflectionKey] = reflection.takeIf { it in setOf("quick", "balanced", "deep") } ?: "balanced"
+            prefs[agentCapabilitiesKey] = capabilities.filter { key -> AgentCapabilities.all.any { it.first == key } }.distinct().joinToString(",")
+            prefs[agentSkillsKey] = encodeAgentSkills(skills.take(20))
+        }
+    }
+
+    suspend fun saveAgentApiKey(providerId: String, apiKey: String) {
+        withContext(Dispatchers.IO) { agentApiKeyStore(providerId).save(apiKey.trim()) }
+    }
+
+    suspend fun readAgentApiKey(providerId: String): String? = withContext(Dispatchers.IO) { agentApiKeyStore(providerId).read() }
+
+    suspend fun hasAgentApiKey(providerId: String): Boolean = withContext(Dispatchers.IO) { agentApiKeyStore(providerId).read()?.isNotBlank() == true }
+
+    suspend fun clearAgentApiKey(providerId: String) {
+        withContext(Dispatchers.IO) { agentApiKeyStore(providerId).clear() }
+    }
+
+    suspend fun saveDoclingSettings(baseUrl: String, token: String? = null, clearToken: Boolean = false) {
+        context.lightDataStore.edit { prefs -> prefs[doclingBaseUrlKey] = baseUrl.trim().take(500) }
+        if (clearToken) withContext(Dispatchers.IO) { doclingTokenStore.clear() }
+        else if (!token.isNullOrBlank()) withContext(Dispatchers.IO) { doclingTokenStore.save(token.trim()) }
+    }
+
+    suspend fun readDoclingToken(): String? = withContext(Dispatchers.IO) { doclingTokenStore.read() }
+    suspend fun hasDoclingToken(): Boolean = withContext(Dispatchers.IO) { doclingTokenStore.read()?.isNotBlank() == true }
+
+    suspend fun recordAgentUsage(record: AgentUsageRecord) {
+        context.lightDataStore.edit { prefs ->
+            val existing = decodeAgentUsage(prefs[agentUsageKey])
+            prefs[agentUsageKey] = encodeAgentUsage((existing + record).takeLast(500))
+        }
+    }
+
+    suspend fun clearAgentUsage() {
+        context.lightDataStore.edit { it.remove(agentUsageKey) }
+    }
+
+    private fun encodeAgentUsage(records: List<AgentUsageRecord>): String = buildJsonArray {
+        records.forEach { row ->
+            add(buildJsonObject {
+                put("id", row.id)
+                put("providerId", row.providerId)
+                put("modelId", row.modelId)
+                put("createdAtMillis", row.createdAtMillis)
+                put("inputTokens", row.inputTokens)
+                put("outputTokens", row.outputTokens)
+                put("estimatedCostUsd", row.estimatedCostUsd?.let { JsonPrimitive(it) } ?: JsonNull)
+                put("costNote", row.costNote)
+            })
+        }
+    }.toString()
+
+    private fun decodeAgentUsage(value: String?): List<AgentUsageRecord> {
+        if (value.isNullOrBlank()) return emptyList()
+        return runCatching {
+            Json.parseToJsonElement(value).jsonArray.mapNotNull { element ->
+            val obj = element.jsonObject
+            AgentUsageRecord(
+                id = obj["id"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null,
+                providerId = obj["providerId"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null,
+                modelId = obj["modelId"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null,
+                createdAtMillis = obj["createdAtMillis"]?.jsonPrimitive?.longOrNull ?: 0L,
+                inputTokens = obj["inputTokens"]?.jsonPrimitive?.longOrNull ?: 0L,
+                outputTokens = obj["outputTokens"]?.jsonPrimitive?.longOrNull ?: 0L,
+                estimatedCostUsd = obj["estimatedCostUsd"]?.jsonPrimitive?.doubleOrNull,
+                costNote = obj["costNote"]?.jsonPrimitive?.contentOrNull.orEmpty()
+            )
+            }.takeLast(500)
+        }.getOrDefault(emptyList())
+    }
+
+    private fun encodeAgentSkills(skills: List<AgentSkill>): String = buildJsonArray {
+        skills.forEach { skill ->
+            add(buildJsonObject {
+                put("id", skill.id)
+                put("name", skill.name)
+                put("instructions", skill.instructions)
+                put("enabled", skill.enabled)
+            })
+        }
+    }.toString()
+
+    private fun decodeAgentSkills(value: String?): List<AgentSkill> {
+        if (value.isNullOrBlank()) return emptyList()
+        return runCatching {
+            Json.parseToJsonElement(value).jsonArray.mapNotNull { element ->
+            val obj = element.jsonObject
+            val name = obj["name"]?.jsonPrimitive?.contentOrNull?.take(80) ?: return@mapNotNull null
+            val instructions = obj["instructions"]?.jsonPrimitive?.contentOrNull?.take(2000) ?: return@mapNotNull null
+            AgentSkill(
+                id = obj["id"]?.jsonPrimitive?.contentOrNull ?: UUID.randomUUID().toString(),
+                name = name,
+                instructions = instructions,
+                enabled = obj["enabled"]?.jsonPrimitive?.contentOrNull?.toBooleanStrictOrNull() ?: true
+            )
+            }.take(20)
+        }.getOrDefault(emptyList())
     }
 
     suspend fun updateGoogleAuthPausedForTesting(paused: Boolean) {

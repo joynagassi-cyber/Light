@@ -55,12 +55,9 @@ import com.example.data.model.StudyTask
 import com.example.data.model.resolvedQuadrant
 import com.example.ui.components.AppleCard
 import com.example.ui.theme.AppleAmber
-import com.example.ui.theme.AppleDivider
 import com.example.ui.theme.AppleEmerald
 import com.example.ui.theme.AppleRose
 import com.example.ui.theme.AppleSky
-import com.example.ui.theme.AppleTextPrimary
-import com.example.ui.theme.AppleTextSecondary
 import com.example.ui.theme.LocalLightGradient
 import java.time.LocalDate
 
@@ -118,14 +115,14 @@ fun EisenhowerScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Matrice d'Eisenhower",
+                        text = "Priorisation",
                         style = MaterialTheme.typography.headlineMedium,
-                        color = AppleTextPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = "${visibleTasks.size} tâche(s) classées sur 4 quadrants",
                         style = MaterialTheme.typography.bodySmall,
-                        color = AppleTextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
@@ -153,8 +150,8 @@ fun EisenhowerScreen(
                         Surface(
                             onClick = { menuExpanded = true },
                             shape = CircleShape,
-                            color = Color.White,
-                            border = BorderStroke(0.8.dp, AppleDivider),
+                            color = MaterialTheme.colorScheme.surface,
+                            border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
                             shadowElevation = 2.dp,
                             modifier = Modifier
                                 .size(48.dp)
@@ -164,7 +161,7 @@ fun EisenhowerScreen(
                                 Icon(
                                     imageVector = Icons.Rounded.MoreVert,
                                     contentDescription = "Options de la matrice",
-                                    tint = AppleTextPrimary,
+                                    tint = MaterialTheme.colorScheme.onSurface,
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
@@ -173,7 +170,7 @@ fun EisenhowerScreen(
                         DropdownMenu(
                             expanded = menuExpanded,
                             onDismissRequest = { menuExpanded = false },
-                            containerColor = Color.White
+                            containerColor = MaterialTheme.colorScheme.surface
                         ) {
                             DropdownMenuItem(
                                 text = {
@@ -197,7 +194,7 @@ fun EisenhowerScreen(
                                     Icon(
                                         imageVector = Icons.Rounded.Settings,
                                         contentDescription = null,
-                                        tint = AppleTextSecondary
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 },
                                 onClick = {
@@ -342,7 +339,7 @@ private fun QuadrantCard(
                     Text(
                         text = meta.hint,
                         style = MaterialTheme.typography.labelSmall,
-                        color = AppleTextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
@@ -416,7 +413,7 @@ private fun MatrixTaskItem(
                     text = task.title,
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Medium,
-                    color = if (task.completed) AppleTextSecondary else AppleTextPrimary,
+                    color = if (task.completed) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
                     textDecoration = if (task.completed) TextDecoration.LineThrough else TextDecoration.None,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
@@ -433,7 +430,7 @@ private fun MatrixTaskItem(
         DropdownMenu(
             expanded = itemMenuOpen,
             onDismissRequest = { itemMenuOpen = false },
-            containerColor = Color.White
+            containerColor = MaterialTheme.colorScheme.surface
         ) {
             if (!task.completed) {
                 DropdownMenuItem(

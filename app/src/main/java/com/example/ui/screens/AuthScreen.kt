@@ -1,8 +1,6 @@
 package com.example.ui.screens
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,7 +15,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -42,13 +39,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -57,10 +51,8 @@ import androidx.credentials.CredentialManager
 import com.example.R
 import com.example.auth.onGoogleSignInClicked
 import com.example.ui.components.AppleCard
-import com.example.ui.theme.AppleDivider
+import com.example.ui.components.LightBrandMark
 import com.example.ui.theme.AppleRose
-import com.example.ui.theme.AppleTextPrimary
-import com.example.ui.theme.AppleTextSecondary
 import com.example.ui.theme.GradientScreenSurface
 import com.example.ui.theme.LocalLightGradient
 
@@ -94,52 +86,19 @@ fun AuthScreen(
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Surface(
-                    shape = CircleShape,
-                    color = Color.White,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, AppleDivider),
-                    shadowElevation = 2.dp
-                ) {
-                    Text(
-                        text = stringResource(R.string.major_badge),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = gradient.accentColor,
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(18.dp))
-
-                Box(
-                    modifier = Modifier
-                        .size(188.dp)
-                        .clip(CircleShape)
-                        .background(gradient.linearBrush())
-                        .padding(5.dp)
-                ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.img_study_companion),
-                        contentDescription = "Compagne d'étude Génie Logiciel",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(CircleShape)
-                            .border(3.dp, Color.White, CircleShape)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
+                LightBrandMark(size = 88.dp)
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = stringResource(R.string.app_name),
                     style = MaterialTheme.typography.displaySmall,
-                    color = AppleTextPrimary
+                    fontWeight = FontWeight.Bold,
+                    color = gradient.accentColor
                 )
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = stringResource(R.string.app_tagline),
                     style = MaterialTheme.typography.titleMedium,
-                    color = AppleTextSecondary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
                 )
             }
@@ -254,7 +213,7 @@ fun AuthScreen(
                     shape = RoundedCornerShape(18.dp),
                     border = androidx.compose.foundation.BorderStroke(1.2.dp, gradient.accentColor.copy(alpha = 0.45f)),
                     colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = Color.White.copy(alpha = 0.90f),
+                        containerColor = MaterialTheme.colorScheme.surface,
                         contentColor = gradient.accentColor
                     ),
                     modifier = Modifier
@@ -274,7 +233,7 @@ fun AuthScreen(
                 Text(
                     text = stringResource(R.string.sign_in_subtitle),
                     style = MaterialTheme.typography.bodySmall,
-                    color = AppleTextSecondary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
                 )
             }
@@ -312,12 +271,12 @@ private fun FeatureHighlightRow(
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleSmall,
-                color = AppleTextPrimary
+                color = MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
-                color = AppleTextSecondary
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }

@@ -6,6 +6,7 @@ import com.example.data.model.FocusSession
 import com.example.data.model.NotificationFrequency
 import com.example.data.model.StudyCountdown
 import com.example.data.model.StudyHabit
+import com.example.data.model.StudyProject
 import com.example.data.model.StudyTask
 import com.example.data.model.TaskCategory
 import com.example.data.model.UserGender
@@ -18,6 +19,7 @@ interface StudyWorkspaceRepository {
     fun observeUserProfile(userId: String): Flow<UserProfile?>
     fun observeCourses(userId: String): Flow<List<Course>>
     fun observeTasks(userId: String): Flow<List<StudyTask>>
+    fun observeProjects(userId: String): Flow<List<StudyProject>>
     fun observeFocusSessions(userId: String): Flow<List<FocusSession>>
     fun observeHabits(userId: String): Flow<List<StudyHabit>>
     fun observeCountdowns(userId: String): Flow<List<StudyCountdown>>
@@ -72,11 +74,16 @@ interface StudyWorkspaceRepository {
         professor: String,
         colorIndex: Long,
         targetMinutes: Long,
-        grade: Double
+        grade: Double,
+        iconKey: String = "book"
     ): String
 
     suspend fun updateCourseGrade(userId: String, courseId: String, newGrade: Double)
     suspend fun deleteCourse(userId: String, courseId: String)
+
+    suspend fun createProject(userId: String, title: String, description: String, startDateIso: String, dueDateIso: String): String
+    suspend fun updateProject(project: StudyProject)
+    suspend fun deleteProject(userId: String, projectId: String)
 
     suspend fun createTask(
         userId: String,
@@ -90,7 +97,9 @@ interface StudyWorkspaceRepository {
         category: String = TaskCategory.REVISION.key,
         estimatedMinutes: Long,
         aiGenerated: Boolean = false,
-        quadrant: Long? = null
+        quadrant: Long? = null,
+        startDateIso: String = "",
+        projectId: String = ""
     ): String
 
     suspend fun createTasksBatch(userId: String, tasks: List<StudyTask>)

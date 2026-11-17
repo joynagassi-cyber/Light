@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -40,9 +41,11 @@ import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CloudDone
 import androidx.compose.material.icons.rounded.Code
+import androidx.compose.material.icons.rounded.Event
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Psychology
 import androidx.compose.material.icons.rounded.School
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -63,6 +66,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -70,36 +74,35 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.data.model.TaskCategory
 import com.example.ui.theme.AppleAmber
-import com.example.ui.theme.AppleCardSurface
-import com.example.ui.theme.AppleDivider
 import com.example.ui.theme.AppleEmerald
 import com.example.ui.theme.AppleIndigo
 import com.example.ui.theme.AppleRose
 import com.example.ui.theme.AppleSky
-import com.example.ui.theme.AppleTextPrimary
-import com.example.ui.theme.AppleTextSecondary
 import com.example.ui.theme.LightGradientTheme
 import com.example.ui.theme.LightGradients
 import com.example.ui.theme.LocalLightGradient
+import com.example.ui.theme.LocalThemeSurfaceConfig
+import com.example.ui.theme.appBrush
+import com.example.ui.theme.appVerticalBrush
 
 @Composable
 fun AppleCard(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
-    cornerRadius: Dp = 22.dp,
-    contentPadding: PaddingValues = PaddingValues(18.dp),
+    cornerRadius: Dp = 16.dp,
+    contentPadding: PaddingValues = PaddingValues(16.dp),
     content: @Composable ColumnScope.() -> Unit
 ) {
     val shape = RoundedCornerShape(cornerRadius)
     Surface(
         modifier = modifier
             .clip(shape)
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
+            .then(if (onClick != null) Modifier.clickable(role = Role.Button, onClick = onClick) else Modifier),
         shape = shape,
-        color = AppleCardSurface.copy(alpha = 0.90f),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.90f),
         tonalElevation = 0.dp,
         shadowElevation = 2.dp,
-        border = BorderStroke(0.9.dp, Color.White.copy(alpha = 0.92f))
+        border = BorderStroke(0.9.dp, MaterialTheme.colorScheme.surface)
     ) {
         Column(
             modifier = Modifier.padding(contentPadding),
@@ -109,10 +112,43 @@ fun AppleCard(
 }
 
 @Composable
+fun EmptyStateCard(
+    title: String,
+    description: String,
+    actionLabel: String,
+    onAction: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    AppleCard(
+        modifier = modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(16.dp)
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Button(
+                onClick = onAction,
+                modifier = Modifier.heightIn(min = 48.dp)
+            ) {
+                Text(actionLabel)
+            }
+        }
+    }
+}
+
+@Composable
 fun GradientHeroCard(
     modifier: Modifier = Modifier,
-    cornerRadius: Dp = 26.dp,
-    contentPadding: PaddingValues = PaddingValues(20.dp),
+    cornerRadius: Dp = 24.dp,
+    contentPadding: PaddingValues = PaddingValues(24.dp),
     content: @Composable ColumnScope.() -> Unit
 ) {
     val gradient = LocalLightGradient.current
@@ -120,20 +156,8 @@ fun GradientHeroCard(
     Box(
         modifier = modifier
             .clip(shape)
-            .background(gradient.linearBrush())
+            .background(gradient.appBrush())
     ) {
-        Canvas(modifier = Modifier.matchParentSize()) {
-            drawCircle(
-                color = Color.White.copy(alpha = 0.14f),
-                radius = size.minDimension * 0.48f,
-                center = Offset(size.width * 0.88f, size.height * 0.18f)
-            )
-            drawCircle(
-                color = Color.White.copy(alpha = 0.08f),
-                radius = size.minDimension * 0.35f,
-                center = Offset(size.width * 0.12f, size.height * 0.92f)
-            )
-        }
         Column(
             modifier = Modifier.padding(contentPadding),
             content = content
@@ -156,8 +180,8 @@ fun SyncStatusPill(modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier,
         shape = CircleShape,
-        color = Color.White,
-        border = BorderStroke(0.8.dp, AppleDivider),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
         shadowElevation = 1.dp
     ) {
         Row(
@@ -175,13 +199,13 @@ fun SyncStatusPill(modifier: Modifier = Modifier) {
             Icon(
                 imageVector = Icons.Rounded.CloudDone,
                 contentDescription = "Synchronisation cloud active",
-                tint = AppleTextSecondary,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(14.dp)
             )
             Text(
                 text = "Cloud",
                 style = MaterialTheme.typography.labelSmall,
-                color = AppleTextSecondary
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -192,10 +216,12 @@ fun GradientProgressRing(
     progress: Float,
     modifier: Modifier = Modifier,
     strokeWidth: Dp = 11.dp,
-    trackColor: Color = Color(0xFFEAECEF),
+    trackColor: Color = MaterialTheme.colorScheme.outline,
+    progressColors: List<Color>? = null,
     centerContent: @Composable () -> Unit = {}
 ) {
     val gradient = LocalLightGradient.current
+    val usesGradient = LocalThemeSurfaceConfig.current.selectedThemeId == LightColorThemes.GRADIENT_ID
     val animatedProgress by animateFloatAsState(
         targetValue = progress.coerceIn(0f, 1f),
         animationSpec = spring(
@@ -227,12 +253,11 @@ fun GradientProgressRing(
             if (animatedProgress > 0.005f) {
                 drawArc(
                     brush = Brush.sweepGradient(
-                        colors = listOf(
-                            gradient.startColor,
-                            gradient.midColor,
-                            gradient.endColor,
-                            gradient.startColor
-                        )
+                        colors = progressColors ?: if (usesGradient) {
+                            listOf(gradient.startColor, gradient.midColor, gradient.endColor, gradient.startColor)
+                        } else {
+                            listOf(gradient.accentColor, gradient.accentColor)
+                        }
                     ),
                     startAngle = -90f,
                     sweepAngle = 360f * animatedProgress,
@@ -279,7 +304,7 @@ fun WeeklyStudyBarChart(
                 Text(
                     text = if (mins > 0) "${mins}m" else "",
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (isToday) gradient.accentColor else AppleTextSecondary,
+                    color = if (isToday) gradient.accentColor else MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1
                 )
                 Box(
@@ -295,7 +320,7 @@ fun WeeklyStudyBarChart(
                             .clip(RoundedCornerShape(10.dp))
                             .background(
                                 if (isToday || mins >= maxMinutes * 0.75f) {
-                                    gradient.verticalBrush()
+                                    gradient.appVerticalBrush()
                                 } else {
                                     Brush.verticalGradient(
                                         listOf(
@@ -311,7 +336,7 @@ fun WeeklyStudyBarChart(
                     text = label,
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = if (isToday) FontWeight.Bold else FontWeight.Medium,
-                    color = if (isToday) AppleTextPrimary else AppleTextSecondary
+                    color = if (isToday) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -329,7 +354,7 @@ fun GradientPickerSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = AppleCardSurface,
+        containerColor = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
     ) {
         Column(
@@ -360,12 +385,12 @@ fun GradientPickerSheet(
                     Text(
                         text = "Studio Dégradés",
                         style = MaterialTheme.typography.headlineSmall,
-                        color = AppleTextPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = "8 atmosphères fluides synchronisées avec votre compte",
                         style = MaterialTheme.typography.bodySmall,
-                        color = AppleTextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -400,7 +425,7 @@ fun GradientSwatchCard(
     modifier: Modifier = Modifier
 ) {
     val borderColor by animateColorAsState(
-        targetValue = if (isSelected) preset.accentColor else AppleDivider,
+        targetValue = if (isSelected) preset.accentColor else MaterialTheme.colorScheme.outlineVariant,
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
         label = "swatchBorder"
     )
@@ -417,7 +442,7 @@ fun GradientSwatchCard(
             .clickable(onClick = onClick)
             .testTag("gradient_option_${preset.id}"),
         shape = RoundedCornerShape(20.dp),
-        color = AppleCardSurface,
+        color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(if (isSelected) 2.dp else 1.dp, borderColor),
         shadowElevation = if (isSelected) 4.dp else 1.dp
     ) {
@@ -452,14 +477,14 @@ fun GradientSwatchCard(
             Text(
                 text = preset.name,
                 style = MaterialTheme.typography.titleSmall,
-                color = AppleTextPrimary,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
                 text = preset.subtitle,
                 style = MaterialTheme.typography.labelSmall,
-                color = AppleTextSecondary,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -470,6 +495,7 @@ fun GradientSwatchCard(
 fun TaskCategory.accentColor(): Color = when (this) {
     TaskCategory.EXAM -> AppleRose
     TaskCategory.PROJECT -> AppleIndigo
+    TaskCategory.MILESTONE -> AppleAmber
     TaskCategory.ASSIGNMENT -> AppleSky
     TaskCategory.REVISION -> AppleEmerald
     TaskCategory.READING -> AppleAmber
@@ -478,6 +504,7 @@ fun TaskCategory.accentColor(): Color = when (this) {
 fun TaskCategory.icon(): ImageVector = when (this) {
     TaskCategory.EXAM -> Icons.Rounded.School
     TaskCategory.PROJECT -> Icons.Rounded.Code
+    TaskCategory.MILESTONE -> Icons.Rounded.Event
     TaskCategory.ASSIGNMENT -> Icons.AutoMirrored.Rounded.Assignment
     TaskCategory.REVISION -> Icons.Rounded.Psychology
     TaskCategory.READING -> Icons.AutoMirrored.Rounded.MenuBook

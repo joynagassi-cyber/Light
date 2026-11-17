@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -35,8 +36,11 @@ import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.NotificationsActive
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
@@ -66,6 +70,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
@@ -79,15 +84,20 @@ import com.example.data.model.adaptation
 import com.example.data.preferences.StudyAppSettings
 import com.example.notifications.LightNotificationHelper
 import com.example.ui.components.AppleCard
+import com.example.ui.components.CatalogColorPicker
+import com.example.ui.components.CatalogIcon
+import com.example.ui.components.CatalogIconPickerSheet
+import com.example.ui.components.catalogIconColor
 import com.example.ui.components.CalendarViewMode
 import com.example.ui.components.GradientSwatchCard
 import com.example.ui.components.SyncStatusPill
-import com.example.ui.theme.AppleDivider
 import com.example.ui.theme.AppleRose
-import com.example.ui.theme.AppleTextPrimary
-import com.example.ui.theme.AppleTextSecondary
+import com.example.ui.theme.AppearanceMode
+import com.example.ui.theme.LightColorThemes
 import com.example.ui.theme.LightGradients
 import com.example.ui.theme.LocalLightGradient
+import com.example.ui.theme.appBrush
+import com.example.ui.theme.appVerticalBrush
 import java.time.LocalDate
 
 @Composable
@@ -106,7 +116,10 @@ fun SettingsScreen(
     onUpdateHapticsEnabled: (Boolean) -> Unit,
     onUpdateAutoLogStopwatch: (Boolean) -> Unit,
     onUpdateAutoPlayAudioWithFocus: (Boolean) -> Unit,
-    onCreateCourse: (String, String, String, Long, Int, Double) -> Unit,
+    onSelectTheme: (String) -> Unit = {},
+    onSelectAppearanceMode: (String) -> Unit = {},
+    onSetGlassEnabled: (Boolean) -> Unit = {},
+    onCreateCourse: (String, String, String, Long, Int, Double, String) -> Unit,
     onDeleteCourse: (String) -> Unit,
     isGoogleAuthPaused: Boolean = false,
     onResumeGoogleSignIn: () -> Unit = {},
@@ -128,6 +141,7 @@ fun SettingsScreen(
         val nextFreq = if (currentFreq == NotificationFrequency.OFF) NotificationFrequency.DAILY else currentFreq
         onUpdateNotifications(granted, if (granted) nextFreq else NotificationFrequency.OFF)
     }
+    val themeRows = remember { LightColorThemes.all.chunked(2) }
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -144,8 +158,8 @@ fun SettingsScreen(
                     Surface(
                         onClick = onClose,
                         shape = CircleShape,
-                        color = Color.White,
-                        border = BorderStroke(0.8.dp, AppleDivider),
+                        color = MaterialTheme.colorScheme.surface,
+                        border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
                         modifier = Modifier
                             .size(48.dp)
                             .testTag("settings_close_button")
@@ -154,7 +168,7 @@ fun SettingsScreen(
                             Icon(
                                 imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
                                 contentDescription = "Fermer les paramètres",
-                                tint = AppleTextPrimary
+                                tint = MaterialTheme.colorScheme.onSurface
                             )
                         }
                     }
@@ -163,12 +177,12 @@ fun SettingsScreen(
                     Text(
                         text = "Paramètres",
                         style = MaterialTheme.typography.headlineMedium,
-                        color = AppleTextPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = "Profil, minuteur, calendrier et thèmes",
                         style = MaterialTheme.typography.bodySmall,
-                        color = AppleTextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -186,7 +200,7 @@ fun SettingsScreen(
                         modifier = Modifier
                             .size(62.dp)
                             .clip(CircleShape)
-                            .background(gradient.linearBrush())
+                            .background(gradient.appBrush())
                             .padding(2.5.dp)
                     ) {
                         if (!photoUrl.isNullOrBlank()) {
@@ -214,7 +228,9 @@ fun SettingsScreen(
                         Text(
                             text = profile?.displayName?.ifBlank { adapt.roleLabel } ?: adapt.roleLabel,
                             style = MaterialTheme.typography.titleLarge,
-                            color = AppleTextPrimary
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Text(
                             text = adapt.headerSubtitle,
@@ -222,9 +238,9 @@ fun SettingsScreen(
                             color = gradient.accentColor
                         )
                         Text(
-                            text = "${adapt.gender.label} · ${adapt.ageBadge} · ${adapt.notificationSummary}",
+                            text = "${adapt.gender.label} · ${adapt.notificationSummary}",
                             style = MaterialTheme.typography.labelSmall,
-                            color = AppleTextSecondary
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
@@ -250,12 +266,12 @@ fun SettingsScreen(
                     if (isGoogleAuthPaused) {
                         Surface(
                             shape = CircleShape,
-                            color = AppleDivider.copy(alpha = 0.45f)
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
                         ) {
                             Text(
                                 text = "Mode Test · Google en pause",
                                 style = MaterialTheme.typography.labelMedium,
-                                color = AppleTextPrimary,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                             )
                         }
@@ -265,7 +281,7 @@ fun SettingsScreen(
                     Text(
                         text = "Objectif : ${profile?.dailyGoalTasks ?: 5} tâches/jour",
                         style = MaterialTheme.typography.labelMedium,
-                        color = AppleTextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Spacer(modifier = Modifier.height(12.dp))
@@ -319,7 +335,7 @@ fun SettingsScreen(
                         text = "Notifications & fréquence",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = AppleTextPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
                 Spacer(modifier = Modifier.height(8.dp))
@@ -374,7 +390,7 @@ fun SettingsScreen(
                             border = FilterChipDefaults.filterChipBorder(
                                 enabled = true,
                                 selected = selected,
-                                borderColor = AppleDivider,
+                                borderColor = MaterialTheme.colorScheme.outlineVariant,
                                 selectedBorderColor = gradient.accentColor
                             ),
                             modifier = Modifier.testTag("settings_notif_freq_${freq.key}")
@@ -391,7 +407,7 @@ fun SettingsScreen(
                     text = "Minuteur & Chronomètre",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = AppleTextPrimary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(12.dp))
 
@@ -413,7 +429,7 @@ fun SettingsScreen(
                         )
                     }
                 )
-                HorizontalDivider(color = AppleDivider, modifier = Modifier.padding(vertical = 8.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 8.dp))
 
                 DurationStepperRow(
                     label = "Deep Code",
@@ -433,7 +449,7 @@ fun SettingsScreen(
                         )
                     }
                 )
-                HorizontalDivider(color = AppleDivider, modifier = Modifier.padding(vertical = 8.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 8.dp))
 
                 DurationStepperRow(
                     label = "Pause courte",
@@ -453,7 +469,7 @@ fun SettingsScreen(
                         )
                     }
                 )
-                HorizontalDivider(color = AppleDivider, modifier = Modifier.padding(vertical = 8.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 8.dp))
 
                 SettingsSwitchRow(
                     title = "Enregistrer le chronomètre au bilan",
@@ -462,7 +478,7 @@ fun SettingsScreen(
                     onCheckedChange = onUpdateAutoLogStopwatch,
                     testTag = "settings_stopwatch_autolog_switch"
                 )
-                HorizontalDivider(color = AppleDivider, modifier = Modifier.padding(vertical = 8.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 8.dp))
 
                 SettingsSwitchRow(
                     title = "Ambiance audio auto avec Focus",
@@ -471,7 +487,7 @@ fun SettingsScreen(
                     onCheckedChange = onUpdateAutoPlayAudioWithFocus,
                     testTag = "settings_audio_autoplay_switch"
                 )
-                HorizontalDivider(color = AppleDivider, modifier = Modifier.padding(vertical = 8.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 8.dp))
 
                 SettingsSwitchRow(
                     title = "Signaux tactiles & transitions",
@@ -490,12 +506,12 @@ fun SettingsScreen(
                     text = "Vue Calendrier par défaut",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = AppleTextPrimary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = "Affichée à l'ouverture de l'onglet Calendrier",
                     style = MaterialTheme.typography.bodySmall,
-                    color = AppleTextSecondary
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 Row(
@@ -517,7 +533,7 @@ fun SettingsScreen(
                             border = FilterChipDefaults.filterChipBorder(
                                 enabled = true,
                                 selected = selected,
-                                borderColor = AppleDivider,
+                                borderColor = MaterialTheme.colorScheme.outlineVariant,
                                 selectedBorderColor = gradient.accentColor
                             ),
                             modifier = Modifier.testTag("settings_default_view_${mode.key}")
@@ -527,18 +543,124 @@ fun SettingsScreen(
             }
         }
 
-        // Section 4: Studio Dégradés
+        // Section 4: Apparence (curated palettes and display modes)
+        item {
+            AppleCard(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "Apparence",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "Choisissez un rendu lisible, adapté à votre écran et à votre façon de travailler.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    AppearanceMode.entries.forEach { mode ->
+                        val selected = appSettings.appearanceMode == mode.key
+                        FilterChip(
+                            selected = selected,
+                            onClick = { onSelectAppearanceMode(mode.key) },
+                            label = { Text(mode.label) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = gradient.softContainer,
+                                selectedLabelColor = gradient.accentColor
+                            ),
+                            modifier = Modifier.testTag("appearance_mode_${mode.key}")
+                        )
+                    }
+                }
+                Text(
+                    text = AppearanceMode.fromKey(appSettings.appearanceMode).description,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Surfaces en verre", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+                        Text("Transparence et contours lumineux, combinables avec le mode clair ou OLED.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Switch(
+                        checked = appSettings.glassEnabled,
+                        onCheckedChange = onSetGlassEnabled,
+                        modifier = Modifier.testTag("glass_style_toggle"),
+                        colors = SwitchDefaults.colors(checkedTrackColor = gradient.accentColor)
+                    )
+                }
+            }
+        }
         item {
             Column {
                 Text(
-                    text = "Studio Dégradés (8 thèmes)",
+                    text = "10 palettes classiques",
                     style = MaterialTheme.typography.titleLarge,
-                    color = AppleTextPrimary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "Palette synchronisée avec votre profil cloud",
+                    text = "Des couleurs unies, distinctes des dégradés et conçues pour plusieurs styles de travail.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = AppleTextSecondary
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        items(themeRows) { pair ->
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                pair.forEach { preset ->
+                    val selected = appSettings.selectedThemeId == preset.id
+                    Surface(
+                        onClick = { onSelectTheme(preset.id) },
+                        shape = RoundedCornerShape(20.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        border = BorderStroke(
+                            if (selected) 2.dp else 1.dp,
+                            if (selected) preset.primary else MaterialTheme.colorScheme.outlineVariant
+                        ),
+                        modifier = Modifier.weight(1f).testTag("theme_preset_${preset.id}")
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Surface(
+                                shape = CircleShape,
+                                color = preset.primary,
+                                modifier = Modifier.size(22.dp)
+                            ) {}
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(preset.name, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+                                Text(preset.audience, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                            }
+                        }
+                    }
+                }
+                if (pair.size == 1) Spacer(modifier = Modifier.weight(1f))
+            }
+        }
+
+        // Section 5: Gradient studio
+        item {
+            Column {
+                Text(
+                    text = "Studio dégradés · ${LightGradients.all.size} palettes",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "Un style coloré, avec dégradés animés et ambiance lumineuse.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -552,8 +674,11 @@ fun SettingsScreen(
                 pair.forEach { preset ->
                     GradientSwatchCard(
                         preset = preset,
-                        isSelected = preset.id == selectedGradientId,
-                        onClick = { onSelectGradient(preset.id) },
+                        isSelected = appSettings.selectedThemeId == "gradient" && preset.id == selectedGradientId,
+                        onClick = {
+                            onSelectTheme("gradient")
+                            onSelectGradient(preset.id)
+                        },
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -573,7 +698,7 @@ fun SettingsScreen(
                 Text(
                     text = adapt.workspaceSectionTitle,
                     style = MaterialTheme.typography.titleLarge,
-                    color = AppleTextPrimary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 TextButton(onClick = { showAddCourseDialog = true }) {
                     Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -584,6 +709,7 @@ fun SettingsScreen(
         }
 
         items(courses, key = { it.id }) { course ->
+            var courseMenuExpanded by remember(course.id) { mutableStateOf(false) }
             AppleCard(
                 modifier = Modifier.fillMaxWidth(),
                 cornerRadius = 18.dp,
@@ -594,27 +720,52 @@ fun SettingsScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "${course.code} · ${course.title}",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = AppleTextPrimary
-                        )
-                        Text(
-                            text = course.professor.ifBlank { "Département Génie Logiciel" },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = AppleTextSecondary
-                        )
-                    }
-                    IconButton(
-                        onClick = { onDeleteCourse(course.id) },
-                        modifier = Modifier.size(48.dp)
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(11.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Rounded.DeleteOutline,
-                            contentDescription = "Supprimer la matière",
-                            tint = AppleTextSecondary
-                        )
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = catalogIconColor(course.colorIndex).copy(alpha = 0.14f),
+                            modifier = Modifier.size(42.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                CatalogIcon(
+                                    iconKey = course.iconKey,
+                                    contentDescription = null,
+                                    tint = catalogIconColor(course.colorIndex),
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "${course.code} · ${course.title}",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = course.professor.ifBlank { "Département Génie Logiciel" },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    Box {
+                        IconButton(
+                            onClick = { courseMenuExpanded = true },
+                            modifier = Modifier.size(44.dp).testTag("course_actions_${course.id}")
+                        ) {
+                            Icon(Icons.Rounded.MoreVert, contentDescription = "Actions pour ${course.title}", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        DropdownMenu(expanded = courseMenuExpanded, onDismissRequest = { courseMenuExpanded = false }) {
+                            DropdownMenuItem(
+                                text = { Text("Supprimer la matière") },
+                                leadingIcon = { Icon(Icons.Rounded.DeleteOutline, null) },
+                                onClick = { courseMenuExpanded = false; onDeleteCourse(course.id) }
+                            )
+                        }
                     }
                 }
             }
@@ -626,7 +777,7 @@ fun SettingsScreen(
                 Text(
                     text = if (isGoogleAuthPaused) "Connexion Google en pause" else "Compte Google & Sync Cloud",
                     style = MaterialTheme.typography.titleMedium,
-                    color = AppleTextPrimary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
@@ -636,7 +787,7 @@ fun SettingsScreen(
                         "Votre compte Google est actif. Vous pouvez mettre la connexion Google en pause pour effectuer des tests locaux."
                     },
                     style = MaterialTheme.typography.bodySmall,
-                    color = AppleTextSecondary
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 if (isGoogleAuthPaused) {
@@ -713,7 +864,7 @@ fun SettingsScreen(
                         label = { Text("Prénom / Nom") },
                         singleLine = true
                     )
-                    Text("Genre", style = MaterialTheme.typography.labelMedium, color = AppleTextSecondary)
+                    Text("Genre", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         UserGender.entries.forEach { g ->
                             FilterChip(
@@ -753,7 +904,7 @@ fun SettingsScreen(
                             modifier = Modifier.weight(1f)
                         )
                     }
-                    Text("Profession", style = MaterialTheme.typography.labelMedium, color = AppleTextSecondary)
+                    Text("Profession", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row(
                         modifier = Modifier.horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -824,12 +975,18 @@ fun SettingsScreen(
         var title by remember { mutableStateOf("") }
         var professor by remember { mutableStateOf("") }
         var targetHours by remember { mutableStateOf("20") }
+        var iconKey by remember { mutableStateOf("book") }
+        var colorIndex by remember { mutableStateOf((courses.size % 7).toLong()) }
+        var showIconPicker by remember { mutableStateOf(false) }
 
         AlertDialog(
             onDismissRequest = { showAddCourseDialog = false },
             title = { Text("Nouvelle matière L3") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(
+                    modifier = Modifier.heightIn(max = 450.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
                     OutlinedTextField(
                         value = code,
                         onValueChange = { code = it },
@@ -854,6 +1011,30 @@ fun SettingsScreen(
                         label = { Text("Objectif d'heures") },
                         singleLine = true
                     )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = catalogIconColor(colorIndex).copy(alpha = 0.14f),
+                            modifier = Modifier.size(42.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                CatalogIcon(iconKey, null, catalogIconColor(colorIndex), Modifier.size(22.dp))
+                            }
+                        }
+                        OutlinedButton(onClick = { showIconPicker = true }) {
+                            Text("Choisir une icône")
+                        }
+                    }
+                    Text("Couleur", style = MaterialTheme.typography.labelMedium)
+                    CatalogColorPicker(
+                        selectedIndex = colorIndex,
+                        onColorSelected = { colorIndex = it },
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             },
             confirmButton = {
@@ -864,9 +1045,10 @@ fun SettingsScreen(
                                 code,
                                 title,
                                 professor,
-                                (courses.size % 6).toLong(),
+                                colorIndex,
                                 targetHours.toIntOrNull() ?: 20,
-                                15.0
+                                15.0,
+                                iconKey
                             )
                             showAddCourseDialog = false
                         }
@@ -882,6 +1064,14 @@ fun SettingsScreen(
                 }
             }
         )
+        if (showIconPicker) {
+            CatalogIconPickerSheet(
+                selectedIconKey = iconKey,
+                selectedColor = catalogIconColor(colorIndex),
+                onIconSelected = { iconKey = it },
+                onDismiss = { showIconPicker = false }
+            )
+        }
     }
 }
 
@@ -901,7 +1091,7 @@ private fun DurationStepperRow(
         Text(
             text = label,
             style = MaterialTheme.typography.bodyMedium,
-            color = AppleTextPrimary
+            color = MaterialTheme.colorScheme.onSurface
         )
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -914,7 +1104,7 @@ private fun DurationStepperRow(
                 Icon(
                     imageVector = Icons.Rounded.Remove,
                     contentDescription = "Diminuer $label",
-                    tint = AppleTextSecondary
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             Surface(
@@ -960,12 +1150,12 @@ private fun SettingsSwitchRow(
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyMedium,
-                color = AppleTextPrimary
+                color = MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
-                color = AppleTextSecondary
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
         Switch(

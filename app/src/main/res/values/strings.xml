@@ -1,7 +1,6 @@
 <resources>
     <string name="app_name">Light</string>
     <string name="app_tagline">Planifie avec clarté. Code avec sérénité.</string>
-    <string name="major_badge">Génie Logiciel · 3ᵉ Année</string>
     <string name="sign_in_google">Continuer avec Google</string>
     <string name="sign_in_subtitle">Synchronisez vos cours, votre planning IA et vos sessions Focus dans le cloud.</string>
     <string name="sign_out">Se déconnecter</string>

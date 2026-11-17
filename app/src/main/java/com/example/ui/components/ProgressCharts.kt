@@ -45,10 +45,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.data.model.StudyTask
 import com.example.data.model.TaskCategory
-import com.example.ui.theme.AppleDivider
-import com.example.ui.theme.AppleTextPrimary
-import com.example.ui.theme.AppleTextSecondary
 import com.example.ui.theme.LocalLightGradient
+import com.example.ui.theme.appBrush
+import com.example.ui.theme.appVerticalBrush
 import kotlin.math.roundToInt
 
 @Composable
@@ -88,7 +87,7 @@ fun StudyTrendLineChart(
             Text(
                 text = "Pic : ${formatDurationCompact(minutesPerDay.maxOrNull() ?: 0)}",
                 style = MaterialTheme.typography.labelSmall,
-                color = AppleTextSecondary
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
@@ -130,7 +129,7 @@ fun StudyTrendLineChart(
             listOf(0.25f, 0.5f, 0.75f, 1f).forEach { frac ->
                 val y = vPadTop + usableH * (1f - frac)
                 drawLine(
-                    color = AppleDivider.copy(alpha = 0.85f),
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.85f),
                     start = Offset(hPad, y),
                     end = Offset(size.width - hPad, y),
                     strokeWidth = 1.dp.toPx(),
@@ -178,7 +177,7 @@ fun StudyTrendLineChart(
 
                 drawPath(
                     path = strokePath,
-                    brush = gradient.linearBrush(),
+                    brush = gradient.appBrush(),
                     style = Stroke(
                         width = 3.2.dp.toPx(),
                         cap = StrokeCap.Round,
@@ -228,7 +227,7 @@ fun StudyTrendLineChart(
                     text = if (show) label else "",
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = if (index == safeSelected) FontWeight.Bold else FontWeight.Normal,
-                    color = if (index == safeSelected) gradient.accentColor else AppleTextSecondary,
+                    color = if (index == safeSelected) gradient.accentColor else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.clickable { selectedIndex = index }
                 )
             }
@@ -267,7 +266,7 @@ fun CategoryDistributionDonutChart(
 
                 if (total == 0) {
                     drawArc(
-                        color = AppleDivider,
+                        color = MaterialTheme.colorScheme.outlineVariant,
                         startAngle = -90f,
                         sweepAngle = 360f,
                         useCenter = false,
@@ -299,12 +298,12 @@ fun CategoryDistributionDonutChart(
                     text = "$total",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
-                    color = AppleTextPrimary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = if (total <= 1) "tâche" else "tâches",
                     style = MaterialTheme.typography.labelSmall,
-                    color = AppleTextSecondary
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -334,7 +333,7 @@ fun CategoryDistributionDonutChart(
                         Text(
                             text = cat.label,
                             style = MaterialTheme.typography.bodySmall,
-                            color = AppleTextPrimary,
+                            color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -344,7 +343,7 @@ fun CategoryDistributionDonutChart(
                         text = if (count > 0) "$done/$count" else "0",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.SemiBold,
-                        color = if (count > 0) catColor else AppleTextSecondary
+                        color = if (count > 0) catColor else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }

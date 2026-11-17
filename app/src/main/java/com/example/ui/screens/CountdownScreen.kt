@@ -57,14 +57,12 @@ import com.example.data.model.CountdownCategory
 import com.example.data.model.StudyCountdown
 import com.example.ui.components.AppleCard
 import com.example.ui.components.GradientHeroCard
+import com.example.ui.components.EmptyStateCard
 import com.example.ui.theme.AppleAmber
-import com.example.ui.theme.AppleDivider
 import com.example.ui.theme.AppleEmerald
 import com.example.ui.theme.AppleIndigo
 import com.example.ui.theme.AppleRose
 import com.example.ui.theme.AppleSky
-import com.example.ui.theme.AppleTextPrimary
-import com.example.ui.theme.AppleTextSecondary
 import com.example.ui.theme.LocalLightGradient
 import java.time.Instant
 import java.time.LocalDate
@@ -111,14 +109,14 @@ fun CountdownScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Compte à rebours",
+                        text = "Échéances",
                         style = MaterialTheme.typography.headlineMedium,
-                        color = AppleTextPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Souvenez-vous de chaque jour spécial",
+                        text = "Examens, jalons et dates importantes",
                         style = MaterialTheme.typography.bodySmall,
-                        color = AppleTextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
@@ -162,7 +160,7 @@ fun CountdownScreen(
                             Text(
                                 text = "PROCHAINE ÉCHÉANCE",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = Color.White.copy(alpha = 0.85f)
+                                color = Color.White
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
@@ -176,7 +174,7 @@ fun CountdownScreen(
                                 Text(
                                     text = nextMilestone.notes,
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = Color.White.copy(alpha = 0.88f)
+                                    color = Color.White
                                 )
                             }
                         }
@@ -199,22 +197,12 @@ fun CountdownScreen(
 
         if (sorted.isEmpty()) {
             item {
-                AppleCard(
-                    modifier = Modifier.fillMaxWidth(),
-                    onClick = { showCreateDialog = true }
-                ) {
-                    Text(
-                        text = "Aucun compte à rebours",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = AppleTextPrimary
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Ajoutez vos partiels, soutenances de projet ou vacances universitaires.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = AppleTextSecondary
-                    )
-                }
+                EmptyStateCard(
+                    title = "Aucun compte à rebours",
+                    description = "Ajoutez vos partiels, échéances de projet ou vacances universitaires.",
+                    actionLabel = "Ajouter une échéance",
+                    onAction = { showCreateDialog = true }
+                )
             }
         } else {
             items(sorted, key = { it.id }) { item ->
@@ -288,20 +276,20 @@ private fun CountdownItemCard(
                 Text(
                     text = item.title,
                     style = MaterialTheme.typography.titleSmall,
-                    color = AppleTextPrimary,
+                    color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = "${cat.label} · $dateLabel",
                     style = MaterialTheme.typography.labelSmall,
-                    color = AppleTextSecondary
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 if (item.notes.isNotBlank()) {
                     Text(
                         text = item.notes,
                         style = MaterialTheme.typography.bodySmall,
-                        color = AppleTextSecondary,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -328,7 +316,7 @@ private fun CountdownItemCard(
                 Icon(
                     imageVector = Icons.Rounded.DeleteOutline,
                     contentDescription = "Supprimer",
-                    tint = AppleTextSecondary,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(19.dp)
                 )
             }
@@ -352,7 +340,7 @@ private fun CreateCountdownDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = Color.White,
+        containerColor = MaterialTheme.colorScheme.surface,
         title = { Text("Nouveau compte à rebours") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -428,7 +416,7 @@ private fun CreateCountdownDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Annuler", color = AppleTextSecondary)
+                Text("Annuler", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     )
@@ -454,10 +442,10 @@ private fun CreateCountdownDialog(
             },
             dismissButton = {
                 TextButton(onClick = { showDatePicker = false }) {
-                    Text("Annuler", color = AppleTextSecondary)
+                    Text("Annuler", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             },
-            colors = DatePickerDefaults.colors(containerColor = Color.White)
+            colors = DatePickerDefaults.colors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             DatePicker(state = state)
         }

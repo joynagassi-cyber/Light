@@ -18,6 +18,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -93,6 +94,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -113,14 +117,13 @@ import com.example.data.preferences.StudyAppSettings
 import com.example.notifications.LightNotificationHelper
 import com.example.ui.components.AppleCard
 import com.example.ui.components.GradientSwatchCard
-import com.example.ui.theme.AppleDivider
 import com.example.ui.theme.AppleEmerald
 import com.example.ui.theme.AppleIndigo
-import com.example.ui.theme.AppleTextPrimary
-import com.example.ui.theme.AppleTextSecondary
 import com.example.ui.theme.LightGradients
 import com.example.ui.theme.GradientScreenSurface
 import com.example.ui.theme.LocalLightGradient
+import com.example.ui.theme.appBrush
+import com.example.ui.theme.appVerticalBrush
 import java.time.LocalDate
 import kotlin.math.roundToInt
 
@@ -317,7 +320,7 @@ fun OnboardingScreen(
                             onClick = { if (step > 0) step-- else onSkip() },
                             shape = CircleShape,
                             color = Color.White.copy(alpha = 0.90f),
-                            border = BorderStroke(0.8.dp, AppleDivider),
+                            border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
                             modifier = Modifier
                                 .size(48.dp)
                                 .testTag("onboarding_back_button")
@@ -326,7 +329,7 @@ fun OnboardingScreen(
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
                                     contentDescription = "Étape précédente",
-                                    tint = AppleTextPrimary,
+                                    tint = MaterialTheme.colorScheme.onSurface,
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
@@ -342,7 +345,7 @@ fun OnboardingScreen(
                         Text(
                             text = "Étape ${step + 1} sur $totalSteps",
                             style = MaterialTheme.typography.labelMedium,
-                            color = AppleTextSecondary
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         LinearProgressIndicator(
@@ -369,7 +372,7 @@ fun OnboardingScreen(
                             onClick = { submitAll() },
                             modifier = Modifier.testTag("onboarding_quick_finish_button")
                         ) {
-                            Text("Passer", color = AppleTextSecondary)
+                            Text("Passer", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -398,6 +401,15 @@ fun OnboardingScreen(
                             .padding(vertical = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
+                        OnboardingIllustration(
+                            page = currentStep,
+                            displayName = displayName,
+                            profession = selectedProfession.labelFor(selectedGender, customProfession),
+                            accent = gradient.accentColor,
+                            activeHabitsCount = selectedHabitTitles.size,
+                            notificationsEnabled = notificationsEnabled,
+                            themeName = chosenGradientId.replace('_', ' ')
+                        )
                         when (currentStep) {
                             0 -> StepIdentityGenderAge(
                                 displayName = displayName,
@@ -590,6 +602,200 @@ fun OnboardingScreen(
 }
 
 @Composable
+private fun OnboardingIllustration(
+    page: Int,
+    displayName: String,
+    profession: String,
+    accent: Color,
+    activeHabitsCount: Int,
+    notificationsEnabled: Boolean,
+    themeName: String
+) {
+    val pageTitle = when (page) {
+        0 -> "Un espace à votre image"
+        1 -> "Votre quotidien, clarifié"
+        2 -> "Une ambiance qui vous ressemble"
+        3 -> "Les petits pas font la différence"
+        else -> "Au bon moment, jamais trop"
+    }
+    val pageIcon = when (page) {
+        0 -> Icons.Rounded.Person
+        1 -> Icons.Rounded.School
+        2 -> Icons.Rounded.Palette
+        3 -> Icons.Rounded.CheckCircle
+        else -> Icons.Rounded.NotificationsActive
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(172.dp)
+            .clip(RoundedCornerShape(28.dp))
+            .background(accent.copy(alpha = 0.075f))
+    ) {
+        Canvas(Modifier.matchParentSize()) {
+            drawCircle(
+                color = accent.copy(alpha = 0.11f),
+                radius = size.minDimension * 0.34f,
+                center = Offset(size.width * 0.11f, size.height * 0.98f)
+            )
+            drawCircle(
+                color = Color.White.copy(alpha = 0.72f),
+                radius = size.minDimension * 0.23f,
+                center = Offset(size.width * 0.91f, size.height * 0.12f)
+            )
+            drawRoundRect(
+                color = accent.copy(alpha = 0.08f),
+                topLeft = Offset(size.width * 0.79f, size.height * 0.69f),
+                size = Size(size.width * 0.15f, size.height * 0.18f),
+                cornerRadius = CornerRadius(14.dp.toPx())
+            )
+        }
+
+        Surface(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .widthIn(max = 300.dp)
+                .fillMaxWidth(0.84f),
+            shape = RoundedCornerShape(23.dp),
+            color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)),
+            shadowElevation = 7.dp
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(RoundedCornerShape(11.dp))
+                            .background(accent.copy(alpha = 0.13f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(pageIcon, contentDescription = null, tint = accent, modifier = Modifier.size(19.dp))
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = pageTitle,
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = "LIGHT · VOTRE ESPACE",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Icon(Icons.Rounded.AutoAwesome, contentDescription = null, tint = accent, modifier = Modifier.size(17.dp))
+                }
+
+                when (page) {
+                    0 -> Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(shape = CircleShape, color = accent.copy(alpha = 0.13f), modifier = Modifier.size(35.dp)) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = displayName.trim().firstOrNull()?.uppercase() ?: "✦",
+                                    color = accent,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                        Spacer(Modifier.width(10.dp))
+                        Column {
+                            Text(displayName.ifBlank { "Votre prénom" }, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                            Text("Un profil pensé pour vous", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    1 -> Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Text(profession, style = MaterialTheme.typography.labelMedium, color = accent, fontWeight = FontWeight.SemiBold)
+                        MiniScheduleLine("08:30", "Session de travail", accent, 0.74f)
+                        MiniScheduleLine("10:00", "Pause & respiration", accent, 0.48f)
+                    }
+                    2 -> Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.weight(1f)) {
+                            listOf(Color(0xFFFFAE63), Color(0xFFEC719F), accent, Color(0xFF61B8CE)).forEachIndexed { index, color ->
+                                Box(
+                                    Modifier
+                                        .size(if (index == 2) 27.dp else 22.dp)
+                                        .clip(CircleShape)
+                                        .background(color)
+                                )
+                            }
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(themeName.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                            Text("Aperçu en direct", style = MaterialTheme.typography.labelSmall, color = accent)
+                        }
+                    }
+                    3 -> Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Text("$activeHabitsCount habitudes sélectionnées", style = MaterialTheme.typography.labelMedium, color = accent, fontWeight = FontWeight.SemiBold)
+                        MiniHabitLine("Préparer ma journée", true, accent)
+                        MiniHabitLine("Faire une pause", activeHabitsCount > 1, accent)
+                    }
+                    else -> Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(CircleShape)
+                                .background(if (notificationsEnabled) accent.copy(alpha = 0.13f) else Color(0xFFF0EFF4)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = if (notificationsEnabled) Icons.Rounded.NotificationsActive else Icons.Rounded.NotificationsOff,
+                                contentDescription = null,
+                                tint = if (notificationsEnabled) accent else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Spacer(Modifier.width(10.dp))
+                        Column {
+                            Text(if (notificationsEnabled) "Rappel activé · 18:00" else "Rappels en pause", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+                            Text("Votre rythme, vos règles", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MiniScheduleLine(time: String, label: String, accent: Color, progress: Float) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(time, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.width(8.dp))
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+        Box(
+            Modifier
+                .width((48 * progress).dp)
+                .height(5.dp)
+                .clip(CircleShape)
+                .background(accent.copy(alpha = 0.64f))
+        )
+    }
+}
+
+@Composable
+private fun MiniHabitLine(title: String, checked: Boolean, accent: Color) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            imageVector = if (checked) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
+            contentDescription = null,
+            tint = if (checked) accent else MaterialTheme.colorScheme.outline,
+            modifier = Modifier.size(15.dp)
+        )
+        Spacer(Modifier.width(7.dp))
+        Text(title, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
 private fun StepIdentityGenderAge(
     displayName: String,
     onDisplayNameChange: (String) -> Unit,
@@ -617,7 +823,7 @@ private fun StepIdentityGenderAge(
         Text(
             text = "Faisons connaissance",
             style = MaterialTheme.typography.headlineMedium,
-            color = AppleTextPrimary
+            color = MaterialTheme.colorScheme.onSurface
         )
         Text(
             text = greetingPreview,
@@ -630,7 +836,7 @@ private fun StepIdentityGenderAge(
             Text(
                 text = "Votre prénom",
                 style = MaterialTheme.typography.titleSmall,
-                color = AppleTextPrimary
+                color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(
@@ -641,7 +847,7 @@ private fun StepIdentityGenderAge(
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = gradient.accentColor,
-                    unfocusedBorderColor = AppleDivider
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
                 ),
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier
@@ -655,7 +861,7 @@ private fun StepIdentityGenderAge(
             Text(
                 text = "Genre (pour accorder toute l'interface)",
                 style = MaterialTheme.typography.titleSmall,
-                color = AppleTextPrimary
+                color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(modifier = Modifier.height(10.dp))
             Row(
@@ -670,10 +876,10 @@ private fun StepIdentityGenderAge(
                     Surface(
                         onClick = { onSelectGender(gender) },
                         shape = RoundedCornerShape(18.dp),
-                        color = if (selected) gradient.softContainer else Color(0xFFF6F7FB),
+                        color = if (selected) gradient.softContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
                         border = BorderStroke(
                             if (selected) 1.5.dp else 0.8.dp,
-                            if (selected) gradient.accentColor else AppleDivider
+                            if (selected) gradient.accentColor else MaterialTheme.colorScheme.outlineVariant
                         ),
                         modifier = Modifier
                             .weight(1f)
@@ -687,7 +893,7 @@ private fun StepIdentityGenderAge(
                             Icon(
                                 imageVector = icon,
                                 contentDescription = null,
-                                tint = if (selected) gradient.accentColor else AppleTextSecondary,
+                                tint = if (selected) gradient.accentColor else MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(22.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
@@ -695,7 +901,7 @@ private fun StepIdentityGenderAge(
                                 text = title,
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                                color = if (selected) gradient.accentColor else AppleTextPrimary
+                                color = if (selected) gradient.accentColor else MaterialTheme.colorScheme.onSurface
                             )
                         }
                     }
@@ -718,7 +924,7 @@ private fun StepIdentityGenderAge(
                 Text(
                     text = "Âge & année de naissance",
                     style = MaterialTheme.typography.titleSmall,
-                    color = AppleTextPrimary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
             Spacer(modifier = Modifier.height(12.dp))
@@ -732,7 +938,7 @@ private fun StepIdentityGenderAge(
                     Text(
                         text = "Âge ($age ans)",
                         style = MaterialTheme.typography.labelMedium,
-                        color = AppleTextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     OutlinedTextField(
@@ -770,7 +976,7 @@ private fun StepIdentityGenderAge(
                     Text(
                         text = "Année ($birthYear)",
                         style = MaterialTheme.typography.labelMedium,
-                        color = AppleTextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     OutlinedTextField(
@@ -887,12 +1093,12 @@ private fun StepProfessionAndGoals(
         Text(
             text = "Votre activité principale",
             style = MaterialTheme.typography.headlineMedium,
-            color = AppleTextPrimary
+            color = MaterialTheme.colorScheme.onSurface
         )
         Text(
             text = "Light adapte vos catégories, vos habitudes, vos modules et le ton de l'assistant IA à votre profil.",
             style = MaterialTheme.typography.bodySmall,
-            color = AppleTextSecondary
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
         AppleCard(modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(12.dp)) {
@@ -902,10 +1108,10 @@ private fun StepProfessionAndGoals(
                     Surface(
                         onClick = { onSelectProfession(prof) },
                         shape = RoundedCornerShape(16.dp),
-                        color = if (isSelected) gradient.softContainer else Color(0xFFF7F8FC),
+                        color = if (isSelected) gradient.softContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
                         border = BorderStroke(
                             if (isSelected) 1.5.dp else 0.8.dp,
-                            if (isSelected) gradient.accentColor else AppleDivider
+                            if (isSelected) gradient.accentColor else MaterialTheme.colorScheme.outlineVariant
                         ),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -926,7 +1132,7 @@ private fun StepProfessionAndGoals(
                                 Icon(
                                     imageVector = icon,
                                     contentDescription = null,
-                                    tint = if (isSelected) Color.White else AppleTextSecondary,
+                                    tint = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
@@ -935,12 +1141,12 @@ private fun StepProfessionAndGoals(
                                     text = copy.first,
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.SemiBold,
-                                    color = if (isSelected) gradient.accentColor else AppleTextPrimary
+                                    color = if (isSelected) gradient.accentColor else MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
                                     text = copy.second,
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = AppleTextSecondary
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                             if (isSelected) {
@@ -986,7 +1192,7 @@ private fun StepProfessionAndGoals(
                     else -> "Domaine ou objectif principal"
                 },
                 style = MaterialTheme.typography.titleSmall,
-                color = AppleTextPrimary
+                color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(
@@ -1009,7 +1215,7 @@ private fun StepProfessionAndGoals(
                 Text(
                     text = "Objectif quotidien",
                     style = MaterialTheme.typography.titleSmall,
-                    color = AppleTextPrimary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = "$dailyGoalTasks tâches / jour",
@@ -1029,7 +1235,7 @@ private fun StepProfessionAndGoals(
                 )
             )
 
-            HorizontalDivider(color = AppleDivider, modifier = Modifier.padding(vertical = 8.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 8.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1040,12 +1246,12 @@ private fun StepProfessionAndGoals(
                     Text(
                         text = "Adapter les modules de départ",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = AppleTextPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = "Configure automatiquement vos pôles / matières initiaux",
                         style = MaterialTheme.typography.bodySmall,
-                        color = AppleTextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Switch(
@@ -1081,7 +1287,7 @@ private fun StepDesignStudio(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(gradient.linearBrush()),
+                    .background(gradient.appBrush()),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(Icons.Rounded.Palette, contentDescription = null, tint = Color.White)
@@ -1090,12 +1296,12 @@ private fun StepDesignStudio(
                 Text(
                     text = "Design & atmosphère",
                     style = MaterialTheme.typography.headlineMedium,
-                    color = AppleTextPrimary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = "Touchez un dégradé pour le tester en direct",
                     style = MaterialTheme.typography.bodySmall,
-                    color = AppleTextSecondary
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -1127,12 +1333,12 @@ private fun StepDesignStudio(
                     Text(
                         text = "Signaux tactiles & transitions fluides",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = AppleTextPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = "Animations iOS douces à chaque interaction",
                         style = MaterialTheme.typography.bodySmall,
-                        color = AppleTextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Switch(
@@ -1145,7 +1351,7 @@ private fun StepDesignStudio(
                 )
             }
 
-            HorizontalDivider(color = AppleDivider, modifier = Modifier.padding(vertical = 10.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 10.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1156,12 +1362,12 @@ private fun StepDesignStudio(
                     Text(
                         text = "Musique Lo-Fi auto en Focus",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = AppleTextPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = "Lance l'ambiance sonore dès le démarrage du minuteur",
                         style = MaterialTheme.typography.bodySmall,
-                        color = AppleTextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Switch(
@@ -1210,12 +1416,12 @@ private fun StepHabitsActivation(
                 Text(
                     text = "Activez vos habitudes",
                     style = MaterialTheme.typography.headlineMedium,
-                    color = AppleTextPrimary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = "Sélection suggérée pour ${profession.labelFor(gender)} (${selectedTitles.size} active(s))",
                     style = MaterialTheme.typography.bodySmall,
-                    color = AppleTextSecondary
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -1227,10 +1433,10 @@ private fun StepHabitsActivation(
                     Surface(
                         onClick = { onToggleHabit(habit.title) },
                         shape = RoundedCornerShape(16.dp),
-                        color = if (checked) gradient.softContainer else Color(0xFFF7F8FC),
+                        color = if (checked) gradient.softContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
                         border = BorderStroke(
                             if (checked) 1.3.dp else 0.7.dp,
-                            if (checked) gradient.accentColor else AppleDivider
+                            if (checked) gradient.accentColor else MaterialTheme.colorScheme.outlineVariant
                         ),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1244,19 +1450,19 @@ private fun StepHabitsActivation(
                             Icon(
                                 imageVector = if (checked) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
                                 contentDescription = if (checked) "Habitude activée" else "Activer l'habitude",
-                                tint = if (checked) gradient.accentColor else AppleTextSecondary,
+                                tint = if (checked) gradient.accentColor else MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(22.dp)
                             )
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = habit.title,
                                     style = MaterialTheme.typography.titleSmall,
-                                    color = AppleTextPrimary
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
                                     text = habit.subtitle,
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = AppleTextSecondary,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -1271,7 +1477,7 @@ private fun StepHabitsActivation(
             Text(
                 text = "Ajouter une habitude personnalisée",
                 style = MaterialTheme.typography.titleSmall,
-                color = AppleTextPrimary
+                color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(modifier = Modifier.height(8.dp))
             Row(
@@ -1345,12 +1551,12 @@ private fun StepNotificationsAndSummary(
                 Text(
                     text = "Notifications & rythme",
                     style = MaterialTheme.typography.headlineMedium,
-                    color = AppleTextPrimary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = "Choisissez quand Light vous envoie des rappels",
                     style = MaterialTheme.typography.bodySmall,
-                    color = AppleTextSecondary
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -1365,7 +1571,7 @@ private fun StepNotificationsAndSummary(
                     Text(
                         text = "Activer les notifications",
                         style = MaterialTheme.typography.titleSmall,
-                        color = AppleTextPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = if (systemPermissionGranted) {
@@ -1374,7 +1580,7 @@ private fun StepNotificationsAndSummary(
                             "Demande l'autorisation système Android"
                         },
                         style = MaterialTheme.typography.bodySmall,
-                        color = AppleTextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Switch(
@@ -1410,7 +1616,7 @@ private fun StepNotificationsAndSummary(
             Text(
                 text = "Fréquence des rappels",
                 style = MaterialTheme.typography.titleSmall,
-                color = AppleTextPrimary
+                color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -1420,10 +1626,10 @@ private fun StepNotificationsAndSummary(
                     Surface(
                         onClick = { onSelectFrequency(freq) },
                         shape = RoundedCornerShape(14.dp),
-                        color = if (selected) gradient.softContainer else Color(0xFFF7F8FC),
+                        color = if (selected) gradient.softContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
                         border = BorderStroke(
                             if (selected) 1.3.dp else 0.7.dp,
-                            if (selected) gradient.accentColor else AppleDivider
+                            if (selected) gradient.accentColor else MaterialTheme.colorScheme.outlineVariant
                         ),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1439,12 +1645,12 @@ private fun StepNotificationsAndSummary(
                                     text = freq.label,
                                     style = MaterialTheme.typography.labelLarge,
                                     fontWeight = FontWeight.SemiBold,
-                                    color = if (selected) gradient.accentColor else AppleTextPrimary
+                                    color = if (selected) gradient.accentColor else MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
                                     text = freq.description,
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = AppleTextSecondary
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                             if (selected) {
@@ -1471,7 +1677,7 @@ private fun StepNotificationsAndSummary(
                 Text(
                     text = "Votre espace Light sur-mesure",
                     style = MaterialTheme.typography.titleSmall,
-                    color = AppleTextPrimary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
             Spacer(modifier = Modifier.height(10.dp))
@@ -1502,13 +1708,13 @@ private fun SummaryRow(label: String, value: String) {
         Text(
             text = label,
             style = MaterialTheme.typography.bodySmall,
-            color = AppleTextSecondary
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
             text = value,
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.SemiBold,
-            color = AppleTextPrimary,
+            color = MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )

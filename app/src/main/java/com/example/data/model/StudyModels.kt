@@ -102,12 +102,14 @@ data class Course(
     val completedMinutes: Long = 0L,
     val grade: Double = 15.0,
     @ServerTimestamp val createdAt: Timestamp? = null,
-    @ServerTimestamp val updatedAt: Timestamp? = null
+    @ServerTimestamp val updatedAt: Timestamp? = null,
+    val iconKey: String = "book"
 )
 
 enum class TaskCategory(val key: String, val label: String) {
     EXAM("exam", "Examen"),
     PROJECT("project", "Projet"),
+    MILESTONE("milestone", "Jalon"),
     ASSIGNMENT("assignment", "TP / Devoir"),
     REVISION("revision", "Révision"),
     READING("reading", "Lecture");
@@ -119,6 +121,19 @@ enum class TaskCategory(val key: String, val label: String) {
         fun sanitizeKey(key: String?): String = fromKey(key).key
     }
 }
+
+@IgnoreExtraProperties
+data class StudyProject(
+    @DocumentId val id: String = "",
+    val userId: String = "",
+    val title: String = "",
+    val description: String = "",
+    val startDateIso: String = "",
+    val dueDateIso: String = "",
+    val status: String = "active",
+    @ServerTimestamp val createdAt: Timestamp? = null,
+    @ServerTimestamp val updatedAt: Timestamp? = null
+)
 
 @IgnoreExtraProperties
 data class StudyTask(
@@ -137,13 +152,16 @@ data class StudyTask(
     val completed: Boolean = false,
     val aiGenerated: Boolean = false,
     @ServerTimestamp val createdAt: Timestamp? = null,
-    @ServerTimestamp val updatedAt: Timestamp? = null
+    @ServerTimestamp val updatedAt: Timestamp? = null,
+    /** Optional planned start date; older tasks default to their due date in the Gantt view. */
+    val startDateIso: String = "",
+    val projectId: String = ""
 )
 
 fun StudyTask.resolvedQuadrant(todayIso: String = java.time.LocalDate.now().toString()): Int {
     if (quadrant in 1L..4L) return quadrant.toInt()
     val isUrgent = dueDateIso.isNotBlank() && dueDateIso <= todayIso
-    val isImportant = priority == "high" || category == TaskCategory.EXAM.key || category == TaskCategory.PROJECT.key
+    val isImportant = priority == "high" || category == TaskCategory.EXAM.key || category == TaskCategory.PROJECT.key || category == TaskCategory.MILESTONE.key
     return when {
         isUrgent && isImportant -> 1
         !isUrgent && isImportant -> 2

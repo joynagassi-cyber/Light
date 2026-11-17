@@ -80,6 +80,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.data.model.Course
+import com.example.data.model.StudyProject
 import com.example.data.model.TaskCategory
 import com.example.data.model.UserProfile
 import com.example.data.model.adaptation
@@ -87,11 +88,8 @@ import com.example.ui.components.AppleCard
 import com.example.ui.components.accentColor
 import com.example.ui.components.icon
 import com.example.ui.theme.AppleAmber
-import com.example.ui.theme.AppleDivider
 import com.example.ui.theme.AppleEmerald
 import com.example.ui.theme.AppleRose
-import com.example.ui.theme.AppleTextPrimary
-import com.example.ui.theme.AppleTextSecondary
 import com.example.ui.theme.AppleTextTertiary
 import com.example.ui.theme.GradientScreenSurface
 import com.example.ui.theme.LocalLightGradient
@@ -105,20 +103,24 @@ import java.util.Locale
 @Composable
 fun TaskCreationScreen(
     courses: List<Course>,
+    projects: List<StudyProject> = emptyList(),
     initialDateIso: String,
     initialQuadrant: Int? = null,
+    initialProjectId: String = "",
     profile: UserProfile? = null,
     onCancel: () -> Unit,
     onCreateTask: (
         course: Course?,
         title: String,
         notes: String,
+        startDateIso: String,
         dueDateIso: String,
         scheduledTime: String,
         priority: String,
         category: String,
         estimatedMinutes: Long,
-        quadrant: Long?
+        quadrant: Long?,
+        projectId: String
     ) -> Unit
 ) {
     BackHandler(onBack = onCancel)
@@ -130,11 +132,14 @@ fun TaskCreationScreen(
     var title by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
     var selectedCourse by remember(courses) { mutableStateOf(courses.firstOrNull()) }
+    var selectedProjectId by remember(initialProjectId) { mutableStateOf(initialProjectId) }
     var selectedDate by remember(initialDateIso) {
-        mutableStateOf(
-            runCatching { LocalDate.parse(initialDateIso) }.getOrElse { LocalDate.now() }
-        )
+        mutableStateOf(runCatching { LocalDate.parse(initialDateIso) }.getOrElse { LocalDate.now() })
     }
+    var selectedStartDate by remember(initialDateIso) {
+        mutableStateOf(runCatching { LocalDate.parse(initialDateIso) }.getOrElse { LocalDate.now() })
+    }
+    var isPickingStartDate by remember { mutableStateOf(false) }
     var selectedTime by remember { mutableStateOf("10:00") }
     var selectedCategory by remember { mutableStateOf(TaskCategory.REVISION) }
     var selectedPriority by remember { mutableStateOf("medium") }
@@ -150,6 +155,9 @@ fun TaskCreationScreen(
         val formatter = DateTimeFormatter.ofPattern("EEEE d MMMM yyyy", Locale.FRENCH)
         selectedDate.format(formatter).replaceFirstChar { it.uppercase() }
     }
+    val formattedStartDateLabel = remember(selectedStartDate) {
+        selectedStartDate.format(DateTimeFormatter.ofPattern("d MMM yyyy", Locale.FRENCH))
+    }
 
     val canSubmit = title.isNotBlank()
 
@@ -159,12 +167,14 @@ fun TaskCreationScreen(
             selectedCourse,
             title.trim(),
             notes.trim(),
+            selectedStartDate.toString(),
             selectedDate.toString(),
             selectedTime,
             selectedPriority,
             selectedCategory.key,
             selectedDuration,
-            selectedQuadrant
+            selectedQuadrant,
+            selectedProjectId
         )
     }
 
@@ -192,8 +202,8 @@ fun TaskCreationScreen(
                     Surface(
                         onClick = onCancel,
                         shape = CircleShape,
-                        color = Color.White.copy(alpha = 0.90f),
-                        border = BorderStroke(0.8.dp, Color.White),
+                        color = MaterialTheme.colorScheme.surface,
+                        border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
                         shadowElevation = 2.dp,
                         modifier = Modifier
                             .size(48.dp)
@@ -203,7 +213,7 @@ fun TaskCreationScreen(
                             Icon(
                                 imageVector = Icons.Rounded.Close,
                                 contentDescription = "Fermer",
-                                tint = AppleTextPrimary,
+                                tint = MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -213,12 +223,12 @@ fun TaskCreationScreen(
                         Text(
                             text = "Nouvelle tâche",
                             style = MaterialTheme.typography.titleLarge,
-                            color = AppleTextPrimary
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             text = adapt.headerSubtitle,
                             style = MaterialTheme.typography.labelSmall,
-                            color = AppleTextSecondary
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
@@ -299,7 +309,7 @@ fun TaskCreationScreen(
                             Text(
                                 text = "Catégorie",
                                 style = MaterialTheme.typography.titleSmall,
-                                color = AppleTextPrimary
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 text = selectedCategory.label,
@@ -326,7 +336,7 @@ fun TaskCreationScreen(
                                         Icon(
                                             imageVector = category.icon(),
                                             contentDescription = null,
-                                            tint = if (isSelected) catColor else AppleTextSecondary,
+                                            tint = if (isSelected) catColor else MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier.size(16.dp)
                                         )
                                     },
@@ -343,11 +353,37 @@ fun TaskCreationScreen(
                                     border = FilterChipDefaults.filterChipBorder(
                                         enabled = true,
                                         selected = isSelected,
-                                        borderColor = AppleDivider,
+                                        borderColor = MaterialTheme.colorScheme.outlineVariant,
                                         selectedBorderColor = catColor
                                     ),
                                     modifier = Modifier.testTag("category_chip_${category.key}")
                                 )
+                            }
+                        }
+                    }
+
+                    if (projects.isNotEmpty()) {
+                        AppleCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 22.dp, contentPadding = PaddingValues(16.dp)) {
+                            Text("Projet associé", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+                            Text("Facultatif · le projet apparaîtra comme groupe dans le Gantt.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Row(
+                                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 10.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                FilterChip(
+                                    selected = selectedProjectId.isBlank(),
+                                    onClick = { selectedProjectId = "" },
+                                    label = { Text("Aucun") },
+                                    modifier = Modifier.testTag("task_project_none")
+                                )
+                                projects.forEach { project ->
+                                    FilterChip(
+                                        selected = selectedProjectId == project.id,
+                                        onClick = { selectedProjectId = project.id },
+                                        label = { Text(project.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                        modifier = Modifier.testTag("task_project_${project.id}")
+                                    )
+                                }
                             }
                         }
                     }
@@ -361,7 +397,7 @@ fun TaskCreationScreen(
                         Text(
                             text = "Date & créneau",
                             style = MaterialTheme.typography.titleSmall,
-                            color = AppleTextPrimary
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(10.dp))
 
@@ -382,7 +418,10 @@ fun TaskCreationScreen(
                                 val selected = selectedDate == date
                                 FilterChip(
                                     selected = selected,
-                                    onClick = { selectedDate = date },
+                                    onClick = {
+                                        selectedDate = date
+                                        if (selectedStartDate > date) selectedStartDate = date
+                                    },
                                     label = { Text(label) },
                                     colors = FilterChipDefaults.filterChipColors(
                                         selectedContainerColor = gradient.softContainer,
@@ -391,7 +430,7 @@ fun TaskCreationScreen(
                                     border = FilterChipDefaults.filterChipBorder(
                                         enabled = true,
                                         selected = selected,
-                                        borderColor = AppleDivider,
+                                        borderColor = MaterialTheme.colorScheme.outlineVariant,
                                         selectedBorderColor = gradient.accentColor
                                     )
                                 )
@@ -400,12 +439,32 @@ fun TaskCreationScreen(
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // Interactive Date Picker Row
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .clickable {
+                                    isPickingStartDate = true
+                                    showDatePicker = true
+                                }
+                                .padding(vertical = 9.dp, horizontal = 4.dp)
+                                .testTag("open_start_date_picker_button"),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Début prévu", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(formattedStartDateLabel, style = MaterialTheme.typography.titleSmall, color = gradient.accentColor)
+                        }
+
+                        // Deadline date picker row
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(16.dp))
-                                .clickable { showDatePicker = true }
+                                .clickable {
+                                    isPickingStartDate = false
+                                    showDatePicker = true
+                                }
                                 .padding(vertical = 10.dp, horizontal = 4.dp)
                                 .testTag("open_date_picker_button"),
                             verticalAlignment = Alignment.CenterVertically,
@@ -434,12 +493,12 @@ fun TaskCreationScreen(
                                     Text(
                                         text = "Échéance choisie",
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = AppleTextSecondary
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                     Text(
                                         text = formattedDateLabel,
                                         style = MaterialTheme.typography.titleSmall,
-                                        color = AppleTextPrimary,
+                                        color = MaterialTheme.colorScheme.onSurface,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
@@ -461,7 +520,7 @@ fun TaskCreationScreen(
                         }
 
                         HorizontalDivider(
-                            color = AppleDivider.copy(alpha = 0.7f),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f),
                             modifier = Modifier.padding(vertical = 6.dp)
                         )
 
@@ -498,12 +557,12 @@ fun TaskCreationScreen(
                                     Text(
                                         text = "Heure prévue",
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = AppleTextSecondary
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                     Text(
                                         text = selectedTime,
                                         style = MaterialTheme.typography.titleSmall,
-                                        color = AppleTextPrimary
+                                        color = MaterialTheme.colorScheme.onSurface
                                     )
                                 }
                             }
@@ -553,7 +612,7 @@ fun TaskCreationScreen(
                             Text(
                                 text = adapt.taskModuleLabel,
                                 style = MaterialTheme.typography.titleSmall,
-                                color = AppleTextPrimary
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             if (selectedCourse != null) {
                                 Text(
@@ -586,7 +645,7 @@ fun TaskCreationScreen(
                                         border = FilterChipDefaults.filterChipBorder(
                                             enabled = true,
                                             selected = selected,
-                                            borderColor = AppleDivider,
+                                            borderColor = MaterialTheme.colorScheme.outlineVariant,
                                             selectedBorderColor = gradient.accentColor
                                         )
                                     )
@@ -604,14 +663,14 @@ fun TaskCreationScreen(
                         Text(
                             text = "Priorité",
                             style = MaterialTheme.typography.titleSmall,
-                            color = AppleTextPrimary
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(10.dp))
 
                         // iOS Segmented Control
                         Surface(
                             shape = RoundedCornerShape(16.dp),
-                            color = Color(0xFFF1F3F9),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(
@@ -647,7 +706,7 @@ fun TaskCreationScreen(
                                                 text = label,
                                                 style = MaterialTheme.typography.labelLarge,
                                                 fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
-                                                color = if (isSelected) AppleTextPrimary else AppleTextSecondary
+                                                color = if (isSelected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                         }
                                     }
@@ -665,12 +724,12 @@ fun TaskCreationScreen(
                             Text(
                                 text = "Durée estimée",
                                 style = MaterialTheme.typography.titleSmall,
-                                color = AppleTextPrimary
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 text = "Focus Pomodoro",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = AppleTextSecondary
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         Spacer(modifier = Modifier.height(8.dp))
@@ -704,7 +763,7 @@ fun TaskCreationScreen(
                             Text(
                                 text = "Matrice d'Eisenhower",
                                 style = MaterialTheme.typography.titleSmall,
-                                color = AppleTextPrimary
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 text = when (selectedQuadrant) {
@@ -745,7 +804,7 @@ fun TaskCreationScreen(
                                     border = FilterChipDefaults.filterChipBorder(
                                         enabled = true,
                                         selected = isSel,
-                                        borderColor = AppleDivider,
+                                        borderColor = MaterialTheme.colorScheme.outlineVariant,
                                         selectedBorderColor = gradient.accentColor
                                     ),
                                     modifier = Modifier.testTag("quadrant_chip_${qVal ?: 0}")
@@ -788,8 +847,9 @@ fun TaskCreationScreen(
     }
 
     if (showDatePicker) {
-        val initialMillis = remember(selectedDate) {
-            selectedDate.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+        val pickerDate = if (isPickingStartDate) selectedStartDate else selectedDate
+        val initialMillis = remember(pickerDate) {
+            pickerDate.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
         }
         val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
 
@@ -799,9 +859,14 @@ fun TaskCreationScreen(
                 TextButton(
                     onClick = {
                         datePickerState.selectedDateMillis?.let { millis ->
-                            selectedDate = Instant.ofEpochMilli(millis)
-                                .atZone(ZoneOffset.UTC)
-                                .toLocalDate()
+                            val date = Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()
+                            if (isPickingStartDate) {
+                                selectedStartDate = date
+                                if (selectedDate < date) selectedDate = date
+                            } else {
+                                selectedDate = date
+                                if (selectedStartDate > date) selectedStartDate = date
+                            }
                         }
                         showDatePicker = false
                     }
@@ -811,10 +876,10 @@ fun TaskCreationScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showDatePicker = false }) {
-                    Text("Annuler", color = AppleTextSecondary)
+                    Text("Annuler", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             },
-            colors = DatePickerDefaults.colors(containerColor = Color.White)
+            colors = DatePickerDefaults.colors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             DatePicker(
                 state = datePickerState,
@@ -839,7 +904,7 @@ fun TaskCreationScreen(
 
         AlertDialog(
             onDismissRequest = { showTimePicker = false },
-            containerColor = Color.White,
+            containerColor = MaterialTheme.colorScheme.surface,
             title = { Text("Choisir l'heure", style = MaterialTheme.typography.titleLarge) },
             text = {
                 Box(
@@ -870,7 +935,7 @@ fun TaskCreationScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showTimePicker = false }) {
-                    Text("Annuler", color = AppleTextSecondary)
+                    Text("Annuler", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         )
@@ -894,7 +959,7 @@ private fun IosFloatingTextField(
     var isFocused by remember { mutableStateOf(false) }
 
     val borderColor by animateColorAsState(
-        targetValue = if (isFocused) gradient.accentColor else Color.White.copy(alpha = 0.95f),
+        targetValue = if (isFocused) gradient.accentColor else MaterialTheme.colorScheme.outlineVariant,
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
         label = "floatingFieldBorder"
     )
@@ -907,7 +972,7 @@ private fun IosFloatingTextField(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(22.dp),
-        color = Color.White.copy(alpha = 0.94f),
+        color = MaterialTheme.colorScheme.surface,
         shadowElevation = elevation,
         border = BorderStroke(if (isFocused) 1.5.dp else 0.9.dp, borderColor)
     ) {
@@ -920,7 +985,7 @@ private fun IosFloatingTextField(
                 Icon(
                     imageVector = leadingIcon,
                     contentDescription = null,
-                    tint = if (isFocused) gradient.accentColor else AppleTextSecondary,
+                    tint = if (isFocused) gradient.accentColor else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(20.dp)
                 )
             },
@@ -930,7 +995,7 @@ private fun IosFloatingTextField(
                         Icon(
                             imageVector = Icons.Rounded.Close,
                             contentDescription = "Effacer",
-                            tint = AppleTextSecondary,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -952,7 +1017,7 @@ private fun IosFloatingTextField(
                 focusedBorderColor = Color.Transparent,
                 unfocusedBorderColor = Color.Transparent,
                 focusedLabelColor = gradient.accentColor,
-                unfocusedLabelColor = AppleTextSecondary,
+                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 cursorColor = gradient.accentColor
             ),
             modifier = modifier

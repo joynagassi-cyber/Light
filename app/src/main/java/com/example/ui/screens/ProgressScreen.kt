@@ -64,10 +64,7 @@ import com.example.ui.components.GradientProgressRing
 import com.example.ui.components.StudyTrendLineChart
 import com.example.ui.components.WeeklyStudyBarChart
 import com.example.ui.theme.AppleAmber
-import com.example.ui.theme.AppleDivider
 import com.example.ui.theme.AppleEmerald
-import com.example.ui.theme.AppleTextPrimary
-import com.example.ui.theme.AppleTextSecondary
 import com.example.ui.theme.LocalLightGradient
 import java.time.LocalDate
 import java.time.format.TextStyle
@@ -182,20 +179,20 @@ fun ProgressScreen(
                     Text(
                         text = "Progression & Bilan",
                         style = MaterialTheme.typography.headlineMedium,
-                        color = AppleTextPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "${adapt.headerSubtitle} • ${adapt.ageBadge}",
+                        text = adapt.headerSubtitle,
                         style = MaterialTheme.typography.bodySmall,
-                        color = AppleTextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
                 Surface(
                     onClick = onOpenSettings,
                     shape = CircleShape,
-                    color = Color.White,
-                    border = BorderStroke(0.8.dp, AppleDivider),
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
                     shadowElevation = 2.dp,
                     modifier = Modifier
                         .size(48.dp)
@@ -230,12 +227,12 @@ fun ProgressScreen(
                                 text = "${(taskRatio * 100).toInt()}%",
                                 style = MaterialTheme.typography.headlineSmall,
                                 fontWeight = FontWeight.Bold,
-                                color = AppleTextPrimary
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 text = "accompli",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = AppleTextSecondary
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -247,12 +244,12 @@ fun ProgressScreen(
                         Text(
                             text = "Temps Focus cumulé",
                             style = MaterialTheme.typography.labelMedium,
-                            color = AppleTextSecondary
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
                             text = totalHoursText,
                             style = MaterialTheme.typography.headlineSmall,
-                            color = AppleTextPrimary
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                             Column {
@@ -264,7 +261,7 @@ fun ProgressScreen(
                                 Text(
                                     text = "Tâches",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = AppleTextSecondary
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                             Column {
@@ -276,7 +273,7 @@ fun ProgressScreen(
                                 Text(
                                     text = adapt.metricScoreLabel,
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = AppleTextSecondary
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
@@ -296,7 +293,7 @@ fun ProgressScreen(
                     Text(
                         text = "Graphique d'étude",
                         style = MaterialTheme.typography.titleMedium,
-                        color = AppleTextPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = "${sessions.filter { it.mode != "short_break" }.size} sessions",
@@ -324,7 +321,7 @@ fun ProgressScreen(
                             border = FilterChipDefaults.filterChipBorder(
                                 enabled = true,
                                 selected = selected,
-                                borderColor = AppleDivider,
+                                borderColor = MaterialTheme.colorScheme.outlineVariant,
                                 selectedBorderColor = gradient.accentColor
                             ),
                             modifier = Modifier.testTag("chart_mode_${mode.key}")
@@ -357,7 +354,7 @@ fun ProgressScreen(
             Text(
                 text = "Progression • ${adapt.workspaceSectionTitle}",
                 style = MaterialTheme.typography.titleLarge,
-                color = AppleTextPrimary
+                color = MaterialTheme.colorScheme.onSurface
             )
         }
 
@@ -378,14 +375,14 @@ fun ProgressScreen(
                         Text(
                             text = "${course.code} · ${course.title}",
                             style = MaterialTheme.typography.titleSmall,
-                            color = AppleTextPrimary,
+                            color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
                             text = "${course.completedMinutes / 60}h / ${course.targetMinutes / 60}h · ${course.professor}",
                             style = MaterialTheme.typography.bodySmall,
-                            color = AppleTextSecondary
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
@@ -397,7 +394,7 @@ fun ProgressScreen(
                             Icon(
                                 imageVector = Icons.Rounded.Remove,
                                 contentDescription = "Diminuer la note",
-                                tint = AppleTextSecondary,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(16.dp)
                             )
                         }
@@ -494,14 +491,14 @@ fun ProgressScreen(
                                     .clip(RoundedCornerShape(12.dp))
                                     .background(
                                         if (badge.unlocked) gradient.softContainer
-                                        else Color(0xFFF1F3F8)
+                                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
                                     ),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = badge.icon,
                                     contentDescription = null,
-                                    tint = if (badge.unlocked) gradient.accentColor else AppleTextSecondary,
+                                    tint = if (badge.unlocked) gradient.accentColor else MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
@@ -509,12 +506,12 @@ fun ProgressScreen(
                                 Text(
                                     text = badge.title,
                                     style = MaterialTheme.typography.titleSmall,
-                                    color = if (badge.unlocked) AppleTextPrimary else AppleTextSecondary
+                                    color = if (badge.unlocked) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
                                     text = badge.subtitle,
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = AppleTextSecondary
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                             if (badge.unlocked) {

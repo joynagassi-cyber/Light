@@ -138,6 +138,7 @@ test("Cross-user isolation: Bob cannot read or write Alice's courses, tasks, or 
       code: "GL-301",
       title: "Architecture Logicielle",
       professor: "Prof. Laurent",
+      iconKey: "code",
       colorIndex: 0,
       targetMinutes: 1200,
       completedMinutes: 300,
@@ -172,6 +173,7 @@ test("Owner can list, create, update, and delete tasks; focusSessions are append
       title: "Réviser les Design Patterns GoF",
       notes: "Singleton, Observer, Strategy",
       dueDateIso: "2026-11-16",
+      startDateIso: "2026-11-12",
       scheduledTime: "10:00",
       priority: "high",
       category: "exam",
@@ -186,7 +188,7 @@ test("Owner can list, create, update, and delete tasks; focusSessions are append
   await assertSucceeds(
     taskRef.update({
       completed: true,
-      category: "project",
+      category: "milestone",
       updatedAt: pastDate(),
     })
   );
@@ -336,3 +338,63 @@ test("Owner can manage habits and countdowns; cross-user and unauth rejected", a
   await assertFails(bobDb.collection("users").doc(ALICE_UID).collection("countdowns").doc("cd_1").get());
 });
 
+
+test("Owners can manage projects and only link tasks to existing projects", async () => {
+  const unauthDb = testEnv.unauthenticatedContext().firestore();
+  const aliceDb = testEnv.authenticatedContext(ALICE_UID).firestore();
+  const bobDb = testEnv.authenticatedContext(BOB_UID).firestore();
+  const userRef = aliceDb.collection("users").doc(ALICE_UID);
+  const projectRef = userRef.collection("projects").doc("proj_capstone");
+
+  await assertFails(unauthDb.collection("users").doc(ALICE_UID).collection("projects").get());
+  await assertSucceeds(projectRef.set({
+    userId: ALICE_UID,
+    title: "Application de suivi",
+    description: "Livrer une première version fonctionnelle.",
+    startDateIso: "2026-11-16",
+    dueDateIso: "2026-12-20",
+    status: "active",
+    createdAt: pastDate(),
+    updatedAt: pastDate(),
+  }));
+
+  const linkedTask = userRef.collection("tasks").doc("task_in_project");
+  await assertSucceeds(linkedTask.set({
+    userId: ALICE_UID,
+    courseId: "gl301",
+    courseTitle: "Architecture Logicielle",
+    projectId: "proj_capstone",
+    title: "Écrire les tests d'intégration",
+    notes: "",
+    dueDateIso: "2026-12-02",
+    startDateIso: "2026-11-20",
+    scheduledTime: "10:00",
+    priority: "medium",
+    category: "project",
+    estimatedMinutes: 60,
+    completed: false,
+    aiGenerated: false,
+    createdAt: pastDate(),
+    updatedAt: pastDate(),
+  }));
+
+  await assertFails(userRef.collection("tasks").doc("orphan_task").set({
+    userId: ALICE_UID,
+    title: "Tâche orpheline",
+    dueDateIso: "2026-12-02",
+    startDateIso: "2026-11-20",
+    projectId: "missing_project",
+    priority: "medium",
+    estimatedMinutes: 30,
+    completed: false,
+    aiGenerated: false,
+    createdAt: pastDate(),
+    updatedAt: pastDate(),
+  }));
+
+  await assertFails(bobDb.collection("users").doc(ALICE_UID).collection("projects").get());
+  await assertSucceeds(projectRef.update({ status: "completed", updatedAt: pastDate() }));
+  await assertFails(projectRef.update({ status: "unknown", updatedAt: pastDate() }));
+  await assertFails(projectRef.update({ dueDateIso: "2026-10-01", updatedAt: pastDate() }));
+  await assertFails(projectRef.update({ startDateIso: "2026-13-01", updatedAt: pastDate() }));
+});

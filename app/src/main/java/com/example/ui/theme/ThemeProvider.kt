@@ -31,18 +31,23 @@ val LocalLightThemeController = staticCompositionLocalOf {
     )
 }
 
-/**
- * Provides the Material 3 theme, smoothly animated gradient tokens, and theme switching
- * controller across all Compose screens.
- */
+/** Provides the selected palette, appearance mode, and Material 3 color scheme app-wide. */
 @Composable
 fun LightThemeProvider(
     selectedGradientId: String = "aurore_lavande",
+    selectedThemeId: String = LightColorThemes.GRADIENT_ID,
+    appearanceModeKey: String = AppearanceMode.LIGHT.key,
+    glassEnabled: Boolean = false,
     onSelectGradient: (String) -> Unit = {},
     wrapWithGradientSurface: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    LightTheme(selectedGradientId = selectedGradientId) {
+    LightTheme(
+        selectedGradientId = selectedGradientId,
+        selectedThemeId = selectedThemeId,
+        appearanceModeKey = appearanceModeKey,
+        glassEnabled = glassEnabled
+    ) {
         val activeGradient = LocalLightGradient.current
         val controller = LightThemeController(
             activeGradient = activeGradient,
@@ -59,16 +64,22 @@ fun LightThemeProvider(
     }
 }
 
-/**
- * Custom Material 3 Surface wrapper that renders the active animated gradient backdrop
- * and subtle luminous ambient orbs behind the main Compose screens.
- */
+/** The app canvas is gradient, solid, or OLED black according to the selected appearance. */
 @Composable
 fun GradientScreenSurface(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit
 ) {
     val gradient = LocalLightGradient.current
+    val surfaceConfig = LocalThemeSurfaceConfig.current
+    val isGradientTheme = surfaceConfig.selectedThemeId == LightColorThemes.GRADIENT_ID
+    val isOled = surfaceConfig.appearanceMode == AppearanceMode.OLED
+    val isGlass = surfaceConfig.glassEnabled
+    val backgroundColor = when {
+        isOled -> Color.Black
+        isGradientTheme || isGlass -> surfaceConfig.palette.background
+        else -> surfaceConfig.palette.background
+    }
 
     Surface(
         modifier = modifier.fillMaxSize(),
@@ -79,50 +90,40 @@ fun GradientScreenSurface(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(gradient.screenBackgroundBrush())
+                .background(
+                    when {
+                        isOled -> Color.Black
+                        isGradientTheme -> gradient.screenBackgroundBrush()
+                        isGlass -> Brush.verticalGradient(
+                            listOf(
+                                surfaceConfig.palette.background,
+                                surfaceConfig.palette.background.copy(alpha = 0.92f),
+                                gradient.softContainer.copy(alpha = 0.62f)
+                            )
+                        )
+                        else -> Brush.verticalGradient(listOf(backgroundColor, backgroundColor))
+                    }
+                )
         ) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                val topRightRadius = size.maxDimension * 0.48f
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            gradient.startColor.copy(alpha = 0.16f),
-                            Color.Transparent
-                        ),
-                        center = Offset(size.width * 0.92f, size.height * 0.08f),
-                        radius = topRightRadius
-                    ),
-                    radius = topRightRadius,
-                    center = Offset(size.width * 0.92f, size.height * 0.08f)
-                )
-
-                val midLeftRadius = size.maxDimension * 0.42f
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            gradient.midColor.copy(alpha = 0.11f),
-                            Color.Transparent
-                        ),
-                        center = Offset(size.width * 0.06f, size.height * 0.42f),
-                        radius = midLeftRadius
-                    ),
-                    radius = midLeftRadius,
-                    center = Offset(size.width * 0.06f, size.height * 0.42f)
-                )
-
-                val bottomRightRadius = size.maxDimension * 0.44f
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            gradient.endColor.copy(alpha = 0.10f),
-                            Color.Transparent
-                        ),
-                        center = Offset(size.width * 0.85f, size.height * 0.88f),
-                        radius = bottomRightRadius
-                    ),
-                    radius = bottomRightRadius,
-                    center = Offset(size.width * 0.85f, size.height * 0.88f)
-                )
+            if (!isOled && (isGradientTheme || isGlass)) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val radius = size.maxDimension * 0.42f
+                    listOf(
+                        Offset(size.width * 0.92f, size.height * 0.08f) to gradient.startColor,
+                        Offset(size.width * 0.06f, size.height * 0.48f) to gradient.midColor,
+                        Offset(size.width * 0.86f, size.height * 0.9f) to gradient.endColor
+                    ).forEach { (center, color) ->
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                listOf(color.copy(alpha = if (isGlass) 0.13f else 0.10f), Color.Transparent),
+                                center = center,
+                                radius = radius
+                            ),
+                            radius = radius,
+                            center = center
+                        )
+                    }
+                }
             }
             content()
         }

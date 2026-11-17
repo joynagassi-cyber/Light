@@ -28,4 +28,18 @@ class ExampleRobolectricTest {
     val context = ApplicationProvider.getApplicationContext<Context>()
     assertTrue(ThemePreferencesStore(context).googleAuthPausedForTesting.first())
   }
+
+  @Test
+  fun `focus illustration and background selections persist`() = runBlocking {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val store = ThemePreferencesStore(context)
+
+    store.updateFocusIllustration("group_study")
+    store.updateFocusTheme("nebula")
+
+    val settings = store.appSettings.first()
+    assertEquals("group_study", settings.focusIllustrationId)
+    assertEquals("nebula", settings.focusThemeId)
+    assertEquals("gradient", settings.selectedThemeId)
+  }
 }

@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -26,12 +28,16 @@ import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -40,9 +46,13 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -50,25 +60,62 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.data.document.ExtractedAgentDocument
+import com.example.data.document.LocalDocumentExtractor
 import com.example.data.model.AgentModelOption
+import com.example.data.model.AgentProvider
 import com.example.data.model.AgentUsageRecord
 import com.example.data.model.AgentSkill
 import com.example.data.preferences.StudyAppSettings
+import com.example.data.repository.AgentActionApproval
+import com.example.data.repository.AgentPlanPreview
 import com.example.data.repository.AgentChatMessage
 import com.example.ui.theme.AppleEmerald
 import com.example.ui.theme.AppleRose
 import com.example.ui.theme.LocalLightGradient
 import com.example.ui.theme.appBrush
 import com.example.ui.theme.appVerticalBrush
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
+
+private const val MAX_ATTACHED_DOCUMENTS = 4
+private const val MAX_DOCUMENT_PROMPT_CHARS = 60_000
+private val SUPPORTED_DOCUMENT_MIME_TYPES = arrayOf(
+    "text/markdown",
+    "text/plain",
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "image/png"
+)
+
+private fun buildDocumentPrompt(prompt: String, documents: List<ExtractedAgentDocument>): String = buildString {
+    append(prompt.ifBlank { "Analyse ces documents et propose un plan de travail ou des sessions d'étude adaptées." })
+    append("\n\nConsignes de lecture des fichiers : conserve strictement les en-têtes, lignes, colonnes, nombres, unités et références de cellules. Dans les PDF, le séparateur | indique un changement probable de colonne; dans Excel, les références de cellules sont indiquées. Ne fusionne pas les valeurs de cellules différentes et signale toute structure ambiguë avant de planifier.\nTexte extrait localement des fichiers joints :")
+    var remaining = (MAX_DOCUMENT_PROMPT_CHARS - prompt.length).coerceAtLeast(0)
+    for (document in documents) {
+        if (remaining <= 0) break
+        val header = "\n\n--- ${document.displayName} (${document.formatLabel}) ---\n"
+        append(header)
+        remaining -= header.length
+        val excerpt = document.text.take(remaining.coerceAtLeast(0))
+        append(excerpt)
+        remaining -= excerpt.length
+        if (excerpt.length < document.text.length) append("\n[Texte tronqué pour limiter la taille envoyée.]")
+    }
+}.take(MAX_DOCUMENT_PROMPT_CHARS + 1000)
 
 @Composable
 fun AgentChatScreen(
     messages: List<AgentChatMessage>,
     isBusy: Boolean,
-    onSendMessage: (String) -> Unit,
+    pendingAction: AgentActionApproval?,
+    onResolveAgentAction: (actionId: String, approved: Boolean) -> Unit,
+    onSendMessage: (agentPrompt: String, visibleMessage: String) -> Unit,
     onClearConversation: () -> Unit,
     onOpenSettings: () -> Unit,
     settings: StudyAppSettings,
@@ -87,6 +134,36 @@ fun AgentChatScreen(
     var showAgentSettings by rememberSaveable { mutableStateOf(false) }
     var showUsageHistory by rememberSaveable { mutableStateOf(false) }
     val listState = rememberLazyListState()
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val documentExtractor = remember(context) { LocalDocumentExtractor(context.applicationContext) }
+    val attachedDocuments = remember { mutableStateListOf<ExtractedAgentDocument>() }
+    var isExtractingDocuments by remember { mutableStateOf(false) }
+    var extractionError by remember { mutableStateOf<String?>(null) }
+    var showDocumentConsent by remember { mutableStateOf(false) }
+    val documentPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        val available = (MAX_ATTACHED_DOCUMENTS - attachedDocuments.size).coerceAtLeast(0)
+        val overLimit = uris.size > available
+        val selected = uris.take(available)
+        if (selected.isEmpty() && overLimit) extractionError = "Vous pouvez joindre au maximum $MAX_ATTACHED_DOCUMENTS fichiers par message."
+        if (selected.isNotEmpty()) scope.launch {
+            isExtractingDocuments = true
+            extractionError = if (overLimit) "Vous pouvez joindre au maximum $MAX_ATTACHED_DOCUMENTS fichiers par message; les fichiers excédentaires ont été ignorés." else null
+            try {
+                selected.forEach { uri ->
+                    try {
+                        attachedDocuments += documentExtractor.extract(uri)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        extractionError = e.localizedMessage ?: "Impossible de lire un fichier sélectionné."
+                    }
+                }
+            } finally {
+                isExtractingDocuments = false
+            }
+        }
+    }
 
     val quickPrompts = listOf(
         Icons.Rounded.Search to "Quelles sont les tâches à accomplir",
@@ -95,10 +172,9 @@ fun AgentChatScreen(
         Icons.Rounded.Schedule to "Planification des activités pour aujourd'hui"
     )
 
-    LaunchedEffect(messages.size, isBusy) {
-        if (messages.isNotEmpty()) {
-            listState.animateScrollToItem(messages.lastIndex)
-        }
+    LaunchedEffect(messages.size, isBusy, pendingAction?.id) {
+        val lastVisibleIndex = if (pendingAction != null) messages.size else messages.lastIndex
+        if (lastVisibleIndex >= 0) listState.animateScrollToItem(lastVisibleIndex)
     }
 
     Column(
@@ -213,7 +289,7 @@ fun AgentChatScreen(
                 }
                 Surface(
                     onClick = {
-                        if (!isBusy) onSendMessage(prompt)
+                        if (!isBusy) onSendMessage(prompt, prompt)
                     },
                     shape = CircleShape,
                     color = gradient.softContainer,
@@ -267,6 +343,16 @@ fun AgentChatScreen(
                 AgentMessageBubble(message = msg)
             }
 
+            pendingAction?.let { action ->
+                item(key = "agent_approval_${action.id}") {
+                    AgentActionApprovalCard(
+                        action = action,
+                        onApprove = { onResolveAgentAction(action.id, true) },
+                        onReject = { onResolveAgentAction(action.id, false) }
+                    )
+                }
+            }
+
             if (messages.size <= 1 && !isBusy) {
                 item {
                     Spacer(modifier = Modifier.height(6.dp))
@@ -280,7 +366,7 @@ fun AgentChatScreen(
                                 else -> prompt
                             }
                             Surface(
-                                onClick = { if (!isBusy) onSendMessage(prompt) },
+                                onClick = { if (!isBusy) onSendMessage(prompt, prompt) },
                                 shape = CircleShape,
                                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
                                 border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
@@ -329,7 +415,7 @@ fun AgentChatScreen(
                                 strokeWidth = 2.dp
                             )
                             Text(
-                                text = "Light Agent réfléchit et exécute...",
+                                text = if (pendingAction != null) "En attente de votre validation avant l'action..." else "Light Agent réfléchit...",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -337,6 +423,31 @@ fun AgentChatScreen(
                     }
                 }
             }
+        }
+
+        if (attachedDocuments.isNotEmpty() || isExtractingDocuments || extractionError != null) {
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                attachedDocuments.forEachIndexed { index, document ->
+                    Surface(shape = RoundedCornerShape(16.dp), color = gradient.softContainer) {
+                        Row(
+                            modifier = Modifier.padding(start = 10.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("${document.displayName} · local", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface)
+                            IconButton(onClick = { attachedDocuments.removeAt(index) }, modifier = Modifier.size(28.dp)) {
+                                Icon(Icons.Rounded.Close, contentDescription = "Retirer ${document.displayName}", modifier = Modifier.size(16.dp))
+                            }
+                        }
+                    }
+                }
+                if (isExtractingDocuments) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+            }
+            extractionError?.let { Text(it, color = AppleRose, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 4.dp)) }
+            Spacer(modifier = Modifier.height(6.dp))
         }
 
         Spacer(modifier = Modifier.height(10.dp))
@@ -355,6 +466,13 @@ fun AgentChatScreen(
                     .padding(start = 10.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                IconButton(
+                    onClick = { documentPicker.launch(SUPPORTED_DOCUMENT_MIME_TYPES) },
+                    enabled = !isBusy && !isExtractingDocuments,
+                    modifier = Modifier.testTag("agent_attach_button")
+                ) {
+                    Icon(Icons.Rounded.Add, contentDescription = "Joindre des fichiers", tint = gradient.accentColor)
+                }
                 OutlinedTextField(
                     value = inputText,
                     onValueChange = { inputText = it },
@@ -365,6 +483,7 @@ fun AgentChatScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     },
+                    supportingText = { Text("Joindre MD, PDF, DOCX, XLSX ou PNG · lecture locale") },
                     maxLines = 3,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = Color.Transparent,
@@ -379,13 +498,17 @@ fun AgentChatScreen(
 
                 Spacer(modifier = Modifier.width(6.dp))
 
-                val canSend = inputText.isNotBlank() && !isBusy
+                val canSend = (inputText.isNotBlank() || attachedDocuments.isNotEmpty()) && !isBusy && !isExtractingDocuments
                 Surface(
                     onClick = {
                         if (canSend) {
-                            val toSend = inputText.trim()
-                            inputText = ""
-                            onSendMessage(toSend)
+                            if (attachedDocuments.isNotEmpty()) {
+                                showDocumentConsent = true
+                            } else {
+                                val toSend = inputText.trim()
+                                inputText = ""
+                                onSendMessage(toSend, toSend)
+                            }
                         }
                     },
                     shape = CircleShape,
@@ -407,6 +530,33 @@ fun AgentChatScreen(
         }
     }
 
+    if (showDocumentConsent) {
+        val providerName = AgentProvider.fromId(settings.agentProvider).displayName
+        val visibleSummary = inputText.trim().ifBlank { "Analyse les documents joints" } + " · " + attachedDocuments.joinToString { it.displayName }
+        AlertDialog(
+            onDismissRequest = { showDocumentConsent = false },
+            title = { Text("Envoyer le texte extrait ?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Les fichiers sont lus localement sur cet appareil. Pour répondre, leur texte extrait et votre demande seront transmis à $providerName (${settings.agentModel}) via son API.")
+                    Text("${attachedDocuments.size} fichier(s) · au plus ${MAX_DOCUMENT_PROMPT_CHARS} caractères transmis. Ne joignez pas d'informations sensibles que vous ne souhaitez pas partager.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    attachedDocuments.forEach { Text("• ${it.displayName} (${it.formatLabel})", style = MaterialTheme.typography.labelMedium) }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val agentPrompt = buildDocumentPrompt(inputText.trim(), attachedDocuments.toList())
+                    onSendMessage(agentPrompt, visibleSummary)
+                    inputText = ""
+                    attachedDocuments.clear()
+                    extractionError = null
+                    showDocumentConsent = false
+                }) { Text("Envoyer") }
+            },
+            dismissButton = { TextButton(onClick = { showDocumentConsent = false }) { Text("Annuler") } }
+        )
+    }
+
     if (showUsageHistory) {
         AgentUsageHistoryDialog(records = agentUsage, onClear = onClearAgentUsage, onDismiss = { showUsageHistory = false })
     }
@@ -425,6 +575,88 @@ fun AgentChatScreen(
                 showAgentSettings = false
             }
         )
+    }
+}
+
+@Composable
+private fun AgentPlanPreviewCard(plan: AgentPlanPreview) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().testTag("agent_plan_preview"),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.75f),
+        border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(plan.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            if (plan.summary.isNotBlank()) {
+                Text(plan.summary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            plan.items.forEachIndexed { index, item ->
+                Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surface) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        Text("${index + 1}. ${item.title}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                        if (item.detail.isNotBlank()) Text(item.detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        val metadata = buildList {
+                            if (item.dateIso.isNotBlank()) add(item.dateIso)
+                            if (item.estimatedMinutes > 0) add("${item.estimatedMinutes} min")
+                            add("Priorité ${item.priority}")
+                        }.joinToString(" · ")
+                        Text(metadata, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+            }
+            Text(
+                "Aperçu uniquement : aucune tâche n'est créée tant que vous ne l'autorisez pas dans une carte d'action.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun AgentActionApprovalCard(
+    action: AgentActionApproval,
+    onApprove: () -> Unit,
+    onReject: () -> Unit
+) {
+    val container = if (action.destructive) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer
+    val foreground = if (action.destructive) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSecondaryContainer
+    Surface(
+        modifier = Modifier.fillMaxWidth().testTag("agent_action_approval_${action.id}"),
+        shape = RoundedCornerShape(20.dp),
+        color = container,
+        border = BorderStroke(1.dp, foreground.copy(alpha = 0.2f)),
+        shadowElevation = 1.dp
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text("À valider", style = MaterialTheme.typography.labelMedium, color = foreground, fontWeight = FontWeight.SemiBold)
+            Text(action.title, style = MaterialTheme.typography.titleMedium, color = foreground, fontWeight = FontWeight.Bold)
+            action.details.forEach { (label, value) ->
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("$label :", style = MaterialTheme.typography.labelMedium, color = foreground, fontWeight = FontWeight.SemiBold)
+                    Text(value, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = foreground)
+                }
+            }
+            Text(
+                if (action.destructive) "Cette action est définitive. Rien ne sera supprimé sans votre accord." else "Light attend votre accord; aucune modification n'est encore effectuée.",
+                style = MaterialTheme.typography.bodySmall,
+                color = foreground
+            )
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedButton(onClick = onReject, modifier = Modifier.weight(1f)) { Text("Refuser") }
+                Button(onClick = onApprove, modifier = Modifier.weight(1f)) { Text("Autoriser") }
+            }
+        }
     }
 }
 
@@ -464,9 +696,10 @@ private fun AgentMessageBubble(message: AgentChatMessage) {
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         message.actions.forEach { action ->
+                            val actionColor = if (action.succeeded) AppleEmerald else AppleRose
                             Surface(
                                 shape = CircleShape,
-                                color = AppleEmerald.copy(alpha = 0.14f)
+                                color = actionColor.copy(alpha = 0.14f)
                             ) {
                                 Row(
                                     modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
@@ -474,16 +707,16 @@ private fun AgentMessageBubble(message: AgentChatMessage) {
                                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Rounded.CheckCircle,
+                                        imageVector = if (action.succeeded) Icons.Rounded.CheckCircle else Icons.Rounded.Close,
                                         contentDescription = null,
-                                        tint = AppleEmerald,
+                                        tint = actionColor,
                                         modifier = Modifier.size(13.dp)
                                     )
                                     Text(
                                         text = action.label,
                                         style = MaterialTheme.typography.labelSmall,
                                         fontWeight = FontWeight.SemiBold,
-                                        color = AppleEmerald
+                                        color = actionColor
                                     )
                                 }
                             }
@@ -500,6 +733,7 @@ private fun AgentMessageBubble(message: AgentChatMessage) {
                         else -> MaterialTheme.colorScheme.onSurface
                     }
                 )
+                message.planPreview?.let { plan -> AgentPlanPreviewCard(plan) }
             }
         }
     }

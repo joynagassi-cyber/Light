@@ -233,6 +233,15 @@ class ThemePreferencesStore(private val context: Context) {
         }
     }
 
+    suspend fun updateAgentCapabilities(capabilities: Set<String>) {
+        context.lightDataStore.edit { prefs ->
+            prefs[agentCapabilitiesKey] = capabilities
+                .filter { key -> AgentCapabilities.all.any { it.first == key } }
+                .distinct()
+                .joinToString(",")
+        }
+    }
+
     suspend fun updateAgentPreferences(
         provider: String,
         baseUrl: String,

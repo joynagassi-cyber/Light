@@ -100,6 +100,7 @@ import com.example.ui.StudyViewModel
 import com.example.ui.components.GradientPickerSheet
 import com.example.ui.theme.GradientScreenSurface
 import com.example.ui.screens.AgentChatScreen
+import com.example.ui.screens.AgentCapabilitiesScreen
 import com.example.ui.screens.AuthScreen
 import com.example.ui.screens.CountdownScreen
 import com.example.ui.screens.EisenhowerScreen
@@ -325,6 +326,7 @@ private fun AuthenticatedStudyShell(
     val aiPlanState by viewModel.aiPlanState.collectAsStateWithLifecycle()
     val agentMessages by viewModel.agentMessages.collectAsStateWithLifecycle()
     val agentBusy by viewModel.agentBusy.collectAsStateWithLifecycle()
+    val pendingAgentApproval by viewModel.pendingAgentApproval.collectAsStateWithLifecycle()
     val agentApiKeyConfigured by viewModel.agentApiKeyConfigured.collectAsStateWithLifecycle()
     val agentModels by viewModel.agentModels.collectAsStateWithLifecycle()
     val agentModelsLoading by viewModel.agentModelsLoading.collectAsStateWithLifecycle()
@@ -765,9 +767,12 @@ private fun AuthenticatedStudyShell(
                                                         MoreSubPage.AGENT -> AgentChatScreen(
                                                             messages = agentMessages,
                                                             isBusy = agentBusy,
-                                                            onSendMessage = { prompt ->
+                                                            pendingAction = pendingAgentApproval,
+                                                            onResolveAgentAction = viewModel::resolveAgentApproval,
+                                                            onSendMessage = { prompt, visibleMessage ->
                                                                 viewModel.sendAgentMessage(
                                                                     prompt = prompt,
+                                                                    displayPrompt = visibleMessage,
                                                                     onStartFocusRequested = { currentTab = LightTab.FOCUS }
                                                                 )
                                                             },
@@ -782,6 +787,11 @@ private fun AuthenticatedStudyShell(
                                                             onClearAgentUsage = viewModel::clearAgentUsage,
                                                             onLoadAgentModels = viewModel::loadAgentModels,
                                                             onSaveAgentSettings = viewModel::updateAgentPreferences
+                                                        )
+
+                                                        MoreSubPage.AGENT_CAPABILITIES -> AgentCapabilitiesScreen(
+                                                            enabledCapabilities = appSettings.agentCapabilities,
+                                                            onCapabilitiesChanged = viewModel::updateAgentCapabilities
                                                         )
 
                                                         MoreSubPage.PROGRESS -> ProgressScreen(

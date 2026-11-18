@@ -11,7 +11,10 @@ import com.example.data.model.AdaptiveHabitTemplate
 import com.example.data.model.AiStudyPlanResult
 import com.example.data.model.Course
 import com.example.data.model.AgentModelOption
+import com.example.data.model.AgentCapabilities
 import com.example.data.model.AgentProvider
+import com.example.data.model.CountdownCategory
+import com.example.data.model.HabitCategory
 import com.example.data.model.AgentSkill
 import com.example.data.model.AgentUsageRecord
 import com.example.data.model.FocusSession
@@ -28,6 +31,8 @@ import com.example.data.model.UserProfile
 import com.example.data.model.adaptation
 import com.example.data.preferences.StudyAppSettings
 import com.example.data.preferences.ThemePreferencesStore
+import com.example.data.repository.AgentActionApproval
+import com.example.data.repository.AgentPlanPreview
 import com.example.data.repository.AgentChatMessage
 import com.example.data.repository.AiAgentRepository
 import com.example.data.repository.AgentModelCatalogRepository
@@ -38,6 +43,7 @@ import com.example.notifications.LightNotificationHelper
 import com.example.ui.theme.LightGradients
 import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -110,6 +116,7 @@ class StudyViewModel(
 ) : ViewModel() {
 
     private var timerJob: Job? = null
+    private var agentRequestJob: Job? = null
 
     val appSettings: StateFlow<StudyAppSettings> = themePreferencesStore.appSettings
         .stateIn(viewModelScope, SharingStarted.Eagerly, StudyAppSettings())
@@ -211,6 +218,9 @@ class StudyViewModel(
 
     private val _agentMessages = MutableStateFlow(listOf(welcomeAgentMessage()))
     val agentMessages: StateFlow<List<AgentChatMessage>> = _agentMessages.asStateFlow()
+    private val _pendingAgentApproval = MutableStateFlow<AgentActionApproval?>(null)
+    val pendingAgentApproval: StateFlow<AgentActionApproval?> = _pendingAgentApproval.asStateFlow()
+    private var agentApprovalContinuation: CompletableDeferred<Boolean>? = null
 
     private val _agentBusy = MutableStateFlow(false)
     val agentBusy: StateFlow<Boolean> = _agentBusy.asStateFlow()
@@ -1050,26 +1060,65 @@ class StudyViewModel(
         }
     }
 
-    fun sendAgentMessage(prompt: String, onStartFocusRequested: () -> Unit) {
+    private suspend fun awaitAgentApproval(action: AgentActionApproval): Boolean {
+        val continuation = CompletableDeferred<Boolean>()
+        agentApprovalContinuation = continuation
+        _pendingAgentApproval.value = action
+        return try {
+            continuation.await()
+        } finally {
+            if (agentApprovalContinuation === continuation) agentApprovalContinuation = null
+            if (_pendingAgentApproval.value?.id == action.id) _pendingAgentApproval.value = null
+        }
+    }
+
+    fun resolveAgentApproval(actionId: String, approved: Boolean) {
+        if (_pendingAgentApproval.value?.id != actionId) return
+        agentApprovalContinuation?.complete(approved)
+    }
+
+    private fun cancelPendingAgentApproval() {
+        agentApprovalContinuation?.cancel()
+        agentApprovalContinuation = null
+        _pendingAgentApproval.value = null
+    }
+
+    fun sendAgentMessage(prompt: String, onStartFocusRequested: () -> Unit, displayPrompt: String? = null) {
         val trimmed = prompt.trim()
         if (trimmed.isBlank() || _agentBusy.value) return
 
-        val userMsg = AgentChatMessage(isUser = true, text = trimmed)
-        _agentMessages.value = _agentMessages.value + userMsg
+        val userMsg = AgentChatMessage(isUser = true, text = displayPrompt?.takeIf { it.isNotBlank() } ?: trimmed)
+        val assistantId = UUID.randomUUID().toString()
+        val assistantPlaceholder = AgentChatMessage(id = assistantId, isUser = false, text = "…")
+        _agentMessages.value = _agentMessages.value + userMsg + assistantPlaceholder
         _agentBusy.value = true
 
-        viewModelScope.launch {
+        agentRequestJob = viewModelScope.launch {
             val currentCourses = (coursesState.value as? UiState.Success)?.data.orEmpty()
             val currentTasks = (tasksState.value as? UiState.Success)?.data.orEmpty()
             val currentProfile = (profileState.value as? UiState.Success)?.data
             val adapt = currentProfile.adaptation()
-            val courseNames = currentCourses.joinToString(", ") { "${it.code}:${it.title}" }.ifBlank { "Aucun" }
-            val pendingCount = currentTasks.count { !it.completed }
-            val projectNames = (projectsState.value as? UiState.Success)?.data.orEmpty()
-                .joinToString(", ") { it.title }.ifBlank { "Aucun" }
-            val snapshot = "${adapt.aiPersonaInstruction} Modules=[$courseNames], projets=[$projectNames], tâches en cours=$pendingCount, thème actif=${selectedGradientId.value}"
+            val currentAgentSettings = appSettings.value
+            val canReadStudyData = AgentCapabilities.READ_STUDY_DATA in currentAgentSettings.agentCapabilities
+            val canReadTasks = AgentCapabilities.READ_TASKS in currentAgentSettings.agentCapabilities
+            val canReadTheme = AgentCapabilities.CHANGE_THEME in currentAgentSettings.agentCapabilities
+            val courseNames = if (canReadStudyData) currentCourses.joinToString(", ") { "${it.code}:${it.title}" }.ifBlank { "Aucun" } else "non autorisés"
+            val pendingCount = if (canReadTasks) currentTasks.count { !it.completed }.toString() else "non autorisé"
+            val projectNames = if (canReadStudyData) (projectsState.value as? UiState.Success)?.data.orEmpty()
+                .joinToString(", ") { it.title }.ifBlank { "Aucun" } else "non autorisés"
+            val themeName = if (canReadTheme) selectedGradientId.value else "non autorisé"
+            val snapshot = "${adapt.aiPersonaInstruction} Matières=[$courseNames], projets=[$projectNames], tâches en cours=$pendingCount, thème actif=$themeName"
 
             val executor = object : StudyAgentToolExecutor {
+                override suspend fun requestApproval(action: AgentActionApproval): Boolean = awaitAgentApproval(action)
+
+                override suspend fun presentStudyPlan(plan: AgentPlanPreview): JsonObject {
+                    _agentMessages.value = _agentMessages.value.map { message ->
+                        if (message.id == assistantId) message.copy(planPreview = plan) else message
+                    }
+                    return JsonObject(mapOf("success" to JsonPrimitive(true), "title" to JsonPrimitive(plan.title), "itemCount" to JsonPrimitive(plan.items.size)))
+                }
+
                 override suspend fun listTasks(filter: String, dateIso: String?): JsonObject {
                     val latestTasks = (tasksState.value as? UiState.Success)?.data ?: currentTasks
                     val filtered = latestTasks.filter { t ->
@@ -1104,6 +1153,35 @@ class StudyViewModel(
                             "tasks" to arr
                         )
                     )
+                }
+
+                override suspend fun listStudyData(): JsonObject {
+                    val latestCourses = (coursesState.value as? UiState.Success)?.data ?: currentCourses
+                    val latestProjects = (projectsState.value as? UiState.Success)?.data.orEmpty()
+                    val latestHabits = (habitsState.value as? UiState.Success)?.data.orEmpty()
+                    val latestCountdowns = (countdownsState.value as? UiState.Success)?.data.orEmpty()
+                    return JsonObject(mapOf(
+                        "courses" to JsonArray(latestCourses.take(30).map { course -> JsonObject(mapOf(
+                            "code" to JsonPrimitive(course.code),
+                            "title" to JsonPrimitive(course.title)
+                        )) }),
+                        "projects" to JsonArray(latestProjects.take(20).map { project -> JsonObject(mapOf(
+                            "title" to JsonPrimitive(project.title),
+                            "startDateIso" to JsonPrimitive(project.startDateIso),
+                            "dueDateIso" to JsonPrimitive(project.dueDateIso),
+                            "status" to JsonPrimitive(project.status)
+                        )) }),
+                        "habits" to JsonArray(latestHabits.take(30).map { habit -> JsonObject(mapOf(
+                            "title" to JsonPrimitive(habit.title),
+                            "category" to JsonPrimitive(habit.category),
+                            "streakDays" to JsonPrimitive(habit.streakDays)
+                        )) }),
+                        "countdowns" to JsonArray(latestCountdowns.take(30).map { countdown -> JsonObject(mapOf(
+                            "title" to JsonPrimitive(countdown.title),
+                            "targetDateIso" to JsonPrimitive(countdown.targetDateIso),
+                            "category" to JsonPrimitive(countdown.category)
+                        )) })
+                    ))
                 }
 
                 override suspend fun createTask(
@@ -1150,18 +1228,18 @@ class StudyViewModel(
                 }
 
                 override suspend fun completeTask(taskQuery: String): JsonObject {
+                    val query = taskQuery.trim()
+                    if (query.isBlank()) return JsonObject(mapOf("success" to JsonPrimitive(false), "reason" to JsonPrimitive("Indiquez le titre de la tâche.")))
                     val latestTasks = (tasksState.value as? UiState.Success)?.data ?: currentTasks
-                    val match = latestTasks.firstOrNull {
-                        !it.completed && it.title.contains(taskQuery, ignoreCase = true)
-                    } ?: latestTasks.firstOrNull { it.title.contains(taskQuery, ignoreCase = true) }
-                    if (match == null) {
-                        return JsonObject(
-                            mapOf(
-                                "success" to JsonPrimitive(false),
-                                "reason" to JsonPrimitive("Aucune tâche trouvée contenant '$taskQuery'.")
-                            )
-                        )
+                    val exact = latestTasks.filter { it.title.equals(query, ignoreCase = true) }
+                    val matches = if (exact.isNotEmpty()) exact else latestTasks.filter { it.title.contains(query, ignoreCase = true) }
+                    if (matches.isEmpty()) {
+                        return JsonObject(mapOf("success" to JsonPrimitive(false), "reason" to JsonPrimitive("Aucune tâche trouvée contenant '$query'.")))
                     }
+                    if (matches.size > 1) {
+                        return JsonObject(mapOf("success" to JsonPrimitive(false), "reason" to JsonPrimitive("Plusieurs tâches correspondent; précisez le titre exact."), "matches" to JsonArray(matches.take(5).map { JsonPrimitive(it.title) })))
+                    }
+                    val match = matches.single()
                     if (!match.completed) {
                         repository.toggleTaskCompleted(currentUserId, match)
                     }
@@ -1175,14 +1253,18 @@ class StudyViewModel(
 
                 override suspend fun deleteTask(taskQuery: String): JsonObject {
                     val latestTasks = (tasksState.value as? UiState.Success)?.data ?: currentTasks
-                    val match = latestTasks.firstOrNull {
-                        it.title.contains(taskQuery, ignoreCase = true)
-                    } ?: return JsonObject(
-                        mapOf(
+                    val matches = latestTasks.filter { it.title.equals(taskQuery.trim(), ignoreCase = true) }
+                    if (matches.isEmpty()) {
+                        return JsonObject(mapOf("success" to JsonPrimitive(false), "reason" to JsonPrimitive("Aucune tâche trouvée pour '$taskQuery'.")))
+                    }
+                    if (matches.size > 1) {
+                        return JsonObject(mapOf(
                             "success" to JsonPrimitive(false),
-                            "reason" to JsonPrimitive("Aucune tâche trouvée pour '$taskQuery'.")
-                        )
-                    )
+                            "reason" to JsonPrimitive("Plusieurs tâches correspondent; précisez le titre exact."),
+                            "matches" to JsonArray(matches.take(5).map { JsonPrimitive(it.title) })
+                        ))
+                    }
+                    val match = matches.single()
                     repository.deleteTask(currentUserId, match.id)
                     return JsonObject(
                         mapOf(
@@ -1265,10 +1347,40 @@ class StudyViewModel(
                         )
                     )
                 }
+
+                override suspend fun createHabit(title: String, subtitle: String, category: String): JsonObject {
+                    if (title.isBlank()) return JsonObject(mapOf("success" to JsonPrimitive(false), "error" to JsonPrimitive("Le nom de l'habitude est obligatoire.")))
+                    val latestHabits = (habitsState.value as? UiState.Success)?.data.orEmpty()
+                    val id = repository.createHabit(
+                        userId = currentUserId,
+                        title = title.trim().take(80),
+                        subtitle = subtitle.trim().take(140),
+                        category = HabitCategory.sanitizeKey(category),
+                        iconKey = "sparkles",
+                        colorIndex = (latestHabits.size % 6).toLong()
+                    )
+                    return JsonObject(mapOf("success" to JsonPrimitive(true), "habitId" to JsonPrimitive(id), "title" to JsonPrimitive(title.trim().take(80))))
+                }
+
+                override suspend fun createCountdown(title: String, notes: String, targetDateIso: String, category: String): JsonObject {
+                    val date = runCatching { LocalDate.parse(targetDateIso) }.getOrNull()
+                    if (title.isBlank() || date == null) {
+                        return JsonObject(mapOf("success" to JsonPrimitive(false), "error" to JsonPrimitive("Le titre et une date valide au format AAAA-MM-JJ sont requis.")))
+                    }
+                    val latestCountdowns = (countdownsState.value as? UiState.Success)?.data.orEmpty()
+                    val id = repository.createCountdown(
+                        userId = currentUserId,
+                        title = title.trim().take(100),
+                        notes = notes.trim().take(300),
+                        targetDateIso = date.toString(),
+                        category = CountdownCategory.sanitizeKey(category),
+                        colorIndex = (latestCountdowns.size % 6).toLong()
+                    )
+                    return JsonObject(mapOf("success" to JsonPrimitive(true), "countdownId" to JsonPrimitive(id), "title" to JsonPrimitive(title.trim().take(100)), "targetDateIso" to date.toString()))
+                }
             }
 
             try {
-                val currentAgentSettings = appSettings.value
                 val configuredKey = if (currentAgentSettings.agentProvider != AgentProvider.FIREBASE.id) {
                     themePreferencesStore.readAgentApiKey(currentAgentSettings.agentProvider)
                 } else null
@@ -1277,7 +1389,12 @@ class StudyViewModel(
                     contextSnapshot = snapshot,
                     executor = executor,
                     settings = currentAgentSettings,
-                    apiKey = configuredKey
+                    apiKey = configuredKey,
+                    onTextUpdate = { partialText ->
+                        _agentMessages.value = _agentMessages.value.map { message ->
+                            if (message.id == assistantId) message.copy(text = partialText.ifBlank { "…" }) else message
+                        }
+                    }
                 )
                 val tokensIn = result.inputTokens ?: 0L
                 val tokensOut = result.outputTokens ?: 0L
@@ -1305,22 +1422,33 @@ class StudyViewModel(
                     )
                     )
                 }
-                _agentMessages.value = _agentMessages.value + AgentChatMessage(
-                    isUser = false,
-                    text = result.replyText,
-                    actions = result.actions
-                )
+                _agentMessages.value = _agentMessages.value.map { message ->
+                    if (message.id == assistantId) message.copy(text = result.replyText, actions = result.actions) else message
+                }
             } catch (e: CancellationException) {
+                _agentMessages.value = _agentMessages.value.map { message ->
+                    if (message.id == assistantId) message.copy(text = message.text.takeUnless { it == "…" }.orEmpty().let { partial -> if (partial.isBlank()) "Réponse interrompue." else "$partial\n\nRéponse interrompue." }) else message
+                }
                 throw e
             } catch (e: Exception) {
-                _agentMessages.value = _agentMessages.value + AgentChatMessage(
-                    isUser = false,
-                    text = e.localizedMessage ?: "Une erreur est survenue lors de l'appel au fournisseur IA.",
-                    isError = true
-                )
+                _agentMessages.value = _agentMessages.value.map { message ->
+                    if (message.id == assistantId) message.copy(
+                        text = e.localizedMessage ?: "Une erreur est survenue lors de l'appel au fournisseur IA.",
+                        isError = true
+                    ) else message
+                }
             } finally {
                 _agentBusy.value = false
             }
+        }
+    }
+
+    fun updateAgentCapabilities(capabilities: Set<String>) {
+        agentRequestJob?.cancel()
+        cancelPendingAgentApproval()
+        aiAgentRepository.resetConversation()
+        viewModelScope.launch {
+            themePreferencesStore.updateAgentCapabilities(capabilities)
         }
     }
 
@@ -1334,6 +1462,9 @@ class StudyViewModel(
         newApiKey: String? = null,
         clearApiKey: Boolean = false
     ) {
+        agentRequestJob?.cancel()
+        cancelPendingAgentApproval()
+        aiAgentRepository.resetConversation()
         viewModelScope.launch {
             themePreferencesStore.updateAgentPreferences(provider, baseUrl, model, reflection, capabilities, skills)
             if (clearApiKey) {
@@ -1371,13 +1502,15 @@ class StudyViewModel(
     }
 
     fun clearAgentConversation() {
+        agentRequestJob?.cancel()
+        cancelPendingAgentApproval()
         aiAgentRepository.resetConversation()
         _agentMessages.value = listOf(welcomeAgentMessage())
     }
 
     private fun welcomeAgentMessage() = AgentChatMessage(
         isUser = false,
-        text = "Bonjour ! Je suis Light, votre assistant de travail. Je peux consulter et organiser votre planning, gérer les tâches et les matières, lancer Focus, ou appliquer vos compétences personnalisées. Choisissez mes capacités et mon niveau de réflexion avec l’icône de réglages."
+        text = "Bonjour ! Je suis Light, votre assistant de travail. Selon les capacités autorisées, je peux consulter vos données d'étude, créer des tâches, matières, projets, habitudes et échéances, valider une tâche, changer le thème ou lancer Focus. Avant chaque action, je vous présente les détails et j'attends votre accord. Vous gérez mes accès dans Explorer → Capacités de l'agent."
     )
 
     private fun unwrapFirestoreError(error: Throwable): FirebaseFirestoreException? =

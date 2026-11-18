@@ -93,6 +93,11 @@ fun MoreHubScreen(
             badge = "IA"
         ),
         IndexedPageRow(
+            page = MoreSubPage.AGENT_CAPABILITIES,
+            icon = Icons.Rounded.Settings,
+            color = AppleIndigo
+        ),
+        IndexedPageRow(
             page = MoreSubPage.PROGRESS,
             icon = Icons.Rounded.BarChart,
             color = AppleIndigo

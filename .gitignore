@@ -16,6 +16,14 @@
 local.properties
 .env
 debug.keystore
+my-upload-key.jks
+*.keystore
+*.jks
+*.apk
+*.aab
+node_modules/
+app/google-services.json
+google-services.json
 *-debug.log
 firestore-debug.log
 firebase-debug.log

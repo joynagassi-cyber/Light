@@ -46,7 +46,7 @@ data class StudyAppSettings(
     val autoPlayAudioWithFocus: Boolean = false,
     val notificationsEnabled: Boolean = true,
     val notificationFrequency: String = "daily",
-    val googleAuthPausedForTesting: Boolean = true,
+    val googleAuthPausedForTesting: Boolean = false,
     val selectedThemeId: String = "gradient",
     val appearanceMode: String = "light",
     val glassEnabled: Boolean = false,

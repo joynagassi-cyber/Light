@@ -92,6 +92,36 @@ val focusThemes: List<FocusThemeStyle> = listOf(
         trackColor = Color(0xFFE2DDF2)
     ),
     FocusThemeStyle(
+        id = "focusly_dusk",
+        title = "Focusly Dusk",
+        subtitle = "Crépuscule violet premium",
+        imageRes = R.drawable.focus_theme_mountain,
+        gradientColors = listOf(Color(0xFF8B5CF6), Color(0xFF6366F1), Color(0xFF3B82F6)),
+        accentColor = Color(0xFF7C3AED),
+        containerColor = Color(0xFFEDE9FE),
+        trackColor = Color(0xFFDDD6FE)
+    ),
+    FocusThemeStyle(
+        id = "cyberpunk_night",
+        title = "Cyber Midnight",
+        subtitle = "Néon nocturne",
+        imageRes = R.drawable.focus_theme_nebula,
+        gradientColors = listOf(Color(0xFFEC4899), Color(0xFF8B5CF6), Color(0xFF06B6D4)),
+        accentColor = Color(0xFFDB2777),
+        containerColor = Color(0xFFFCE7F3),
+        trackColor = Color(0xFFFBCFE8)
+    ),
+    FocusThemeStyle(
+        id = "aurora_borealis",
+        title = "Aurora Borealis",
+        subtitle = "Aurore boréale",
+        imageRes = R.drawable.focus_theme_forest,
+        gradientColors = listOf(Color(0xFF10B981), Color(0xFF06B6D4), Color(0xFF6366F1)),
+        accentColor = Color(0xFF059669),
+        containerColor = Color(0xFFD1FAE5),
+        trackColor = Color(0xFFA7F3D0)
+    ),
+    FocusThemeStyle(
         id = "ocean",
         title = "Océan nuit",
         subtitle = "Respiration profonde",

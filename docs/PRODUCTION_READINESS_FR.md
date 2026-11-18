@@ -1,43 +1,46 @@
 # Light — validation avant publication
 
-## État
+## État vérifiable dans ce workspace
 
-La validation visuelle n'a pas encore été donnée. La connexion Google reste volontairement en pause dans l'environnement de prévisualisation. **Ne publier ni basculer l'authentification de production avant l'accord visuel de la propriétaire.** Le build Android et la suite Firestore n'ont pas été exécutés dans ce workspace (pas de `gradlew`, pas de distribution Gradle locale et dépendances Node de test absentes).
+- Les changements sont sur une branche de développement; aucune publication ni aucun déploiement Firebase ne doit être lancé depuis ce workspace.
+- La connexion Google demeure volontairement en pause jusqu'à validation visuelle explicite de la propriétaire. Ne pas désactiver `googleAuthPausedForTesting` avant cet accord.
+- Le code d'extraction locale des documents, son intégration au chat et les dépendances PDFBox Android / ML Kit sont présents, mais **non compilés et non testés** dans cet environnement. Aucun test fournisseur réel n'a été exécuté.
+- Les documents sont extraits sur l'appareil. Le texte extrait n'est transmis au fournisseur IA qu'après confirmation à l'envoi. Cela n'est pas un mode IA local : l'agent sélectionné (Gemini, Agnes ou autre fournisseur configuré) reçoit alors le texte.
+- Formats pris en charge par le parseur : MD/Markdown/TXT, PDF, DOCX, XLSX et PNG. Les anciens fichiers `.doc` / `.xls` doivent être convertis. Limites courantes : 15 Mo par fichier, 100 pages PDF, 30 000 caractères extraits par fichier, 4 fichiers et 60 000 caractères de documents par message.
+- PDF : séparation de colonnes heuristique selon la position du texte; pages sans couche texte (y compris pages scannées au milieu d'un PDF mixte) traitées par OCR local. DOCX/XLSX : séparateurs de cellules et références conservés; dates Excel formatées interprétées tout en gardant le serial brut. Les mises en page complexes/fusionnées et OCR illisible restent à faire contrôler par l'utilisateur.
+- L'affichage des prix dépend des métadonnées retournées par le catalogue fournisseur. Agnes, Groq, OpenAI, Anthropic et Firebase ne doivent pas être présentés comme gratuitement utilisables sans conditions vérifiées; les estimations de coûts doivent être distinguées de la facture fournisseur.
 
 ## Actions Firebase à faire par l'agent Google
 
+Aucune modification Firebase ne doit être déployée par cet agent. L'agent Google doit examiner et valider tout changement Firebase nécessaire avant mise en production.
+
 1. **Google Sign-In / OAuth**
    - Activer Google comme fournisseur dans Firebase Authentication.
-   - Vérifier les empreintes SHA-1 et SHA-256 de la clé de signature Play (et de la clé de test interne) dans le projet Firebase / Google Cloud; vérifier le client OAuth Web attendu par Credential Manager.
-   - Fournir le `google-services.json` correspondant à l'application `com.aistudio.elanstudy.vkmrxz` dans `app/` sans le publier dans le dépôt si la politique du projet l'exclut.
+   - Vérifier les empreintes SHA-1 et SHA-256 de la clé de signature Play (et de la clé de test interne) dans Firebase / Google Cloud; vérifier le client OAuth Web attendu par Credential Manager.
+   - Fournir le `google-services.json` correspondant à `com.aistudio.elanstudy.vkmrxz` dans `app/` selon la politique du projet.
    - Tester connexion, reconnexion, annulation, déconnexion, compte sans profil et retour au mode local.
-   - Après l'accord visuel seulement, désactiver le mode « Connexion Google en pause » dans les réglages de l'app. La préférence est persistée localement et sa valeur par défaut actuelle est `true` : vérifier explicitement la valeur sur l'installation de production.
+   - Ne dé-pauser Google qu'après accord visuel explicite; vérifier la préférence persistée sur une installation propre de production.
 
 2. **App Check**
-   - Le code utilise maintenant le fournisseur Debug pour les builds Debug et **Play Integrity** pour les builds Release.
-   - Activer Play Integrity dans App Check pour la bonne application Android, lier l'application Play et enregistrer l'empreinte de signature de production.
-   - Ne jamais distribuer le jeton App Check Debug et vérifier les métriques avant d'imposer l'application d'App Check sur Firestore / Firebase AI Logic.
+   - Le code utilise Debug pour les builds Debug et Play Integrity pour les builds Release.
+   - Activer Play Integrity pour la bonne application, associer l'app Play et vérifier la signature de production.
+   - Ne jamais distribuer le jeton Debug; inspecter les métriques avant d'imposer App Check sur Firestore / Firebase AI Logic.
 
 3. **Cloud Firestore**
-   - Le client vise la base nommée `ai-studio-android-lan-cb9bb915-7486-4610-a057-db58c7e693a7` (`app/src/main/res/values/firebase_applet_config.xml`), pas nécessairement `(default)`. Confirmer que cette base existe dans le bon projet.
-   - Déployer `firestore.rules` vers cette base et exécuter `firestore.test.js` sur Firestore Emulator. Vérifier ensuite les requêtes réelles (notamment tâches, projets et filtres par dates) et créer les index composites signalés par le SDK si nécessaire.
-   - Contrôler les règles en compte authentifié/non authentifié et propriétaire/non-propriétaire. Ne pas ouvrir les règles pour contourner un échec.
+   - Le client vise la base nommée `ai-studio-android-lan-cb9bb915-7486-4610-a057-db58c7e693a7`, pas nécessairement `(default)`. Confirmer qu'elle existe dans le bon projet.
+   - Faire examiner les règles `firestore.rules`, exécuter `firestore.test.js` sur Firestore Emulator, valider propriétaire/non-propriétaire et authentifié/non-authentifié, puis tester tâches, projets et filtres de dates.
+   - Ne déployer les règles et index qu'après validation de l'agent Google. Ne pas ouvrir les règles pour contourner un échec.
 
-4. **Firebase AI Logic**
-   - Le fournisseur par défaut de Light reste Gemini via Firebase AI Logic. Vérifier l'activation du produit, le modèle disponible dans la région/projet et l'application des règles App Check/quotas.
-   - Le fournisseur « API compatible » ajouté est facultatif et direct depuis l'appareil; il ne requiert aucune collection Firestore, fonction Cloud ou migration. Sa clé reste chiffrée dans Android Keystore et n'est pas envoyée à Firebase. L'URL configurée doit fournir une API compatible OpenAI Chat Completions en HTTPS.
-
-## Capacités Agent livrées dans cette passe
-
-- Fournisseur Gemini Firebase ou endpoint HTTPS compatible OpenAI Chat Completions (URL, modèle, clé API personnelle).
-- Niveaux de réflexion Rapide / Équilibré / Approfondi.
-- Capacités activables séparément : lecture/création/validation/suppression des tâches, gestion de matières, création de projets, changement de thème et démarrage Focus.
-- Compétences personnelles enregistrées localement (instructions réutilisables que l'agent ajoute à son contexte et applique avec les outils activés).
-- Icône de robot remplacée par une étincelle.
+4. **Firebase AI Logic et fournisseurs**
+   - Confirmer l'activation de Firebase AI Logic, le modèle disponible pour le projet/région, App Check et les quotas.
+   - Tester séparément les catalogues et appels API Anthropic, OpenAI, OpenRouter, Agnes, Groq et les endpoints personnalisés avec comptes/clés de test, erreurs d'authentification et données de prix actuelles.
+   - Vérifier les conditions d'usage, quotas, rétention et tarification de chaque fournisseur; ne jamais coder en dur une promesse de gratuité non vérifiée.
 
 ## Vérifications locales requises avant release
 
-- Fournir le wrapper Gradle et exécuter `:app:testDebugUnitTest`, `:app:lint` et `:app:assembleRelease`.
-- Exécuter les tests `firestore.test.js` avec l'émulateur et les dépendances `@firebase/rules-unit-testing` / `firebase`.
-- Tester sur appareil : démarrage à froid, onboarding, mode hors ligne, changement de thème, agent avec chaque capacité désactivée/activée, clés API erronées, URL non HTTPS, réponse HTTP d'erreur et reconnexion Google.
-- Vérifier les secrets de signature Play, `versionCode`, icônes/adaptive icon, déclaration de confidentialité (transmission facultative de prompts et données de planning au fournisseur IA choisi), fiche Play Store, captures et consentements.
+1. Fournir le wrapper Gradle et un JDK compatible; exécuter `:app:testDebugUnitTest`, `:app:lint` et `:app:assembleRelease`.
+2. Ajouter/exécuter des tests sur l'extraction de tableaux PDF à texte positionné, PDF scanné et mixte, DOCX avec tableaux, XLSX avec chaînes partagées/formules/dates, PNG OCR, fichiers corrompus et limites de taille. Contrôler les résultats sur un jeu de documents réel autorisé qui n'a pas servi au développement; vérifier manuellement toute structure ambiguë.
+3. Exécuter les tests `firestore.test.js` avec Firestore Emulator et les dépendances `@firebase/rules-unit-testing` / `firebase`.
+4. Tester sur appareil les documents supportés, annulation du consentement, envoi au fournisseur, clés API invalides, URL non HTTPS, erreurs HTTP, usage/coût inconnu, redémarrage hors ligne, performances et mémoire sur des appareils de gamme modeste.
+5. Vérifier secrets de signature Play, `versionCode`, icônes/adaptive icon, déclaration de confidentialité (transmission facultative du prompt, planning et texte des documents au fournisseur choisi), fiche Play Store, captures et consentements.
+6. Recueillir l'accord visuel explicite avant de réactiver Google; tester ensuite les parcours d'authentification de production.

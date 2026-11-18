@@ -32,6 +32,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import java.net.HttpURLConnection
 import java.net.URL
@@ -128,8 +129,8 @@ data class AgentTurnResult(
 
 class AiAgentRepository {
 
-    private val functionDeclarations = listOf(
-        FunctionDeclaration(
+    private val toolDeclarations: List<Pair<String, FunctionDeclaration>> = listOf(
+        "list_tasks" to FunctionDeclaration(
             name = "list_tasks",
             description = "Lister les tâches d'étude actuelles de l'étudiante, filtrées par statut ou date.",
             parameters = mapOf(
@@ -143,12 +144,12 @@ class AiAgentRepository {
             ),
             optionalParameters = listOf("dateIso")
         ),
-        FunctionDeclaration(
+        "list_study_data" to FunctionDeclaration(
             name = "list_study_data",
             description = "Consulter les matières, projets, habitudes et échéances actuellement enregistrés.",
             parameters = emptyMap()
         ),
-        FunctionDeclaration(
+        "present_study_plan" to FunctionDeclaration(
             name = "present_study_plan",
             description = "Afficher un plan structuré en cartes Compose à partir du schéma fixe Light. Cela n'exécute aucune action et ne crée aucune tâche.",
             parameters = mapOf(
@@ -166,7 +167,7 @@ class AiAgentRepository {
                 )
             )
         ),
-        FunctionDeclaration(
+        "create_task" to FunctionDeclaration(
             name = "create_task",
             description = "Créer une nouvelle tâche ou session d'étude dans le calendrier de l'étudiante.",
             parameters = mapOf(
@@ -187,21 +188,21 @@ class AiAgentRepository {
             ),
             optionalParameters = listOf("scheduledTime", "notes")
         ),
-        FunctionDeclaration(
+        "complete_task" to FunctionDeclaration(
             name = "complete_task",
             description = "Marquer une tâche existante comme terminée en cherchant par son titre.",
             parameters = mapOf(
                 "taskQuery" to Schema.string("Mots-clés ou titre exact de la tâche à valider.")
             )
         ),
-        FunctionDeclaration(
+        "delete_task" to FunctionDeclaration(
             name = "delete_task",
             description = "Supprimer définitivement une tâche uniquement lorsque son titre est désigné sans ambiguïté.",
             parameters = mapOf(
                 "taskQuery" to Schema.string("Titre exact de la tâche à supprimer.")
             )
         ),
-        FunctionDeclaration(
+        "add_course" to FunctionDeclaration(
             name = "add_course",
             description = "Ajouter une nouvelle matière L3 au programme de l'étudiante.",
             parameters = mapOf(
@@ -212,7 +213,7 @@ class AiAgentRepository {
             ),
             optionalParameters = listOf("professor", "targetHours")
         ),
-        FunctionDeclaration(
+        "create_project" to FunctionDeclaration(
             name = "create_project",
             description = "Créer un projet de travail avec des dates de début et d'échéance.",
             parameters = mapOf(
@@ -223,7 +224,7 @@ class AiAgentRepository {
             ),
             optionalParameters = listOf("description")
         ),
-        FunctionDeclaration(
+        "set_gradient_theme" to FunctionDeclaration(
             name = "set_gradient_theme",
             description = "Changer le thème visuel dégradé de l'application Light.",
             parameters = mapOf(
@@ -233,7 +234,7 @@ class AiAgentRepository {
                 )
             )
         ),
-        FunctionDeclaration(
+        "start_focus_timer" to FunctionDeclaration(
             name = "start_focus_timer",
             description = "Démarrer immédiatement le minuteur Focus (Pomodoro, Deep Code, Pause ou Chronomètre).",
             parameters = mapOf(
@@ -245,7 +246,7 @@ class AiAgentRepository {
             ),
             optionalParameters = listOf("taskTitle")
         ),
-        FunctionDeclaration(
+        "create_habit" to FunctionDeclaration(
             name = "create_habit",
             description = "Ajouter une habitude quotidienne sans modifier ni supprimer les habitudes existantes.",
             parameters = mapOf(
@@ -255,7 +256,7 @@ class AiAgentRepository {
             ),
             optionalParameters = listOf("subtitle", "category")
         ),
-        FunctionDeclaration(
+        "create_countdown" to FunctionDeclaration(
             name = "create_countdown",
             description = "Ajouter un examen, un projet ou une échéance sans modifier ni supprimer les événements existants.",
             parameters = mapOf(
@@ -304,11 +305,22 @@ Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
     private var chatSession: Chat? = null
     private var sessionFingerprint: String = ""
     private val openAiHistory = mutableListOf<JsonObject>()
+    private val restoredHistoryPairs = mutableListOf<Pair<Boolean, String>>()
 
     fun resetConversation() {
         chatSession = null
         sessionFingerprint = ""
         openAiHistory.clear()
+        restoredHistoryPairs.clear()
+    }
+
+    fun restoreConversation(messages: List<AgentChatMessage>) {
+        resetConversation()
+        val usable = messages
+            .filter { !it.isError && it.text.isNotBlank() && it.text != "…" }
+            .dropWhile { !it.isUser } // Skip leading assistant welcome banner for model history
+            .takeLast(30)
+        restoredHistoryPairs.addAll(usable.map { it.isUser to it.text })
     }
 
     suspend fun sendMessage(
@@ -358,13 +370,20 @@ Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
         onTextUpdate: suspend (String) -> Unit
     ): AgentTurnResult {
         val today = LocalDate.now().toString()
-        val declarations = functionDeclarations.filter { capabilityForTool(it.name) in settings.agentCapabilities }
+        val declarations = toolDeclarations.filter { capabilityForTool(it.first) in settings.agentCapabilities }.map { it.second }
         val model = Firebase.ai.generativeModel(
             modelName = settings.agentModel.ifBlank { "gemini-2.5-flash" },
             tools = if (declarations.isEmpty()) emptyList() else listOf(Tool.functionDeclarations(declarations)),
             systemInstruction = content { text(systemPrompt(today, settings, contextSnapshot)) }
         )
-        val chat = chatSession ?: model.startChat().also { chatSession = it }
+        val chat = chatSession ?: model.startChat(
+            history = restoredHistoryPairs.map { (isUser, msgText) ->
+                content(role = if (isUser) "user" else "model") { text(msgText) }
+            }
+        ).also {
+            chatSession = it
+            restoredHistoryPairs.clear()
+        }
         val initialPartial = StringBuilder()
         val initialChunks = chat.sendMessageStream(userPrompt).onEach { chunk ->
             chunk.text?.let { text ->
@@ -423,6 +442,15 @@ Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
             openAiHistory += buildJsonObject {
                 put("role", "system")
                 put("content", systemPrompt(LocalDate.now().toString(), settings, contextSnapshot))
+            }
+            if (restoredHistoryPairs.isNotEmpty()) {
+                restoredHistoryPairs.forEach { (isUser, msgText) ->
+                    openAiHistory += buildJsonObject {
+                        put("role", if (isUser) "user" else "assistant")
+                        put("content", msgText)
+                    }
+                }
+                restoredHistoryPairs.clear()
             }
         }
         openAiHistory += buildJsonObject { put("role", "user"); put("content", userPrompt) }
@@ -592,7 +620,7 @@ Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
                 "Échéance" to args.str("dueDateIso", today.toString()).trim(),
                 "Heure" to args.str("scheduledTime", "14:00").trim().take(20),
                 "Durée" to "${args.int("estimatedMinutes", 45).coerceIn(5, 480)} minutes",
-                "Priorité" to args.str("priority", "medium").takeIf { it in setOf("high", "medium", "low") } ?: "medium",
+                "Priorité" to (args.str("priority", "medium").takeIf { it in setOf("high", "medium", "low") } ?: "medium"),
                 "Catégorie" to TaskCategory.sanitizeKey(args.str("category", "revision")),
                 "Notes" to args.str("notes", "").trim().take(500)
             ))
@@ -608,7 +636,7 @@ Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
             ))
             "set_gradient_theme" -> AgentActionApproval(toolName = name, title = "Changer le thème", details = details("Thème demandé" to args.str("gradientId", "aurore_lavande")))
             "start_focus_timer" -> AgentActionApproval(toolName = name, title = "Démarrer Focus", details = details(
-                "Mode" to args.str("mode", "pomodoro").takeIf { it in setOf("pomodoro", "deep_code", "short_break", "stopwatch") } ?: "pomodoro",
+                "Mode" to (args.str("mode", "pomodoro").takeIf { it in setOf("pomodoro", "deep_code", "short_break", "stopwatch") } ?: "pomodoro"),
                 "Sujet" to (args.strOrNull("taskTitle")?.trim()?.take(120) ?: "Session de concentration")
             ))
             "create_habit" -> AgentActionApproval(toolName = name, title = "Créer une habitude", details = details(

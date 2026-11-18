@@ -40,6 +40,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -78,11 +79,15 @@ fun CountdownScreen(
     countdowns: List<StudyCountdown>,
     onCreateCountdown: (title: String, notes: String, targetDateIso: String, category: String, colorIndex: Long) -> Unit,
     onDeleteCountdown: (String) -> Unit,
+    externalCreateTrigger: Int = 0,
     modifier: Modifier = Modifier
 ) {
     val gradient = LocalLightGradient.current
     val today = remember { LocalDate.now() }
     var showCreateDialog by remember { mutableStateOf(false) }
+    LaunchedEffect(externalCreateTrigger) {
+        if (externalCreateTrigger > 0) showCreateDialog = true
+    }
 
     val sorted = remember(countdowns) {
         countdowns.sortedBy { it.targetDateIso }
@@ -98,7 +103,7 @@ fun CountdownScreen(
         modifier = modifier
             .fillMaxSize()
             .testTag("countdown_screen"),
-        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 32.dp),
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 96.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item {

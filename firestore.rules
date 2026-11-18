@@ -82,6 +82,8 @@ service cloud.firestore {
              (!('courseId' in data) || (data.courseId is string && data.courseId.size() <= 128)) &&
              (!('courseTitle' in data) || (data.courseTitle is string && data.courseTitle.size() <= 100)) &&
              (!('projectId' in data) || (data.projectId is string && data.projectId.size() <= 128 && (data.projectId == '' || exists(/databases/$(database)/documents/users/$(userId)/projects/$(data.projectId))))) &&
+             (!('focusProfileId' in data) || (data.focusProfileId is string && data.focusProfileId.size() <= 128)) &&
+             (!('focusProfileTitle' in data) || (data.focusProfileTitle is string && data.focusProfileTitle.size() <= 100)) &&
              data.title is string && data.title.size() >= 1 && data.title.size() <= 140 &&
              (!('notes' in data) || (data.notes is string && data.notes.size() <= 500)) &&
              data.dueDateIso is string && data.dueDateIso.size() >= 1 && data.dueDateIso.size() <= 20 &&
@@ -97,11 +99,26 @@ service cloud.firestore {
              data.updatedAt is timestamp && data.updatedAt <= request.time;
     }
 
+    function isValidFocusProfile(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 100 &&
+             (!('learningTopic' in data) || (data.learningTopic is string && data.learningTopic.size() <= 220)) &&
+             data.iconKey is string && data.iconKey.size() >= 1 && data.iconKey.size() <= 40 &&
+             data.colorIndex is int && data.colorIndex >= 0 && data.colorIndex <= 15 &&
+             data.defaultMinutes is int && data.defaultMinutes >= 5 && data.defaultMinutes <= 180 &&
+             data.totalFocusMinutes is int && data.totalFocusMinutes >= 0 && data.totalFocusMinutes <= 600000 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
     function isValidFocusSession(data, userId) {
       return data.userId is string && data.userId == userId &&
              (!('courseId' in data) || (data.courseId is string && data.courseId.size() <= 128)) &&
              (!('courseTitle' in data) || (data.courseTitle is string && data.courseTitle.size() <= 100)) &&
              (!('taskTitle' in data) || (data.taskTitle is string && data.taskTitle.size() <= 140)) &&
+             (!('focusProfileId' in data) || (data.focusProfileId is string && data.focusProfileId.size() <= 128)) &&
+             (!('focusProfileTitle' in data) || (data.focusProfileTitle is string && data.focusProfileTitle.size() <= 100)) &&
+             (!('taskId' in data) || (data.taskId is string && data.taskId.size() <= 128)) &&
              data.durationMinutes is int && data.durationMinutes >= 1 && data.durationMinutes <= 240 &&
              data.mode in ['pomodoro', 'deep_code', 'short_break', 'stopwatch'] &&
              data.dateIso is string && data.dateIso.size() >= 1 && data.dateIso.size() <= 20 &&
@@ -187,14 +204,30 @@ service cloud.firestore {
         allow create: if isOwner(userId) &&
                          isValidId(taskId) &&
                          incoming().keys().hasAll(['userId', 'title', 'dueDateIso', 'priority', 'estimatedMinutes', 'completed', 'aiGenerated', 'createdAt', 'updatedAt']) &&
-                         incoming().keys().hasOnly(['userId', 'courseId', 'courseTitle', 'projectId', 'title', 'notes', 'dueDateIso', 'startDateIso', 'scheduledTime', 'priority', 'category', 'estimatedMinutes', 'quadrant', 'completed', 'aiGenerated', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'courseId', 'courseTitle', 'projectId', 'focusProfileId', 'focusProfileTitle', 'title', 'notes', 'dueDateIso', 'startDateIso', 'scheduledTime', 'priority', 'category', 'estimatedMinutes', 'quadrant', 'completed', 'aiGenerated', 'createdAt', 'updatedAt']) &&
                          isValidStudyTask(incoming(), userId);
         allow update: if isOwner(userId) &&
                          isValidId(taskId) &&
                          incoming().userId == existing().userId &&
                          incoming().createdAt == existing().createdAt &&
                          isValidStudyTask(incoming(), userId) &&
-                         incoming().diff(existing()).affectedKeys().hasOnly(['courseId', 'courseTitle', 'projectId', 'title', 'notes', 'dueDateIso', 'startDateIso', 'scheduledTime', 'priority', 'category', 'estimatedMinutes', 'quadrant', 'completed', 'aiGenerated', 'updatedAt']);
+                         incoming().diff(existing()).affectedKeys().hasOnly(['courseId', 'courseTitle', 'projectId', 'focusProfileId', 'focusProfileTitle', 'title', 'notes', 'dueDateIso', 'startDateIso', 'scheduledTime', 'priority', 'category', 'estimatedMinutes', 'quadrant', 'completed', 'aiGenerated', 'updatedAt']);
+      }
+
+      match /focusProfiles/{profileId} {
+        allow list: if isOwner(userId);
+        allow get, delete: if isOwner(userId) && isValidId(profileId);
+        allow create: if isOwner(userId) &&
+                         isValidId(profileId) &&
+                         incoming().keys().hasAll(['userId', 'title', 'iconKey', 'colorIndex', 'defaultMinutes', 'totalFocusMinutes', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'title', 'learningTopic', 'iconKey', 'colorIndex', 'defaultMinutes', 'totalFocusMinutes', 'createdAt', 'updatedAt']) &&
+                         isValidFocusProfile(incoming(), userId);
+        allow update: if isOwner(userId) &&
+                         isValidId(profileId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidFocusProfile(incoming(), userId) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['title', 'learningTopic', 'iconKey', 'colorIndex', 'defaultMinutes', 'totalFocusMinutes', 'updatedAt']);
       }
 
       match /focusSessions/{sessionId} {
@@ -203,7 +236,7 @@ service cloud.firestore {
         allow create: if isOwner(userId) &&
                          isValidId(sessionId) &&
                          incoming().keys().hasAll(['userId', 'durationMinutes', 'mode', 'dateIso', 'createdAt', 'updatedAt']) &&
-                         incoming().keys().hasOnly(['userId', 'courseId', 'courseTitle', 'taskTitle', 'durationMinutes', 'mode', 'dateIso', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'courseId', 'courseTitle', 'taskTitle', 'focusProfileId', 'focusProfileTitle', 'taskId', 'durationMinutes', 'mode', 'dateIso', 'createdAt', 'updatedAt']) &&
                          isValidFocusSession(incoming(), userId);
         allow update: if false;
       }

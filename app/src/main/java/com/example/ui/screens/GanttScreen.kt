@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -95,6 +94,7 @@ fun GanttScreen(
     onCreateTask: (String) -> Unit,
     onToggleTask: (StudyTask) -> Unit,
     onDeleteTask: (String) -> Unit,
+    externalCreateTrigger: Int = 0,
     modifier: Modifier = Modifier
 ) {
     val gradient = LocalLightGradient.current
@@ -104,10 +104,14 @@ fun GanttScreen(
     var selectedCourseId by rememberSaveable { mutableStateOf("all") }
     var selectedProjectId by rememberSaveable { mutableStateOf("all") }
     var pageMenuExpanded by remember { mutableStateOf(false) }
+    var showCreateChooser by remember { mutableStateOf(false) }
     var showProjectDialog by remember { mutableStateOf(false) }
     var projectBeingEdited by remember { mutableStateOf<StudyProject?>(null) }
     var projectPendingDeletion by remember { mutableStateOf<StudyProject?>(null) }
     var taskPendingDeletion by remember { mutableStateOf<StudyTask?>(null) }
+    LaunchedEffect(externalCreateTrigger) {
+        if (externalCreateTrigger > 0) showCreateChooser = true
+    }
     val scale = GanttScale.fromKey(scaleKey)
     val anchor = remember(anchorIso) { runCatching { LocalDate.parse(anchorIso) }.getOrElse { LocalDate.now() } }
     val window = remember(anchor, scale) { ganttWindow(anchor, scale) }
@@ -154,7 +158,7 @@ fun GanttScreen(
     }
 
     Column(
-        modifier = modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 10.dp),
+        modifier = modifier.fillMaxSize().padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 84.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -361,6 +365,50 @@ fun GanttScreen(
             dismissButton = { TextButton(onClick = { projectPendingDeletion = null }) { Text("Annuler") } }
         )
     }
+    if (showCreateChooser) {
+        AlertDialog(
+            onDismissRequest = { showCreateChooser = false },
+            title = { Text("Ajouter au planning") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Surface(
+                        onClick = {
+                            showCreateChooser = false
+                            onCreateTask(selectedProjectId.takeUnless { it == "all" }.orEmpty())
+                        },
+                        shape = RoundedCornerShape(14.dp),
+                        color = gradient.softContainer,
+                        modifier = Modifier.fillMaxWidth().testTag("gantt_fab_choose_task")
+                    ) {
+                        Column(Modifier.padding(14.dp)) {
+                            Text("Nouvelle tâche ou jalon", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = gradient.accentColor)
+                            Text("Planifier une tâche avec date, priorité et catégorie", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    Surface(
+                        onClick = {
+                            showCreateChooser = false
+                            projectBeingEdited = null
+                            showProjectDialog = true
+                        },
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
+                        modifier = Modifier.fillMaxWidth().testTag("gantt_fab_choose_project")
+                    ) {
+                        Column(Modifier.padding(14.dp)) {
+                            Text("Nouveau projet", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                            Text("Regrouper plusieurs tâches sur une période donnée", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showCreateChooser = false }) { Text("Annuler") }
+            }
+        )
+    }
+
     if (showProjectDialog) {
         ProjectEditorDialog(
             project = projectBeingEdited,
@@ -679,3 +727,7 @@ private fun stepAnchor(anchor: LocalDate, scale: GanttScale, direction: Long): L
     GanttScale.MONTH -> anchor.plusMonths(direction)
     GanttScale.QUARTER -> anchor.plusMonths(direction * 3)
 }
+
+private fun shortGanttDate(iso: String): String = runCatching {
+    LocalDate.parse(iso).format(DateTimeFormatter.ofPattern("d MMM", Locale.FRENCH))
+}.getOrDefault(iso)

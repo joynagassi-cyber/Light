@@ -3,6 +3,7 @@ package com.example.ui.screens
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -54,15 +56,25 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.R
 import com.example.data.model.Course
+import com.example.data.model.FocusProfile
 import com.example.data.model.FocusSession
+import com.example.data.model.StudyHabit
 import com.example.data.model.StudyTask
 import com.example.data.model.UserProfile
 import com.example.data.model.adaptation
 import com.example.ui.components.AppleCard
 import com.example.ui.components.CategoryDistributionDonutChart
+import com.example.ui.components.CoursePerformanceBubbleChart
+import com.example.ui.components.FocusActivityHeatmapChart
 import com.example.ui.components.GradientProgressRing
+import com.example.ui.components.MasteryFiveAxisRadarChart
 import com.example.ui.components.StudyTrendLineChart
+import com.example.ui.components.TaskVelocityGroupedChart
 import com.example.ui.components.WeeklyStudyBarChart
+import com.example.ui.components.buildActivityHeatmapGrid
+import com.example.ui.components.buildCoursePerformancePoints
+import com.example.ui.components.buildDailyVelocitySeries
+import com.example.ui.components.buildFiveAxisMasteryScores
 import com.example.ui.theme.AppleAmber
 import com.example.ui.theme.AppleEmerald
 import com.example.ui.theme.LocalLightGradient
@@ -80,7 +92,9 @@ private data class StudyBadge(
 private enum class ProgressChartMode(val key: String, val label: String) {
     TREND_14D("trend_14d", "Courbe 14j"),
     BARS_7D("bars_7d", "Semaine 7j"),
-    CATEGORIES("categories", "Catégories")
+    CATEGORIES("categories", "Catégories"),
+    HEATMAP("heatmap", "Heatmap"),
+    RADAR("radar", "Radar 5D")
 }
 
 @Composable
@@ -91,6 +105,8 @@ fun ProgressScreen(
     sessions: List<FocusSession>,
     onUpdateCourseGrade: (String, Double) -> Unit,
     onOpenSettings: () -> Unit,
+    habits: List<StudyHabit> = emptyList(),
+    focusProfiles: List<FocusProfile> = emptyList(),
     modifier: Modifier = Modifier
 ) {
     val gradient = LocalLightGradient.current
@@ -105,6 +121,19 @@ fun ProgressScreen(
     val totalHoursText = "${totalFocusMinutes / 60}h ${(totalFocusMinutes % 60).toString().padStart(2, '0')}m"
 
     val avgGrade = if (courses.isNotEmpty()) courses.map { it.grade }.average() else 16.0
+    val today = remember { LocalDate.now() }
+    val combinedHeatmap = remember(sessions, tasks, habits, today) {
+        buildActivityHeatmapGrid(sessions = sessions, tasks = tasks, habits = habits, weeks = 12, today = today)
+    }
+    val masteryAxes = remember(tasks, sessions, courses, habits, gradient.accentColor, today) {
+        buildFiveAxisMasteryScores(tasks, sessions, courses, habits, gradient.accentColor, today)
+    }
+    val velocitySeries = remember(tasks, today) {
+        buildDailyVelocitySeries(tasks = tasks, days = 7, today = today)
+    }
+    val courseBubbles = remember(courses) {
+        buildCoursePerformancePoints(courses)
+    }
 
     val last7Days = remember { (6 downTo 0).map { LocalDate.now().minusDays(it.toLong()) } }
     val dayLabels7 = remember(last7Days) {
@@ -165,8 +194,10 @@ fun ProgressScreen(
     )
 
     LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 32.dp),
+        modifier = modifier
+            .fillMaxSize()
+            .testTag("progress_screen"),
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 96.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
         item {
@@ -305,7 +336,9 @@ fun ProgressScreen(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     ProgressChartMode.entries.forEach { mode ->
@@ -346,7 +379,114 @@ fun ProgressScreen(
                     ProgressChartMode.CATEGORIES -> CategoryDistributionDonutChart(
                         tasks = tasks
                     )
+
+                    ProgressChartMode.HEATMAP -> FocusActivityHeatmapChart(
+                        cells = combinedHeatmap,
+                        showCombinedDetails = true
+                    )
+
+                    ProgressChartMode.RADAR -> MasteryFiveAxisRadarChart(
+                        axes = masteryAxes
+                    )
                 }
+            }
+        }
+
+        // Premium Chart Card: Combined 12-Week Discipline & Habits Heatmap
+        item {
+            AppleCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("progress_habit_heatmap_card"),
+                cornerRadius = 24.dp,
+                contentPadding = PaddingValues(18.dp)
+            ) {
+                Text(
+                    text = "Heatmap d'assiduité & habitudes (12 sem.)",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "Combine vos sessions Focus, tâches terminées et rituels quotidiens",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                FocusActivityHeatmapChart(
+                    cells = combinedHeatmap,
+                    showCombinedDetails = true
+                )
+            }
+        }
+
+        // Premium Chart Card: Task Execution Velocity (Grouped Bars + Trend)
+        item {
+            AppleCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("progress_velocity_card"),
+                cornerRadius = 24.dp,
+                contentPadding = PaddingValues(18.dp)
+            ) {
+                Text(
+                    text = "Vélocité d'exécution (7 jours)",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "Tâches accomplies vs restantes et tendance hebdomadaire",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                TaskVelocityGroupedChart(series = velocitySeries)
+            }
+        }
+
+        // Premium Chart Card: 5-Axis Mastery Radar
+        item {
+            AppleCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("progress_mastery_radar_card"),
+                cornerRadius = 24.dp,
+                contentPadding = PaddingValues(18.dp)
+            ) {
+                Text(
+                    text = "Radar d'équilibre académique",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                MasteryFiveAxisRadarChart(axes = masteryAxes)
+            }
+        }
+
+        // Premium Chart Card: Course Progression vs Grade Quadrant Bubble Matrix
+        item {
+            AppleCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("progress_course_matrix_card"),
+                cornerRadius = 24.dp,
+                contentPadding = PaddingValues(18.dp)
+            ) {
+                Text(
+                    text = "Matrice Avancement × ${adapt.metricScoreLabel}",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "Touchez une bulle pour inspecter l'avancement d'une matière${if (focusProfiles.isNotEmpty()) " · ${focusProfiles.size} profil(s) Focus actif(s)" else ""}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                CoursePerformanceBubbleChart(bubbles = courseBubbles)
             }
         }
 

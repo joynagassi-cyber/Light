@@ -102,6 +102,9 @@ fun StudyTrendLineChart(
             ratio
         }
 
+        val gridLineColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.85f)
+        val lineBrush = gradient.appBrush()
+
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
@@ -129,7 +132,7 @@ fun StudyTrendLineChart(
             listOf(0.25f, 0.5f, 0.75f, 1f).forEach { frac ->
                 val y = vPadTop + usableH * (1f - frac)
                 drawLine(
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.85f),
+                    color = gridLineColor,
                     start = Offset(hPad, y),
                     end = Offset(size.width - hPad, y),
                     strokeWidth = 1.dp.toPx(),
@@ -177,7 +180,7 @@ fun StudyTrendLineChart(
 
                 drawPath(
                     path = strokePath,
-                    brush = gradient.appBrush(),
+                    brush = lineBrush,
                     style = Stroke(
                         width = 3.2.dp.toPx(),
                         cap = StrokeCap.Round,
@@ -255,6 +258,7 @@ fun CategoryDistributionDonutChart(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(18.dp)
     ) {
+        val emptyRingColor = MaterialTheme.colorScheme.outlineVariant
         Box(
             modifier = Modifier.size(134.dp),
             contentAlignment = Alignment.Center
@@ -266,7 +270,7 @@ fun CategoryDistributionDonutChart(
 
                 if (total == 0) {
                     drawArc(
-                        color = MaterialTheme.colorScheme.outlineVariant,
+                        color = emptyRingColor,
                         startAngle = -90f,
                         sweepAngle = 360f,
                         useCenter = false,

@@ -1,12 +1,14 @@
 package com.example.data.repository
 
 import android.content.Context
+import android.util.Log
 import com.example.R
 import com.example.data.firebase.OperationType
 import com.example.data.firebase.handleFirestoreError
 import com.example.data.model.AdaptiveHabitTemplate
 import com.example.data.model.CountdownCategory
 import com.example.data.model.Course
+import com.example.data.model.FocusProfile
 import com.example.data.model.FocusSession
 import com.example.data.model.HabitCategory
 import com.example.data.model.NotificationFrequency
@@ -19,17 +21,25 @@ import com.example.data.model.UserGender
 import com.example.data.model.UserProfession
 import com.example.data.model.UserProfile
 import com.example.data.model.adaptiveStarterModulesFor
+import com.google.android.gms.tasks.Task
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.DocumentReference
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
+import com.google.firebase.firestore.MetadataChanges
+import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.QuerySnapshot
+import com.google.firebase.firestore.Source
 import com.google.firebase.firestore.snapshots
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeoutOrNull
 import java.time.LocalDate
 
 class StudyRepository(
@@ -48,6 +58,7 @@ class StudyRepository(
     private fun tasksCol(userId: String) = userDoc(userId).collection("tasks")
     private fun projectsCol(userId: String) = userDoc(userId).collection("projects")
     private fun sessionsCol(userId: String) = userDoc(userId).collection("focusSessions")
+    private fun focusProfilesCol(userId: String) = userDoc(userId).collection("focusProfiles")
     private fun habitsCol(userId: String) = userDoc(userId).collection("habits")
     private fun countdownsCol(userId: String) = userDoc(userId).collection("countdowns")
 
@@ -149,6 +160,23 @@ class StudyRepository(
                 throw error
             }
 
+    override fun observeFocusProfiles(userId: String): Flow<List<FocusProfile>> =
+        focusProfilesCol(userId).snapshots()
+            .map { snapshot ->
+                snapshot.toObjects(FocusProfile::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)
+                    .sortedByDescending { it.createdAt?.seconds ?: 0L }
+            }
+            .catch { error ->
+                val firestoreError = generateSequence(error) { it.cause }
+                    .filterIsInstance<FirebaseFirestoreException>()
+                    .firstOrNull()
+                if (firestoreError == null && error is CancellationException) throw error
+                if (auth.currentUser?.uid == userId) {
+                    handleFirestoreError(firestoreError ?: error, OperationType.LIST, "users/$userId/focusProfiles")
+                }
+                throw error
+            }
+
     override fun observeHabits(userId: String): Flow<List<StudyHabit>> =
         habitsCol(userId).snapshots()
             .map { snapshot ->
@@ -183,6 +211,114 @@ class StudyRepository(
                 throw error
             }
 
+    override fun observeHasPendingWrites(userId: String): Flow<Boolean> =
+        combine(
+            userDoc(userId).snapshots(MetadataChanges.INCLUDE).map { it.metadata.hasPendingWrites() }.catch { emit(false) },
+            tasksCol(userId).snapshots(MetadataChanges.INCLUDE).map { it.metadata.hasPendingWrites() }.catch { emit(false) },
+            projectsCol(userId).snapshots(MetadataChanges.INCLUDE).map { it.metadata.hasPendingWrites() }.catch { emit(false) },
+            habitsCol(userId).snapshots(MetadataChanges.INCLUDE).map { it.metadata.hasPendingWrites() }.catch { emit(false) },
+            focusProfilesCol(userId).snapshots(MetadataChanges.INCLUDE).map { it.metadata.hasPendingWrites() }.catch { emit(false) }
+        ) { profilePending, tasksPending, projectsPending, habitsPending, focusProfilesPending ->
+            profilePending || tasksPending || projectsPending || habitsPending || focusProfilesPending
+        }
+
+    private suspend fun awaitOptimisticWrite(
+        task: Task<*>,
+        operationType: OperationType,
+        path: String
+    ) {
+        val outcome = withTimeoutOrNull(OPTIMISTIC_WRITE_ACK_TIMEOUT_MS) {
+            try {
+                task.await()
+                Result.success(Unit)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Result.failure<Unit>(e)
+            }
+        }
+        if (outcome != null) {
+            outcome.getOrThrow()
+            return
+        }
+        // Offline or slow network: Firestore has durably queued the write in persistent SQLite cache.
+        requireSignedInUid()
+        Log.i(TAG, "Write queued in offline persistent cache ($operationType at $path)")
+        task.addOnFailureListener { e ->
+            handleFirestoreError(e, operationType, path)
+        }
+    }
+
+    private suspend fun getDocumentServerOrCache(docRef: DocumentReference): DocumentSnapshot? {
+        val serverResult = withTimeoutOrNull(SERVER_OR_CACHE_TIMEOUT_MS) {
+            try {
+                Result.success(docRef.get().await())
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Result.failure<DocumentSnapshot>(e)
+            }
+        }
+        if (serverResult != null) {
+            val err = serverResult.exceptionOrNull()
+            if (err == null) return serverResult.getOrNull()
+            val fsCode = (err as? FirebaseFirestoreException)?.code
+            if (fsCode == FirebaseFirestoreException.Code.PERMISSION_DENIED ||
+                fsCode == FirebaseFirestoreException.Code.UNAUTHENTICATED
+            ) {
+                throw err
+            }
+        }
+        return try {
+            docRef.get(Source.CACHE).await()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            val fsCode = (e as? FirebaseFirestoreException)?.code
+            if (fsCode == FirebaseFirestoreException.Code.PERMISSION_DENIED ||
+                fsCode == FirebaseFirestoreException.Code.UNAUTHENTICATED
+            ) {
+                throw e
+            }
+            null
+        }
+    }
+
+    private suspend fun getQueryServerOrCache(query: Query): QuerySnapshot? {
+        val serverResult = withTimeoutOrNull(SERVER_OR_CACHE_TIMEOUT_MS) {
+            try {
+                Result.success(query.get().await())
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Result.failure<QuerySnapshot>(e)
+            }
+        }
+        if (serverResult != null) {
+            val err = serverResult.exceptionOrNull()
+            if (err == null) return serverResult.getOrNull()
+            val fsCode = (err as? FirebaseFirestoreException)?.code
+            if (fsCode == FirebaseFirestoreException.Code.PERMISSION_DENIED ||
+                fsCode == FirebaseFirestoreException.Code.UNAUTHENTICATED
+            ) {
+                throw err
+            }
+        }
+        return try {
+            query.get(Source.CACHE).await()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            val fsCode = (e as? FirebaseFirestoreException)?.code
+            if (fsCode == FirebaseFirestoreException.Code.PERMISSION_DENIED ||
+                fsCode == FirebaseFirestoreException.Code.UNAUTHENTICATED
+            ) {
+                throw e
+            }
+            null
+        }
+    }
+
     override suspend fun ensureUserProfileAndSeedIfNew(
         userId: String,
         displayName: String,
@@ -190,8 +326,8 @@ class StudyRepository(
     ) {
         val docRef = userDoc(userId)
         try {
-            val snap = docRef.get().await()
-            if (!snap.exists()) {
+            val snap = getDocumentServerOrCache(docRef)
+            if (snap == null || !snap.exists()) {
                 val safeName = displayName.trim().ifEmpty { "Étudiante" }.take(80)
                 val today = LocalDate.now().toString()
                 val profilePayload = mapOf(
@@ -214,7 +350,7 @@ class StudyRepository(
                     "createdAt" to FieldValue.serverTimestamp(),
                     "updatedAt" to FieldValue.serverTimestamp()
                 )
-                docRef.set(profilePayload).await()
+                awaitOptimisticWrite(docRef.set(profilePayload), OperationType.CREATE, docRef.path)
                 seedSoftwareEngineeringStarterData(userId)
             }
         } catch (e: CancellationException) {
@@ -228,8 +364,8 @@ class StudyRepository(
     suspend fun seedSoftwareEngineeringStarterData(userId: String) {
         val uid = requireSignedInUid()
         if (uid != userId) return
-        val existingCourses = coursesCol(userId).limit(1).get().await()
-        if (!existingCourses.isEmpty) return
+        val existingCourses = getQueryServerOrCache(coursesCol(userId).limit(1))
+        if (existingCourses != null && !existingCourses.isEmpty) return
 
         val today = LocalDate.now()
         val starterCourses = listOf(
@@ -262,10 +398,32 @@ class StudyRepository(
             )
         }
 
+        val starterProfiles = listOf(
+            FocusProfileSeed("fp1", "Deep Code & Architecture", "Maîtriser Kotlin, Clean Architecture & Graphes", "code", 0L, 45L, 50L),
+            FocusProfileSeed("fp2", "Apprentissage Libre", "Explorer un nouveau sujet à mon rythme", "brain", 3L, 25L, 0L)
+        )
+        starterProfiles.forEach { fp ->
+            val ref = focusProfilesCol(userId).document(fp.id)
+            batch.set(
+                ref,
+                mapOf(
+                    "userId" to userId,
+                    "title" to fp.title,
+                    "learningTopic" to fp.learningTopic,
+                    "iconKey" to fp.iconKey,
+                    "colorIndex" to fp.colorIndex,
+                    "defaultMinutes" to fp.defaultMinutes,
+                    "totalFocusMinutes" to fp.totalFocusMinutes,
+                    "createdAt" to FieldValue.serverTimestamp(),
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+            )
+        }
+
         val starterTasks = listOf(
-            TaskSeed("gl301", "Architecture Logicielle & Design Patterns", "Implémenter Observer & Strategy en Kotlin", "TP Clean Architecture + tests unitaires", today.toString(), "09:00", "high", TaskCategory.PROJECT.key, 50L, false),
+            TaskSeed("gl301", "Architecture Logicielle & Design Patterns", "Implémenter Observer & Strategy en Kotlin", "TP Clean Architecture + tests unitaires", today.toString(), "09:00", "high", TaskCategory.PROJECT.key, 50L, false, "fp1", "Deep Code & Architecture"),
             TaskSeed("gl302", "Systèmes Distribués & Cloud", "Revoir Consensus Raft & horloges de Lamport", "Fiches de synthèse chapitre 4", today.toString(), "11:15", "high", TaskCategory.EXAM.key, 45L, false),
-            TaskSeed("gl304", "Algorithmique & Graphes", "Exercices Dijkstra & Bellman-Ford", "Série TD n°5 — complexité O(E log V)", today.toString(), "14:30", "medium", TaskCategory.ASSIGNMENT.key, 40L, true),
+            TaskSeed("gl304", "Algorithmique & Graphes", "Exercices Dijkstra & Bellman-Ford", "Série TD n°5 — complexité O(E log V)", today.toString(), "14:30", "medium", TaskCategory.ASSIGNMENT.key, 40L, true, "fp1", "Deep Code & Architecture"),
             TaskSeed("gl303", "Bases de Données Avancées & NoSQL", "Modélisation agrégats Firestore & indexation", "Schéma multi-tenant + règles sécurité", today.plusDays(1).toString(), "10:00", "medium", TaskCategory.PROJECT.key, 45L, false),
             TaskSeed("gl305", "Génie des Exigences & DevOps CI/CD", "Configurer pipeline GitHub Actions & lint", "Projet intégrateur S5", today.plusDays(2).toString(), "16:00", "low", TaskCategory.ASSIGNMENT.key, 30L, false)
         )
@@ -278,6 +436,8 @@ class StudyRepository(
                     "userId" to userId,
                     "courseId" to t.courseId,
                     "courseTitle" to t.courseTitle,
+                    "focusProfileId" to t.focusProfileId,
+                    "focusProfileTitle" to t.focusProfileTitle,
                     "title" to t.title,
                     "notes" to t.notes,
                     "dueDateIso" to t.dueDateIso,
@@ -294,7 +454,7 @@ class StudyRepository(
         }
 
         val starterSessions = listOf(
-            SessionSeed("gl304", "Algorithmique & Graphes", "Exercices Dijkstra & Bellman-Ford", 50L, "deep_code", today.minusDays(2).toString()),
+            SessionSeed("gl304", "Algorithmique & Graphes", "Exercices Dijkstra & Bellman-Ford", 50L, "deep_code", today.minusDays(2).toString(), "fp1", "Deep Code & Architecture"),
             SessionSeed("gl301", "Architecture Logicielle & Design Patterns", "Diagrammes UML & SOLID", 25L, "pomodoro", today.minusDays(1).toString()),
             SessionSeed("gl303", "Bases de Données Avancées & NoSQL", "Requêtes d'agrégation & transactions", 50L, "deep_code", today.toString())
         )
@@ -307,6 +467,8 @@ class StudyRepository(
                     "courseId" to s.courseId,
                     "courseTitle" to s.courseTitle,
                     "taskTitle" to s.taskTitle,
+                    "focusProfileId" to s.focusProfileId,
+                    "focusProfileTitle" to s.focusProfileTitle,
                     "durationMinutes" to s.durationMinutes,
                     "mode" to s.mode,
                     "dateIso" to s.dateIso,
@@ -401,18 +563,22 @@ class StudyRepository(
             )
         }
 
-        batch.commit().await()
+        awaitOptimisticWrite(batch.commit(), OperationType.WRITE, "users/$userId")
     }
 
     override suspend fun updateSelectedGradient(userId: String, gradientId: String) {
         val docRef = userDoc(userId)
         try {
-            docRef.update(
-                mapOf(
-                    "selectedGradientId" to gradientId,
-                    "updatedAt" to FieldValue.serverTimestamp()
-                )
-            ).await()
+            awaitOptimisticWrite(
+                docRef.update(
+                    mapOf(
+                        "selectedGradientId" to gradientId,
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    )
+                ),
+                OperationType.UPDATE,
+                docRef.path
+            )
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -445,7 +611,7 @@ class StudyRepository(
             put("updatedAt", FieldValue.serverTimestamp())
         }
         try {
-            docRef.update(payload).await()
+            awaitOptimisticWrite(docRef.update(payload), OperationType.UPDATE, docRef.path)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -479,27 +645,31 @@ class StudyRepository(
         val safeAge = age.coerceIn(6L, 100L)
 
         try {
-            docRef.update(
-                mapOf(
-                    "displayName" to safeName,
-                    "gender" to gender.key,
-                    "birthYear" to safeBirthYear,
-                    "age" to safeAge,
-                    "profession" to profession.key,
-                    "customProfession" to safeCustom,
-                    "major" to safeMajor,
-                    "selectedGradientId" to selectedGradientId.trim().ifBlank { "aurore_lavande" }.take(40),
-                    "dailyGoalTasks" to dailyGoalTasks.coerceIn(1L, 50L),
-                    "notificationsEnabled" to notificationsEnabled,
-                    "notificationFrequency" to notificationFrequency.key,
-                    "onboardingCompleted" to true,
-                    "updatedAt" to FieldValue.serverTimestamp()
-                )
-            ).await()
+            awaitOptimisticWrite(
+                docRef.update(
+                    mapOf(
+                        "displayName" to safeName,
+                        "gender" to gender.key,
+                        "birthYear" to safeBirthYear,
+                        "age" to safeAge,
+                        "profession" to profession.key,
+                        "customProfession" to safeCustom,
+                        "major" to safeMajor,
+                        "selectedGradientId" to selectedGradientId.trim().ifBlank { "aurore_lavande" }.take(40),
+                        "dailyGoalTasks" to dailyGoalTasks.coerceIn(1L, 50L),
+                        "notificationsEnabled" to notificationsEnabled,
+                        "notificationFrequency" to notificationFrequency.key,
+                        "onboardingCompleted" to true,
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    )
+                ),
+                OperationType.UPDATE,
+                docRef.path
+            )
 
             // Create selected habits that don't already exist
             if (selectedHabits.isNotEmpty()) {
-                val existingTitles = habitsCol(userId).get().await().documents
+                val existingTitles = getQueryServerOrCache(habitsCol(userId))?.documents.orEmpty()
                     .mapNotNull { it.getString("title")?.trim()?.lowercase() }
                     .toHashSet()
                 val batch = db.batch()
@@ -525,7 +695,7 @@ class StudyRepository(
                         writes++
                     }
                 }
-                if (writes > 0) batch.commit().await()
+                if (writes > 0) awaitOptimisticWrite(batch.commit(), OperationType.WRITE, "users/$userId/habits")
             }
 
             if (adaptModulesToProfession) {
@@ -536,7 +706,7 @@ class StudyRepository(
                     "per01", "per02", "per03", "per04",
                     "oth01", "oth02", "oth03", "oth04"
                 )
-                val existingDocs = coursesCol(userId).get().await().documents
+                val existingDocs = getQueryServerOrCache(coursesCol(userId))?.documents.orEmpty()
                 val onlyStarterOrEmpty = existingDocs.all { it.id in starterIds }
                 if (onlyStarterOrEmpty) {
                     val batch = db.batch()
@@ -549,6 +719,7 @@ class StudyRepository(
                                 "code" to mod.code,
                                 "title" to mod.title,
                                 "professor" to mod.lead,
+                                "iconKey" to mod.iconKey,
                                 "colorIndex" to mod.colorIndex,
                                 "targetMinutes" to mod.targetMinutes,
                                 "completedMinutes" to 0L,
@@ -558,7 +729,7 @@ class StudyRepository(
                             )
                         )
                     }
-                    batch.commit().await()
+                    awaitOptimisticWrite(batch.commit(), OperationType.WRITE, "users/$userId/courses")
                 }
             }
         } catch (e: CancellationException) {
@@ -576,13 +747,17 @@ class StudyRepository(
     ) {
         val docRef = userDoc(userId)
         try {
-            docRef.update(
-                mapOf(
-                    "notificationsEnabled" to enabled,
-                    "notificationFrequency" to frequency.key,
-                    "updatedAt" to FieldValue.serverTimestamp()
-                )
-            ).await()
+            awaitOptimisticWrite(
+                docRef.update(
+                    mapOf(
+                        "notificationsEnabled" to enabled,
+                        "notificationFrequency" to frequency.key,
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    )
+                ),
+                OperationType.UPDATE,
+                docRef.path
+            )
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -617,7 +792,7 @@ class StudyRepository(
             "updatedAt" to FieldValue.serverTimestamp()
         )
         try {
-            docRef.set(payload).await()
+            awaitOptimisticWrite(docRef.set(payload), OperationType.CREATE, docRef.path)
             return docRef.id
         } catch (e: CancellationException) {
             throw e
@@ -630,12 +805,16 @@ class StudyRepository(
     override suspend fun updateCourseGrade(userId: String, courseId: String, newGrade: Double) {
         val docRef = coursesCol(userId).document(courseId)
         try {
-            docRef.update(
-                mapOf(
-                    "grade" to newGrade.coerceIn(0.0, 20.0),
-                    "updatedAt" to FieldValue.serverTimestamp()
-                )
-            ).await()
+            awaitOptimisticWrite(
+                docRef.update(
+                    mapOf(
+                        "grade" to newGrade.coerceIn(0.0, 20.0),
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    )
+                ),
+                OperationType.UPDATE,
+                docRef.path
+            )
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -647,7 +826,7 @@ class StudyRepository(
     override suspend fun deleteCourse(userId: String, courseId: String) {
         val docRef = coursesCol(userId).document(courseId)
         try {
-            docRef.delete().await()
+            awaitOptimisticWrite(docRef.delete(), OperationType.DELETE, docRef.path)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -671,18 +850,22 @@ class StudyRepository(
         require(!due.isBefore(start)) { "L'échéance doit être postérieure au début." }
         val docRef = projectsCol(userId).document()
         try {
-            docRef.set(
-                mapOf(
-                    "userId" to userId,
-                    "title" to safeTitle,
-                    "description" to description.trim().take(500),
-                    "startDateIso" to start.toString(),
-                    "dueDateIso" to due.toString(),
-                    "status" to "active",
-                    "createdAt" to FieldValue.serverTimestamp(),
-                    "updatedAt" to FieldValue.serverTimestamp()
-                )
-            ).await()
+            awaitOptimisticWrite(
+                docRef.set(
+                    mapOf(
+                        "userId" to userId,
+                        "title" to safeTitle,
+                        "description" to description.trim().take(500),
+                        "startDateIso" to start.toString(),
+                        "dueDateIso" to due.toString(),
+                        "status" to "active",
+                        "createdAt" to FieldValue.serverTimestamp(),
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    )
+                ),
+                OperationType.CREATE,
+                docRef.path
+            )
             return docRef.id
         } catch (e: CancellationException) {
             throw e
@@ -700,16 +883,20 @@ class StudyRepository(
         require(project.status in setOf("active", "on_hold", "completed"))
         val docRef = projectsCol(project.userId).document(project.id)
         try {
-            docRef.update(
-                mapOf(
-                    "title" to project.title.trim().take(120),
-                    "description" to project.description.trim().take(500),
-                    "startDateIso" to start.toString(),
-                    "dueDateIso" to due.toString(),
-                    "status" to project.status,
-                    "updatedAt" to FieldValue.serverTimestamp()
-                )
-            ).await()
+            awaitOptimisticWrite(
+                docRef.update(
+                    mapOf(
+                        "title" to project.title.trim().take(120),
+                        "description" to project.description.trim().take(500),
+                        "startDateIso" to start.toString(),
+                        "dueDateIso" to due.toString(),
+                        "status" to project.status,
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    )
+                ),
+                OperationType.UPDATE,
+                docRef.path
+            )
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -722,7 +909,9 @@ class StudyRepository(
         val docRef = projectsCol(userId).document(projectId)
         try {
             require(requireSignedInUid() == userId) { "Utilisateur non autorisé." }
-            val linkedTasks = tasksCol(userId).whereEqualTo("projectId", projectId).get().await().documents
+            val linkedTasks = getQueryServerOrCache(
+                tasksCol(userId).whereEqualTo("projectId", projectId)
+            )?.documents.orEmpty()
             linkedTasks.chunked(400).forEach { chunk ->
                 val batch = db.batch()
                 chunk.forEach { task ->
@@ -734,9 +923,9 @@ class StudyRepository(
                         )
                     )
                 }
-                batch.commit().await()
+                awaitOptimisticWrite(batch.commit(), OperationType.WRITE, "users/$userId/tasks")
             }
-            docRef.delete().await()
+            awaitOptimisticWrite(docRef.delete(), OperationType.DELETE, docRef.path)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -759,13 +948,15 @@ class StudyRepository(
         aiGenerated: Boolean,
         quadrant: Long?,
         startDateIso: String,
-        projectId: String
+        projectId: String,
+        focusProfileId: String,
+        focusProfileTitle: String
     ): String {
         require(requireSignedInUid() == userId) { "Utilisateur non autorisé." }
         val safeProjectId = projectId.trim().take(128)
         if (safeProjectId.isNotBlank()) {
-            val project = projectsCol(userId).document(safeProjectId).get().await()
-            require(project.exists()) { "Le projet sélectionné n'existe plus." }
+            val project = getDocumentServerOrCache(projectsCol(userId).document(safeProjectId))
+            require(project?.exists() == true) { "Le projet sélectionné n'existe plus." }
         }
         val docRef = tasksCol(userId).document()
         val safePriority = if (priority in listOf("high", "medium", "low")) priority else "medium"
@@ -779,6 +970,8 @@ class StudyRepository(
             put("dueDateIso", dueDateIso.trim().take(20))
             put("startDateIso", startDateIso.trim().take(20).ifBlank { dueDateIso.trim().take(20) })
             put("projectId", safeProjectId)
+            put("focusProfileId", focusProfileId.trim().take(128))
+            put("focusProfileTitle", focusProfileTitle.trim().take(100))
             put("scheduledTime", scheduledTime.trim().take(20))
             put("priority", safePriority)
             put("category", safeCategory)
@@ -792,7 +985,7 @@ class StudyRepository(
             put("updatedAt", FieldValue.serverTimestamp())
         }
         try {
-            docRef.set(payload).await()
+            awaitOptimisticWrite(docRef.set(payload), OperationType.CREATE, docRef.path)
             return docRef.id
         } catch (e: CancellationException) {
             throw e
@@ -833,7 +1026,7 @@ class StudyRepository(
             )
         }
         try {
-            batch.commit().await()
+            awaitOptimisticWrite(batch.commit(), OperationType.WRITE, "users/$userId/tasks")
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -845,12 +1038,16 @@ class StudyRepository(
     override suspend fun toggleTaskCompleted(userId: String, task: StudyTask) {
         val docRef = tasksCol(userId).document(task.id)
         try {
-            docRef.update(
-                mapOf(
-                    "completed" to !task.completed,
-                    "updatedAt" to FieldValue.serverTimestamp()
-                )
-            ).await()
+            awaitOptimisticWrite(
+                docRef.update(
+                    mapOf(
+                        "completed" to !task.completed,
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    )
+                ),
+                OperationType.UPDATE,
+                docRef.path
+            )
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -864,12 +1061,46 @@ class StudyRepository(
         val safeQuadrant = quadrant.coerceIn(1L, 4L)
         val docRef = tasksCol(userId).document(taskId)
         try {
-            docRef.update(
-                mapOf(
-                    "quadrant" to safeQuadrant,
-                    "updatedAt" to FieldValue.serverTimestamp()
-                )
-            ).await()
+            awaitOptimisticWrite(
+                docRef.update(
+                    mapOf(
+                        "quadrant" to safeQuadrant,
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    )
+                ),
+                OperationType.UPDATE,
+                docRef.path
+            )
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.UPDATE, docRef.path)
+            throw e
+        }
+    }
+
+    override suspend fun assignTaskToFocusProfile(
+        userId: String,
+        taskId: String,
+        focusProfileId: String,
+        focusProfileTitle: String
+    ) {
+        requireSignedInUid()
+        val safeProfileId = focusProfileId.trim().take(128)
+        val safeProfileTitle = if (safeProfileId.isBlank()) "" else focusProfileTitle.trim().take(100)
+        val docRef = tasksCol(userId).document(taskId)
+        try {
+            awaitOptimisticWrite(
+                docRef.update(
+                    mapOf(
+                        "focusProfileId" to safeProfileId,
+                        "focusProfileTitle" to safeProfileTitle,
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    )
+                ),
+                OperationType.UPDATE,
+                docRef.path
+            )
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -881,7 +1112,71 @@ class StudyRepository(
     override suspend fun deleteTask(userId: String, taskId: String) {
         val docRef = tasksCol(userId).document(taskId)
         try {
-            docRef.delete().await()
+            awaitOptimisticWrite(docRef.delete(), OperationType.DELETE, docRef.path)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.DELETE, docRef.path)
+            throw e
+        }
+    }
+
+    override suspend fun createFocusProfile(
+        userId: String,
+        title: String,
+        learningTopic: String,
+        iconKey: String,
+        colorIndex: Long,
+        defaultMinutes: Long
+    ): String {
+        require(requireSignedInUid() == userId) { "Utilisateur non autorisé." }
+        val safeTitle = title.trim().take(100)
+        require(safeTitle.isNotBlank()) { "Le nom du profil de focus est obligatoire." }
+        val docRef = focusProfilesCol(userId).document()
+        val payload = mapOf(
+            "userId" to userId,
+            "title" to safeTitle,
+            "learningTopic" to learningTopic.trim().take(220),
+            "iconKey" to iconKey.trim().ifEmpty { "brain" }.take(40),
+            "colorIndex" to colorIndex.coerceIn(0L, 15L),
+            "defaultMinutes" to defaultMinutes.coerceIn(5L, 180L),
+            "totalFocusMinutes" to 0L,
+            "createdAt" to FieldValue.serverTimestamp(),
+            "updatedAt" to FieldValue.serverTimestamp()
+        )
+        try {
+            awaitOptimisticWrite(docRef.set(payload), OperationType.CREATE, docRef.path)
+            return docRef.id
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.CREATE, docRef.path)
+            throw e
+        }
+    }
+
+    override suspend fun deleteFocusProfile(userId: String, profileId: String) {
+        val docRef = focusProfilesCol(userId).document(profileId)
+        try {
+            require(requireSignedInUid() == userId) { "Utilisateur non autorisé." }
+            val linkedTasks = getQueryServerOrCache(
+                tasksCol(userId).whereEqualTo("focusProfileId", profileId)
+            )?.documents.orEmpty()
+            linkedTasks.chunked(400).forEach { chunk ->
+                val batch = db.batch()
+                chunk.forEach { task ->
+                    batch.update(
+                        task.reference,
+                        mapOf(
+                            "focusProfileId" to "",
+                            "focusProfileTitle" to "",
+                            "updatedAt" to FieldValue.serverTimestamp()
+                        )
+                    )
+                }
+                awaitOptimisticWrite(batch.commit(), OperationType.WRITE, "users/$userId/tasks")
+            }
+            awaitOptimisticWrite(docRef.delete(), OperationType.DELETE, docRef.path)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -913,7 +1208,7 @@ class StudyRepository(
             "updatedAt" to FieldValue.serverTimestamp()
         )
         try {
-            docRef.set(payload).await()
+            awaitOptimisticWrite(docRef.set(payload), OperationType.CREATE, docRef.path)
             return docRef.id
         } catch (e: CancellationException) {
             throw e
@@ -933,13 +1228,17 @@ class StudyRepository(
         }
         val streak = computeHabitStreak(updatedDates, LocalDate.now())
         try {
-            docRef.update(
-                mapOf(
-                    "completedDates" to updatedDates,
-                    "streakDays" to streak,
-                    "updatedAt" to FieldValue.serverTimestamp()
-                )
-            ).await()
+            awaitOptimisticWrite(
+                docRef.update(
+                    mapOf(
+                        "completedDates" to updatedDates,
+                        "streakDays" to streak,
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    )
+                ),
+                OperationType.UPDATE,
+                docRef.path
+            )
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -951,7 +1250,7 @@ class StudyRepository(
     override suspend fun deleteHabit(userId: String, habitId: String) {
         val docRef = habitsCol(userId).document(habitId)
         try {
-            docRef.delete().await()
+            awaitOptimisticWrite(docRef.delete(), OperationType.DELETE, docRef.path)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -982,7 +1281,7 @@ class StudyRepository(
             "updatedAt" to FieldValue.serverTimestamp()
         )
         try {
-            docRef.set(payload).await()
+            awaitOptimisticWrite(docRef.set(payload), OperationType.CREATE, docRef.path)
             return docRef.id
         } catch (e: CancellationException) {
             throw e
@@ -995,7 +1294,7 @@ class StudyRepository(
     override suspend fun deleteCountdown(userId: String, countdownId: String) {
         val docRef = countdownsCol(userId).document(countdownId)
         try {
-            docRef.delete().await()
+            awaitOptimisticWrite(docRef.delete(), OperationType.DELETE, docRef.path)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -1023,18 +1322,26 @@ class StudyRepository(
         taskTitle: String,
         durationMinutes: Long,
         mode: String,
-        dateIso: String
+        dateIso: String,
+        focusProfileId: String,
+        focusProfileTitle: String,
+        taskId: String
     ): String {
         requireSignedInUid()
         val sessionRef = sessionsCol(userId).document()
         val safeMode = if (mode in listOf("pomodoro", "deep_code", "short_break", "stopwatch")) mode else "pomodoro"
         val safeDuration = durationMinutes.coerceIn(1L, 240L)
+        val safeProfileId = focusProfileId.trim().take(128)
+        val safeProfileTitle = focusProfileTitle.trim().take(100)
 
         val payload = mapOf(
             "userId" to userId,
             "courseId" to courseId.take(128),
             "courseTitle" to courseTitle.take(100),
             "taskTitle" to taskTitle.trim().take(140),
+            "focusProfileId" to safeProfileId,
+            "focusProfileTitle" to safeProfileTitle,
+            "taskId" to taskId.trim().take(128),
             "durationMinutes" to safeDuration,
             "mode" to safeMode,
             "dateIso" to dateIso.take(20),
@@ -1042,34 +1349,61 @@ class StudyRepository(
             "updatedAt" to FieldValue.serverTimestamp()
         )
         try {
-            sessionRef.set(payload).await()
+            awaitOptimisticWrite(sessionRef.set(payload), OperationType.CREATE, sessionRef.path)
             if (courseId.isNotBlank() && safeMode != "short_break") {
-                coursesCol(userId).document(courseId).update(
-                    mapOf(
-                        "completedMinutes" to FieldValue.increment(safeDuration),
-                        "updatedAt" to FieldValue.serverTimestamp()
+                val courseRef = coursesCol(userId).document(courseId)
+                awaitOptimisticWrite(
+                    courseRef.update(
+                        mapOf(
+                            "completedMinutes" to FieldValue.increment(safeDuration),
+                            "updatedAt" to FieldValue.serverTimestamp()
+                        )
+                    ),
+                    OperationType.UPDATE,
+                    courseRef.path
+                )
+            }
+            if (safeProfileId.isNotBlank() && safeMode != "short_break") {
+                val profileRef = focusProfilesCol(userId).document(safeProfileId)
+                val fpSnap = getDocumentServerOrCache(profileRef)
+                if (fpSnap != null && fpSnap.exists()) {
+                    awaitOptimisticWrite(
+                        profileRef.update(
+                            mapOf(
+                                "totalFocusMinutes" to FieldValue.increment(safeDuration),
+                                "updatedAt" to FieldValue.serverTimestamp()
+                            )
+                        ),
+                        OperationType.UPDATE,
+                        profileRef.path
                     )
-                ).await()
+                }
             }
             if (safeMode != "short_break") {
-                val profileSnap = userDoc(userId).get().await()
-                val lastDate = profileSnap.getString("lastStudyDate") ?: ""
-                val currentStreak = profileSnap.getLong("streakDays") ?: 0L
-                val today = LocalDate.now()
-                val yesterdayStr = today.minusDays(1).toString()
-                val todayStr = today.toString()
-                val nextStreak = when (lastDate) {
-                    todayStr -> maxOf(1L, currentStreak)
-                    yesterdayStr -> currentStreak + 1L
-                    else -> 1L
-                }
-                userDoc(userId).update(
-                    mapOf(
-                        "streakDays" to nextStreak,
-                        "lastStudyDate" to todayStr,
-                        "updatedAt" to FieldValue.serverTimestamp()
+                val profileSnap = getDocumentServerOrCache(userDoc(userId))
+                if (profileSnap != null && profileSnap.exists()) {
+                    val lastDate = profileSnap.getString("lastStudyDate") ?: ""
+                    val currentStreak = profileSnap.getLong("streakDays") ?: 0L
+                    val today = LocalDate.now()
+                    val yesterdayStr = today.minusDays(1).toString()
+                    val todayStr = today.toString()
+                    val nextStreak = when (lastDate) {
+                        todayStr -> maxOf(1L, currentStreak)
+                        yesterdayStr -> currentStreak + 1L
+                        else -> 1L
+                    }
+                    awaitOptimisticWrite(
+                        userDoc(userId).update(
+                            mapOf(
+                                "streakDays" to nextStreak,
+                                "lastStudyDate" to todayStr,
+                                "updatedAt" to FieldValue.serverTimestamp()
+                            )
+                        ),
+                        OperationType.UPDATE,
+                        userDoc(userId).path
                     )
-                ).await()
+                }
             }
             return sessionRef.id
         } catch (e: CancellationException) {
@@ -1078,6 +1412,12 @@ class StudyRepository(
             handleFirestoreError(e, OperationType.CREATE, sessionRef.path)
             throw e
         }
+    }
+
+    private companion object {
+        const val TAG = "StudyRepository"
+        const val OPTIMISTIC_WRITE_ACK_TIMEOUT_MS = 1500L
+        const val SERVER_OR_CACHE_TIMEOUT_MS = 1500L
     }
 
     private fun priorityRank(priority: String): Int = when (priority) {
@@ -1098,6 +1438,16 @@ class StudyRepository(
         val iconKey: String = "book"
     )
 
+    private data class FocusProfileSeed(
+        val id: String,
+        val title: String,
+        val learningTopic: String,
+        val iconKey: String,
+        val colorIndex: Long,
+        val defaultMinutes: Long,
+        val totalFocusMinutes: Long
+    )
+
     private data class TaskSeed(
         val courseId: String,
         val courseTitle: String,
@@ -1108,7 +1458,9 @@ class StudyRepository(
         val priority: String,
         val category: String,
         val estimatedMinutes: Long,
-        val completed: Boolean
+        val completed: Boolean,
+        val focusProfileId: String = "",
+        val focusProfileTitle: String = ""
     )
 
     private data class SessionSeed(
@@ -1117,7 +1469,9 @@ class StudyRepository(
         val taskTitle: String,
         val durationMinutes: Long,
         val mode: String,
-        val dateIso: String
+        val dateIso: String,
+        val focusProfileId: String = "",
+        val focusProfileTitle: String = ""
     )
 
     private data class HabitSeed(

@@ -92,7 +92,7 @@ fun GradientScreenSurface(
                 .fillMaxSize()
                 .background(
                     when {
-                        isOled -> Color.Black
+                        isOled -> Brush.verticalGradient(listOf(Color.Black, Color.Black))
                         isGradientTheme -> gradient.screenBackgroundBrush()
                         isGlass -> Brush.verticalGradient(
                             listOf(

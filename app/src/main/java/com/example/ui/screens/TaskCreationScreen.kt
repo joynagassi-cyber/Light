@@ -80,6 +80,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.data.model.Course
+import com.example.data.model.FocusProfile
 import com.example.data.model.StudyProject
 import com.example.data.model.TaskCategory
 import com.example.data.model.UserProfile
@@ -104,9 +105,11 @@ import java.util.Locale
 fun TaskCreationScreen(
     courses: List<Course>,
     projects: List<StudyProject> = emptyList(),
+    focusProfiles: List<FocusProfile> = emptyList(),
     initialDateIso: String,
     initialQuadrant: Int? = null,
     initialProjectId: String = "",
+    initialFocusProfileId: String = "",
     profile: UserProfile? = null,
     onCancel: () -> Unit,
     onCreateTask: (
@@ -120,7 +123,9 @@ fun TaskCreationScreen(
         category: String,
         estimatedMinutes: Long,
         quadrant: Long?,
-        projectId: String
+        projectId: String,
+        focusProfileId: String,
+        focusProfileTitle: String
     ) -> Unit
 ) {
     BackHandler(onBack = onCancel)
@@ -133,6 +138,7 @@ fun TaskCreationScreen(
     var notes by remember { mutableStateOf("") }
     var selectedCourse by remember(courses) { mutableStateOf(courses.firstOrNull()) }
     var selectedProjectId by remember(initialProjectId) { mutableStateOf(initialProjectId) }
+    var selectedFocusProfileId by remember(initialFocusProfileId) { mutableStateOf(initialFocusProfileId) }
     var selectedDate by remember(initialDateIso) {
         mutableStateOf(runCatching { LocalDate.parse(initialDateIso) }.getOrElse { LocalDate.now() })
     }
@@ -163,6 +169,7 @@ fun TaskCreationScreen(
 
     fun submitTask() {
         if (!canSubmit) return
+        val chosenFocusProfile = focusProfiles.firstOrNull { it.id == selectedFocusProfileId }
         onCreateTask(
             selectedCourse,
             title.trim(),
@@ -174,7 +181,9 @@ fun TaskCreationScreen(
             selectedCategory.key,
             selectedDuration,
             selectedQuadrant,
-            selectedProjectId
+            selectedProjectId,
+            chosenFocusProfile?.id ?: "",
+            chosenFocusProfile?.title ?: ""
         )
     }
 
@@ -382,6 +391,38 @@ fun TaskCreationScreen(
                                         onClick = { selectedProjectId = project.id },
                                         label = { Text(project.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                         modifier = Modifier.testTag("task_project_${project.id}")
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    if (focusProfiles.isNotEmpty()) {
+                        AppleCard(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("task_focus_profile_section"),
+                            cornerRadius = 22.dp,
+                            contentPadding = PaddingValues(16.dp)
+                        ) {
+                            Text("Profil de Focus (optionnel)", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+                            Text("Assignez cette tâche à un profil d'apprentissage ou de focus dédié.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Row(
+                                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 10.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                FilterChip(
+                                    selected = selectedFocusProfileId.isBlank(),
+                                    onClick = { selectedFocusProfileId = "" },
+                                    label = { Text("Aucun") },
+                                    modifier = Modifier.testTag("task_focus_profile_none")
+                                )
+                                focusProfiles.forEach { fp ->
+                                    FilterChip(
+                                        selected = selectedFocusProfileId == fp.id,
+                                        onClick = { selectedFocusProfileId = fp.id },
+                                        label = { Text(fp.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                        modifier = Modifier.testTag("task_focus_profile_${fp.id}")
                                     )
                                 }
                             }

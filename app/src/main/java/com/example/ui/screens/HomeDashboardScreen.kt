@@ -72,6 +72,7 @@ import com.example.ui.components.CatalogIcon
 import com.example.ui.components.catalogIconColor
 import com.example.ui.components.GradientHeroCard
 import com.example.ui.components.EmptyStateCard
+import com.example.ui.components.SyncStatusPill
 import com.example.ui.components.TaskCategoryPill
 import com.example.ui.components.accentColor
 import com.example.ui.theme.AppleAmber
@@ -100,6 +101,9 @@ fun HomeDashboardScreen(
     onOpenSettings: () -> Unit,
     onOpenGradientPicker: () -> Unit,
     onOpenCreateTask: () -> Unit,
+    isOnline: Boolean = true,
+    hasPendingWrites: Boolean = false,
+    isLocalMode: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val gradient = LocalLightGradient.current
@@ -125,7 +129,7 @@ fun HomeDashboardScreen(
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 24.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 96.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
@@ -228,73 +232,13 @@ fun HomeDashboardScreen(
                     }
                 }
             }
-        }
-
-        // Organized Quick Shortcuts Bar
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Surface(
-                    onClick = onNavigateToAgent,
-                    shape = RoundedCornerShape(16.dp),
-                    color = gradient.softContainer,
-                    border = androidx.compose.foundation.BorderStroke(0.8.dp, gradient.accentColor.copy(alpha = 0.25f)),
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp)
-                        .testTag("home_quick_agent_button")
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.AutoAwesome,
-                            contentDescription = null,
-                            tint = gradient.accentColor,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Agent IA",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = gradient.accentColor
-                        )
-                    }
-                }
-
-                Surface(
-                    onClick = onOpenStopwatch,
-                    shape = RoundedCornerShape(16.dp),
-                    color = Color.White.copy(alpha = 0.92f),
-                    border = androidx.compose.foundation.BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp)
-                        .testTag("home_quick_stopwatch_button")
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.AvTimer,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Chronomètre",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                }
+            if (!isLocalMode && (!isOnline || hasPendingWrites)) {
+                Spacer(modifier = Modifier.height(10.dp))
+                SyncStatusPill(
+                    isOnline = isOnline,
+                    hasPendingWrites = hasPendingWrites,
+                    isLocalMode = false
+                )
             }
         }
 

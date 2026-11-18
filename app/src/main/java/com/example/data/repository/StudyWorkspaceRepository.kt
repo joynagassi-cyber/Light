@@ -2,6 +2,7 @@ package com.example.data.repository
 
 import com.example.data.model.AdaptiveHabitTemplate
 import com.example.data.model.Course
+import com.example.data.model.FocusProfile
 import com.example.data.model.FocusSession
 import com.example.data.model.NotificationFrequency
 import com.example.data.model.StudyCountdown
@@ -13,6 +14,7 @@ import com.example.data.model.UserGender
 import com.example.data.model.UserProfession
 import com.example.data.model.UserProfile
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import java.time.LocalDate
 
 interface StudyWorkspaceRepository {
@@ -21,8 +23,10 @@ interface StudyWorkspaceRepository {
     fun observeTasks(userId: String): Flow<List<StudyTask>>
     fun observeProjects(userId: String): Flow<List<StudyProject>>
     fun observeFocusSessions(userId: String): Flow<List<FocusSession>>
+    fun observeFocusProfiles(userId: String): Flow<List<FocusProfile>> = flowOf(emptyList())
     fun observeHabits(userId: String): Flow<List<StudyHabit>>
     fun observeCountdowns(userId: String): Flow<List<StudyCountdown>>
+    fun observeHasPendingWrites(userId: String): Flow<Boolean> = flowOf(false)
 
     suspend fun ensureUserProfileAndSeedIfNew(
         userId: String,
@@ -99,13 +103,32 @@ interface StudyWorkspaceRepository {
         aiGenerated: Boolean = false,
         quadrant: Long? = null,
         startDateIso: String = "",
-        projectId: String = ""
+        projectId: String = "",
+        focusProfileId: String = "",
+        focusProfileTitle: String = ""
     ): String
 
     suspend fun createTasksBatch(userId: String, tasks: List<StudyTask>)
     suspend fun toggleTaskCompleted(userId: String, task: StudyTask)
     suspend fun updateTaskQuadrant(userId: String, taskId: String, quadrant: Long)
+    suspend fun assignTaskToFocusProfile(
+        userId: String,
+        taskId: String,
+        focusProfileId: String,
+        focusProfileTitle: String
+    )
     suspend fun deleteTask(userId: String, taskId: String)
+
+    suspend fun createFocusProfile(
+        userId: String,
+        title: String,
+        learningTopic: String,
+        iconKey: String = "brain",
+        colorIndex: Long = 0L,
+        defaultMinutes: Long = 25L
+    ): String
+
+    suspend fun deleteFocusProfile(userId: String, profileId: String)
 
     suspend fun createHabit(
         userId: String,
@@ -137,6 +160,9 @@ interface StudyWorkspaceRepository {
         taskTitle: String,
         durationMinutes: Long,
         mode: String,
-        dateIso: String = LocalDate.now().toString()
+        dateIso: String = LocalDate.now().toString(),
+        focusProfileId: String = "",
+        focusProfileTitle: String = "",
+        taskId: String = ""
     ): String
 }

@@ -23,6 +23,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Check
@@ -49,6 +50,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -126,6 +128,7 @@ fun HabitsScreen(
     onToggleHabitToday: (StudyHabit) -> Unit,
     onCreateHabit: (title: String, subtitle: String, category: String, iconKey: String, colorIndex: Long) -> Unit,
     onDeleteHabit: (String) -> Unit,
+    externalCreateTrigger: Int = 0,
     modifier: Modifier = Modifier
 ) {
     val gradient = LocalLightGradient.current
@@ -141,6 +144,9 @@ fun HabitsScreen(
 
     var showGallerySheet by remember { mutableStateOf(false) }
     var showCreateDialog by remember { mutableStateOf(false) }
+    LaunchedEffect(externalCreateTrigger) {
+        if (externalCreateTrigger > 0) showCreateDialog = true
+    }
 
     val completedToday = habits.count { it.completedDates.contains(todayIso) }
 
@@ -148,7 +154,7 @@ fun HabitsScreen(
         modifier = modifier
             .fillMaxSize()
             .testTag("habits_screen"),
-        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 32.dp),
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 96.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item {
@@ -381,7 +387,7 @@ private fun HabitTrackerCard(
     val badgeColor = habitBadgeColor(habit.colorIndex)
     val doneToday = habit.completedDates.contains(todayIso)
     val monthCompletionDates = remember(habit.completedDates, selectedMonth) {
-        completedHabitDatesInMonth(habit.completedDates, selectedMonth)
+        completedHabitDatesInMonth(habit.completedDates.toSet(), selectedMonth)
     }
 
     AppleCard(

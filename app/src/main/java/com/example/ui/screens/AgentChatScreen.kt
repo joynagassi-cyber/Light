@@ -1,9 +1,16 @@
 package com.example.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,34 +33,40 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.AttachFile
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.ChatBubbleOutline
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -63,17 +76,20 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.data.document.ExtractedAgentDocument
 import com.example.data.document.LocalDocumentExtractor
 import com.example.data.model.AgentModelOption
 import com.example.data.model.AgentProvider
-import com.example.data.model.AgentUsageRecord
 import com.example.data.model.AgentSkill
+import com.example.data.model.AgentUsageRecord
+import com.example.data.preferences.AgentConversationThread
 import com.example.data.preferences.StudyAppSettings
 import com.example.data.repository.AgentActionApproval
 import com.example.data.repository.AgentPlanPreview
 import com.example.data.repository.AgentChatMessage
+import com.example.ui.components.AgentThreadsDrawerSheet
 import com.example.ui.theme.AppleEmerald
 import com.example.ui.theme.AppleRose
 import com.example.ui.theme.LocalLightGradient
@@ -112,11 +128,16 @@ private fun buildDocumentPrompt(prompt: String, documents: List<ExtractedAgentDo
 @Composable
 fun AgentChatScreen(
     messages: List<AgentChatMessage>,
+    threads: List<AgentConversationThread> = emptyList(),
+    activeThreadId: String = "",
     isBusy: Boolean,
     pendingAction: AgentActionApproval?,
     onResolveAgentAction: (actionId: String, approved: Boolean) -> Unit,
     onSendMessage: (agentPrompt: String, visibleMessage: String) -> Unit,
     onClearConversation: () -> Unit,
+    onSelectThread: (String) -> Unit = {},
+    onNewThread: () -> Unit = onClearConversation,
+    onDeleteThread: (String) -> Unit = {},
     onOpenSettings: () -> Unit,
     settings: StudyAppSettings,
     apiKeyConfigured: Boolean,
@@ -127,12 +148,19 @@ fun AgentChatScreen(
     onClearAgentUsage: () -> Unit,
     onLoadAgentModels: (String, String, String?) -> Unit,
     onSaveAgentSettings: (String, String, String, String, Set<String>, List<AgentSkill>, String?, Boolean) -> Unit,
+    showEmbeddedNavigationChrome: Boolean = true,
+    externalConfigTrigger: Int = 0,
     modifier: Modifier = Modifier
 ) {
     val gradient = LocalLightGradient.current
     var inputText by rememberSaveable { mutableStateOf("") }
     var showAgentSettings by rememberSaveable { mutableStateOf(false) }
     var showUsageHistory by rememberSaveable { mutableStateOf(false) }
+    var showAttachmentTray by rememberSaveable { mutableStateOf(false) }
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    LaunchedEffect(externalConfigTrigger) {
+        if (externalConfigTrigger > 0) showAgentSettings = true
+    }
     val listState = rememberLazyListState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -142,6 +170,7 @@ fun AgentChatScreen(
     var extractionError by remember { mutableStateOf<String?>(null) }
     var showDocumentConsent by remember { mutableStateOf(false) }
     val documentPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        showAttachmentTray = false
         val available = (MAX_ATTACHED_DOCUMENTS - attachedDocuments.size).coerceAtLeast(0)
         val overLimit = uris.size > available
         val selected = uris.take(available)
@@ -177,103 +206,130 @@ fun AgentChatScreen(
         if (lastVisibleIndex >= 0) listState.animateScrollToItem(lastVisibleIndex)
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(horizontal = 18.dp)
-            .padding(top = 12.dp, bottom = 14.dp)
-    ) {
-        // Header
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+    val chatContent: @Composable () -> Unit = {
+        Column(
+            modifier = (if (showEmbeddedNavigationChrome) Modifier else modifier)
+                .fillMaxSize()
+                .padding(horizontal = 16.dp)
+                .padding(top = if (showEmbeddedNavigationChrome) 10.dp else 4.dp, bottom = 14.dp)
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.weight(1f)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(RoundedCornerShape(15.dp))
-                        .background(gradient.appBrush()),
-                    contentAlignment = Alignment.Center
+            if (showEmbeddedNavigationChrome) {
+                // Header with top-left drawer button for standalone usage/previews
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.AutoAwesome,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-                Column {
-                    Text(
-                        text = "Light Agent IA",
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "Discutez & opérez directement votre planning",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Surface(
+                            onClick = { scope.launch { drawerState.open() } },
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.surface,
+                            border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
+                            shadowElevation = 2.dp,
+                            modifier = Modifier
+                                .size(48.dp)
+                                .testTag("agent_threads_drawer_button")
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Menu,
+                                    contentDescription = "Fils de discussion",
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(21.dp)
+                                )
+                            }
+                        }
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(13.dp))
+                                .background(gradient.appBrush()),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.AutoAwesome,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Light Agent IA",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = "Discutez & opérez votre planning",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Surface(
-                    onClick = onClearConversation,
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.surface,
-                    border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
-                    modifier = Modifier
-                        .size(48.dp)
-                        .testTag("agent_clear_button")
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Rounded.DeleteOutline,
-                            contentDescription = "Réinitialiser la conversation",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(20.dp)
-                        )
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Surface(
+                            onClick = onClearConversation,
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.surface,
+                            border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
+                            modifier = Modifier
+                                .size(44.dp)
+                                .testTag("agent_clear_button")
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Rounded.DeleteOutline,
+                                    contentDescription = "Réinitialiser la conversation",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(19.dp)
+                                )
+                            }
+                        }
+                        Surface(
+                            onClick = { showAgentSettings = true },
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.surface,
+                            border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
+                            modifier = Modifier.size(44.dp).testTag("agent_configuration_button")
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(Icons.Rounded.Tune, contentDescription = "Configurer l’agent", tint = gradient.accentColor, modifier = Modifier.size(19.dp))
+                            }
+                        }
+                        Surface(
+                            onClick = onOpenSettings,
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.surface,
+                            border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
+                            modifier = Modifier
+                                .size(44.dp)
+                                .testTag("agent_settings_button")
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Settings,
+                                    contentDescription = "Paramètres",
+                                    tint = gradient.accentColor,
+                                    modifier = Modifier.size(19.dp)
+                                )
+                            }
+                        }
                     }
                 }
-                Surface(
-                    onClick = { showAgentSettings = true },
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.surface,
-                    border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
-                    modifier = Modifier.size(48.dp).testTag("agent_configuration_button")
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(Icons.Rounded.Tune, contentDescription = "Configurer l’agent", tint = gradient.accentColor)
-                    }
-                }
-                Surface(
-                    onClick = onOpenSettings,
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.surface,
-                    border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
-                    modifier = Modifier
-                        .size(48.dp)
-                        .testTag("agent_settings_button")
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Rounded.Settings,
-                            contentDescription = "Paramètres",
-                            tint = gradient.accentColor,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-            }
-        }
 
-        Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(10.dp))
+            }
 
         // Quick action prompt pills
         Row(
@@ -450,7 +506,58 @@ fun AgentChatScreen(
             Spacer(modifier = Modifier.height(6.dp))
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
+        AnimatedVisibility(
+            visible = showAttachmentTray,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically()
+        ) {
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = gradient.softContainer,
+                border = BorderStroke(0.8.dp, gradient.accentColor.copy(alpha = 0.28f)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp)
+                    .testTag("agent_upload_tray")
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.AttachFile,
+                        contentDescription = null,
+                        tint = gradient.accentColor,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Joindre un document",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "MD, PDF, DOCX, XLSX ou PNG · lecture locale",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    TextButton(
+                        onClick = { documentPicker.launch(SUPPORTED_DOCUMENT_MIME_TYPES) },
+                        enabled = !isBusy && !isExtractingDocuments,
+                        modifier = Modifier.testTag("agent_pick_files_button")
+                    ) {
+                        Text("Parcourir", color = gradient.accentColor, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
 
         // Floating iOS-style composer
         Surface(
@@ -467,11 +574,15 @@ fun AgentChatScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(
-                    onClick = { documentPicker.launch(SUPPORTED_DOCUMENT_MIME_TYPES) },
+                    onClick = { showAttachmentTray = !showAttachmentTray },
                     enabled = !isBusy && !isExtractingDocuments,
                     modifier = Modifier.testTag("agent_attach_button")
                 ) {
-                    Icon(Icons.Rounded.Add, contentDescription = "Joindre des fichiers", tint = gradient.accentColor)
+                    Icon(
+                        imageVector = if (showAttachmentTray) Icons.Rounded.Close else Icons.Rounded.Add,
+                        contentDescription = if (showAttachmentTray) "Fermer les options de fichier" else "Joindre des fichiers",
+                        tint = gradient.accentColor
+                    )
                 }
                 OutlinedTextField(
                     value = inputText,
@@ -483,7 +594,6 @@ fun AgentChatScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     },
-                    supportingText = { Text("Joindre MD, PDF, DOCX, XLSX ou PNG · lecture locale") },
                     maxLines = 3,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = Color.Transparent,
@@ -528,6 +638,31 @@ fun AgentChatScreen(
                 }
             }
         }
+        }
+    }
+
+    if (showEmbeddedNavigationChrome) {
+        BackHandler(enabled = drawerState.isOpen) {
+            scope.launch { drawerState.close() }
+        }
+        ModalNavigationDrawer(
+            drawerState = drawerState,
+            modifier = modifier.fillMaxSize(),
+            drawerContent = {
+                AgentThreadsDrawerSheet(
+                    threads = threads,
+                    activeThreadId = activeThreadId,
+                    onSelectThread = onSelectThread,
+                    onNewThread = onNewThread,
+                    onDeleteThread = onDeleteThread,
+                    onCloseDrawer = { scope.launch { drawerState.close() } }
+                )
+            }
+        ) {
+            chatContent()
+        }
+    } else {
+        chatContent()
     }
 
     if (showDocumentConsent) {

@@ -39,17 +39,39 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.MoreHoriz
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Timer
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.CloudOff
+import androidx.compose.material.icons.rounded.DateRange
+import androidx.compose.material.icons.rounded.Event
+import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.MoreHoriz
+import androidx.compose.material.icons.rounded.Insights
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.School
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.SelfImprovement
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Timer
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
@@ -61,10 +83,13 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -77,6 +102,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.credentials.CredentialManager
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
@@ -89,14 +115,19 @@ import com.example.auth.authStateFlow
 import com.example.auth.signOut
 import com.example.data.firebase.configureAppCheck
 import com.example.data.model.UiState
+import com.example.data.network.NetworkMonitor
+import com.example.data.preferences.AgentThreadsStore
 import com.example.data.preferences.StudyAppSettings
 import com.example.data.preferences.ThemePreferencesStore
 import com.example.data.repository.AiPlannerRepository
 import com.example.data.repository.LocalTestStudyRepository
 import com.example.data.repository.StudyRepository
 import com.example.data.repository.StudyWorkspaceRepository
+import com.example.audio.FocusAudioTrack
 import com.example.ui.FocusKind
 import com.example.ui.StudyViewModel
+import com.example.ui.components.AgentChatTopBar
+import com.example.ui.components.AgentThreadsDrawerSheet
 import com.example.ui.components.GradientPickerSheet
 import com.example.ui.theme.GradientScreenSurface
 import com.example.ui.screens.AgentChatScreen
@@ -104,6 +135,8 @@ import com.example.ui.screens.AgentCapabilitiesScreen
 import com.example.ui.screens.AuthScreen
 import com.example.ui.screens.CountdownScreen
 import com.example.ui.screens.EisenhowerScreen
+import com.example.ui.screens.FocusAnalyticsScreen
+import com.example.ui.screens.FocusProfilesScreen
 import com.example.ui.screens.FocusScreen
 import com.example.ui.screens.GanttScreen
 import com.example.ui.screens.HabitsScreen
@@ -121,6 +154,9 @@ import com.example.ui.theme.LocalLightGradient
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreSettings
+import com.google.firebase.firestore.PersistentCacheSettings
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 
@@ -134,7 +170,7 @@ private enum class LightTab(
     PLANNER("planner", R.string.nav_planner, Icons.Rounded.CalendarMonth, Icons.Outlined.CalendarMonth),
     FOCUS("focus", R.string.nav_focus, Icons.Rounded.Timer, Icons.Outlined.Timer),
     MATRIX("matrix", R.string.nav_matrix, Icons.Rounded.GridView, Icons.Outlined.GridView),
-    MORE("more", R.string.nav_more, Icons.Rounded.MoreHoriz, Icons.Outlined.MoreHoriz)
+    MORE("more", R.string.nav_more, Icons.Rounded.MoreVert, Icons.Outlined.MoreVert)
 }
 
 class MainActivity : ComponentActivity() {
@@ -160,7 +196,13 @@ private fun LightAppRoot() {
     val localGradientId by themeStore.selectedGradientId.collectAsStateWithLifecycle(initialValue = "aurore_lavande")
     val themeSettings by themeStore.appSettings.collectAsStateWithLifecycle(initialValue = StudyAppSettings())
     val googleAuthPaused by themeStore.googleAuthPausedForTesting.collectAsStateWithLifecycle(initialValue = null)
-    val localTestRepository = remember { LocalTestStudyRepository() }
+    val localTestRepository = remember(context) { LocalTestStudyRepository(context.applicationContext) }
+    val networkMonitor = remember(context) { NetworkMonitor(context.applicationContext) }
+    DisposableEffect(networkMonitor) {
+        networkMonitor.start()
+        onDispose { networkMonitor.stop() }
+    }
+    val isOnline by networkMonitor.isOnline.collectAsStateWithLifecycle()
 
     // Local mode is the default. Avoid touching Firebase Auth until the user explicitly opts in.
     // This lets the app launch and be explored even without google-services.json or OAuth setup.
@@ -217,6 +259,29 @@ private fun LightAppRoot() {
         }
     } else if (user != null && auth != null) {
         val activeAuth = auth
+        val cloudRepository = remember(context, user.uid, activeAuth) {
+            val databaseId = context.applicationContext.getString(R.string.firestore_database_id)
+            val db = FirebaseFirestore.getInstance(databaseId).also { firestore ->
+                runCatching {
+                    firestore.firestoreSettings = FirebaseFirestoreSettings.Builder()
+                        .setLocalCacheSettings(PersistentCacheSettings.newBuilder().build())
+                        .build()
+                }
+            }
+            StudyRepository(db, activeAuth)
+        }
+        LaunchedEffect(user.uid, isOnline, cloudRepository) {
+            if (isOnline) {
+                runCatching {
+                    localTestRepository.syncToCloudIfNeeded(
+                        cloudRepo = cloudRepository,
+                        cloudUserId = user.uid,
+                        displayName = user.displayName.orEmpty(),
+                        email = user.email.orEmpty()
+                    )
+                }
+            }
+        }
         key(user.uid) {
             AuthenticatedStudyShell(
                 userId = user.uid,
@@ -224,12 +289,9 @@ private fun LightAppRoot() {
                 initialEmail = user.email ?: "",
                 photoUrl = user.photoUrl?.toString(),
                 isGoogleAuthPaused = false,
+                isOnlineFlow = networkMonitor.isOnline,
                 themeStore = themeStore,
-                repositoryFactory = { app ->
-                    val databaseId = app.getString(R.string.firestore_database_id)
-                    val db = FirebaseFirestore.getInstance(databaseId)
-                    StudyRepository(db, activeAuth)
-                },
+                repositoryFactory = { cloudRepository },
                 onTogglePauseGoogleAuth = { pause ->
                     scope.launch {
                         // Persist the local-mode choice before Firebase emits its signed-out event,
@@ -251,6 +313,7 @@ private fun LightAppRoot() {
                 initialEmail = "mode.test@local.light",
                 photoUrl = null,
                 isGoogleAuthPaused = true,
+                isOnlineFlow = networkMonitor.isOnline,
                 themeStore = themeStore,
                 repositoryFactory = { localTestRepository },
                 onTogglePauseGoogleAuth = { pause ->
@@ -286,6 +349,7 @@ private fun AuthenticatedStudyShell(
     initialEmail: String,
     photoUrl: String?,
     isGoogleAuthPaused: Boolean,
+    isOnlineFlow: StateFlow<Boolean>,
     themeStore: ThemePreferencesStore,
     repositoryFactory: (android.app.Application) -> StudyWorkspaceRepository,
     onTogglePauseGoogleAuth: (Boolean) -> Unit
@@ -305,7 +369,10 @@ private fun AuthenticatedStudyShell(
                     themePreferencesStore = themeStore,
                     currentUserId = userId,
                     initialDisplayName = initialDisplayName,
-                    initialEmail = initialEmail
+                    initialEmail = initialEmail,
+                    isOnline = isOnlineFlow,
+                    isLocalMode = isGoogleAuthPaused,
+                    agentThreadsStore = AgentThreadsStore(app, userId)
                 )
             }
         }
@@ -318,6 +385,7 @@ private fun AuthenticatedStudyShell(
     val tasksState by viewModel.tasksState.collectAsStateWithLifecycle()
     val projectsState by viewModel.projectsState.collectAsStateWithLifecycle()
     val sessionsState by viewModel.sessionsState.collectAsStateWithLifecycle()
+    val focusProfilesState by viewModel.focusProfilesState.collectAsStateWithLifecycle()
     val habitsState by viewModel.habitsState.collectAsStateWithLifecycle()
     val countdownsState by viewModel.countdownsState.collectAsStateWithLifecycle()
     val selectedDateIso by viewModel.selectedDateIso.collectAsStateWithLifecycle()
@@ -325,6 +393,8 @@ private fun AuthenticatedStudyShell(
     val audioState by viewModel.audioState.collectAsStateWithLifecycle()
     val aiPlanState by viewModel.aiPlanState.collectAsStateWithLifecycle()
     val agentMessages by viewModel.agentMessages.collectAsStateWithLifecycle()
+    val agentThreads by viewModel.agentThreads.collectAsStateWithLifecycle()
+    val activeAgentThreadId by viewModel.activeAgentThreadId.collectAsStateWithLifecycle()
     val agentBusy by viewModel.agentBusy.collectAsStateWithLifecycle()
     val pendingAgentApproval by viewModel.pendingAgentApproval.collectAsStateWithLifecycle()
     val agentApiKeyConfigured by viewModel.agentApiKeyConfigured.collectAsStateWithLifecycle()
@@ -333,27 +403,59 @@ private fun AuthenticatedStudyShell(
     val agentModelsError by viewModel.agentModelsError.collectAsStateWithLifecycle()
     val agentUsage by viewModel.agentUsage.collectAsStateWithLifecycle()
     val bannerMessage by viewModel.bannerMessage.collectAsStateWithLifecycle()
+    val isOnline by viewModel.isOnline.collectAsStateWithLifecycle()
+    val hasPendingWrites by viewModel.hasPendingCloudWrites.collectAsStateWithLifecycle()
 
     val profile = (profileState as? UiState.Success)?.data
     val courses = (coursesState as? UiState.Success)?.data.orEmpty()
     val tasks = (tasksState as? UiState.Success)?.data.orEmpty()
     val projects = (projectsState as? UiState.Success)?.data.orEmpty()
     val sessions = (sessionsState as? UiState.Success)?.data.orEmpty()
+    val focusProfiles = (focusProfilesState as? UiState.Success)?.data.orEmpty()
     val habits = (habitsState as? UiState.Success)?.data.orEmpty()
     val countdowns = (countdownsState as? UiState.Success)?.data.orEmpty()
     val hasRepositoryError = listOf(
-        profileState, coursesState, tasksState, projectsState, sessionsState, habitsState, countdownsState
+        profileState, coursesState, tasksState, projectsState, sessionsState, focusProfilesState, habitsState, countdownsState
     ).any { it is UiState.Error }
 
     var currentTab by rememberSaveable { mutableStateOf(LightTab.HOME) }
     var activeMorePage by rememberSaveable { mutableStateOf<MoreSubPage?>(null) }
+    var moreMenuExpanded by remember { mutableStateOf(false) }
+    var focusProfileCreateTrigger by remember { mutableIntStateOf(0) }
+    var initialFocusProfileDetailId by rememberSaveable { mutableStateOf("") }
+    var habitCreateTrigger by remember { mutableIntStateOf(0) }
+    var countdownCreateTrigger by remember { mutableIntStateOf(0) }
+    var ganttCreateTrigger by remember { mutableIntStateOf(0) }
+    var agentConfigTrigger by remember { mutableIntStateOf(0) }
+    val agentDrawerState = rememberDrawerState(DrawerValue.Closed)
     var pendingTaskQuadrant by rememberSaveable { mutableStateOf<Int?>(null) }
     var pendingProjectId by rememberSaveable { mutableStateOf("") }
+    var pendingFocusProfileId by rememberSaveable { mutableStateOf("") }
     var showGradientSheet by remember { mutableStateOf(false) }
     var showTaskCreation by rememberSaveable { mutableStateOf(false) }
     var showSettingsOverlay by rememberSaveable { mutableStateOf(false) }
     var showOnboardingOverlay by rememberSaveable { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
+
+    val startFocusForTask: (com.example.data.model.StudyTask) -> Unit = { task ->
+        val matchedFp = focusProfiles.firstOrNull { it.id == task.focusProfileId }
+        viewModel.setFocusTarget(
+            courseId = task.courseId,
+            taskTitle = task.title,
+            taskId = task.id,
+            focusProfileId = matchedFp?.id ?: task.focusProfileId,
+            focusProfileTitle = matchedFp?.title ?: task.focusProfileTitle
+        )
+        currentTab = LightTab.FOCUS
+    }
+
+    val handleSelectAudioTrack: (FocusAudioTrack) -> Unit = { track ->
+        val wasSameAndPlaying = audioState.selectedTrack.id == track.id && audioState.isPlaying
+        viewModel.selectAudioTrack(track.id)
+        if (!audioState.isPlaying || wasSameAndPlaying) {
+            viewModel.toggleAudioPlayback()
+        }
+    }
 
     LaunchedEffect(bannerMessage) {
         val msg = bannerMessage
@@ -365,14 +467,22 @@ private fun AuthenticatedStudyShell(
 
     val isLoadingInitialProfile = profileState is UiState.Loading
     val needsOnboarding = (profile != null && !profile.onboardingCompleted) || showOnboardingOverlay
+    val isOnAgentChat = !needsOnboarding && !isLoadingInitialProfile &&
+        currentTab == LightTab.MORE && activeMorePage == MoreSubPage.AGENT &&
+        !showSettingsOverlay && !showTaskCreation
 
     if (!needsOnboarding && !isLoadingInitialProfile) {
-        if (showSettingsOverlay && !showTaskCreation) {
+        if (isOnAgentChat && agentDrawerState.isOpen) {
+            BackHandler {
+                scope.launch { agentDrawerState.close() }
+            }
+        } else if (showSettingsOverlay && !showTaskCreation) {
             BackHandler {
                 showSettingsOverlay = false
             }
         } else if (currentTab == LightTab.MORE && activeMorePage != null && !showTaskCreation) {
             BackHandler {
+                initialFocusProfileDetailId = ""
                 activeMorePage = null
             }
         } else if (currentTab != LightTab.HOME && !showTaskCreation) {
@@ -433,11 +543,186 @@ private fun AuthenticatedStudyShell(
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val useRail = maxWidth >= 700.dp
 
+            val overflowPages = listOf(
+                MoreSubPage.AGENT to Icons.Rounded.AutoAwesome,
+                MoreSubPage.AGENT_CAPABILITIES to Icons.Rounded.Tune,
+                MoreSubPage.FOCUS_PROFILES to Icons.Rounded.School,
+                MoreSubPage.FOCUS_ANALYTICS to Icons.Rounded.Insights,
+                MoreSubPage.PROGRESS to Icons.Rounded.BarChart,
+                MoreSubPage.HABITS to Icons.Rounded.SelfImprovement,
+                MoreSubPage.COUNTDOWN to Icons.Rounded.Event,
+                MoreSubPage.SEARCH to Icons.Rounded.Search,
+                MoreSubPage.PROJECTS to Icons.Rounded.DateRange
+            )
+            val pendingCount = tasks.count { !it.completed }
+
+            val showContextFab = !showSettingsOverlay && !showTaskCreation && when {
+                currentTab == LightTab.MORE -> activeMorePage in setOf(
+                    MoreSubPage.FOCUS_PROFILES,
+                    MoreSubPage.FOCUS_ANALYTICS,
+                    MoreSubPage.PROGRESS,
+                    MoreSubPage.HABITS,
+                    MoreSubPage.COUNTDOWN,
+                    MoreSubPage.SEARCH,
+                    MoreSubPage.PROJECTS
+                )
+                else -> true
+            }
+
+            @Composable
+            fun MoreOverflowDropdown(expanded: Boolean, onDismiss: () -> Unit) {
+                DropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = onDismiss,
+                    modifier = Modifier.testTag("more_overflow_menu")
+                ) {
+                    overflowPages.forEach { (page, icon) ->
+                        val badgeText = when (page) {
+                            MoreSubPage.AGENT -> "IA"
+                            MoreSubPage.FOCUS_PROFILES -> focusProfiles.size.takeIf { it > 0 }?.toString()
+                            MoreSubPage.HABITS -> habits.size.takeIf { it > 0 }?.toString()
+                            MoreSubPage.COUNTDOWN -> countdowns.size.takeIf { it > 0 }?.toString()
+                            MoreSubPage.SEARCH, MoreSubPage.PROJECTS -> pendingCount.takeIf { it > 0 }?.toString()
+                            else -> null
+                        }
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = if (badgeText != null) "${page.title} · $badgeText" else page.title,
+                                    fontWeight = if (currentTab == LightTab.MORE && activeMorePage == page) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (currentTab == LightTab.MORE && activeMorePage == page) gradient.accentColor else MaterialTheme.colorScheme.onSurface
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = icon,
+                                    contentDescription = null,
+                                    tint = if (currentTab == LightTab.MORE && activeMorePage == page) gradient.accentColor else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            onClick = {
+                                onDismiss()
+                                if (page != MoreSubPage.FOCUS_PROFILES) {
+                                    initialFocusProfileDetailId = ""
+                                }
+                                activeMorePage = page
+                                currentTab = LightTab.MORE
+                            },
+                            modifier = Modifier.testTag("more_menu_${page.key}")
+                        )
+                    }
+                    HorizontalDivider()
+                    DropdownMenuItem(
+                        text = { Text("Toutes les pages (Explorer)") },
+                        leadingIcon = { Icon(Icons.Rounded.Explore, contentDescription = null) },
+                        onClick = {
+                            onDismiss()
+                            initialFocusProfileDetailId = ""
+                            activeMorePage = null
+                            currentTab = LightTab.MORE
+                        },
+                        modifier = Modifier.testTag("more_menu_explorer")
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Paramètres", fontWeight = FontWeight.SemiBold) },
+                        leadingIcon = { Icon(Icons.Rounded.Settings, contentDescription = null, tint = gradient.accentColor) },
+                        onClick = {
+                            onDismiss()
+                            showSettingsOverlay = true
+                        },
+                        modifier = Modifier.testTag("more_menu_settings")
+                    )
+                }
+            }
+
+            val activeThreadTitle = remember(agentThreads, activeAgentThreadId) {
+                agentThreads.firstOrNull { it.id == activeAgentThreadId }?.title ?: "Nouvelle discussion"
+            }
+
+            ModalNavigationDrawer(
+                drawerState = agentDrawerState,
+                gesturesEnabled = isOnAgentChat,
+                drawerContent = {
+                    AgentThreadsDrawerSheet(
+                        threads = agentThreads,
+                        activeThreadId = activeAgentThreadId,
+                        onSelectThread = viewModel::selectAgentThread,
+                        onNewThread = viewModel::startNewAgentThread,
+                        onDeleteThread = viewModel::deleteAgentThread,
+                        onCloseDrawer = { scope.launch { agentDrawerState.close() } }
+                    )
+                }
+            ) {
             Scaffold(
                 modifier = Modifier.fillMaxSize(),
                 containerColor = Color.Transparent,
                 contentWindowInsets = WindowInsets(0, 0, 0, 0),
+                topBar = {
+                    if (isOnAgentChat) {
+                        AgentChatTopBar(
+                            activeThreadTitle = activeThreadTitle,
+                            onOpenDrawer = { scope.launch { agentDrawerState.open() } },
+                            onClearConversation = viewModel::clearAgentConversation,
+                            onOpenAgentConfig = { agentConfigTrigger++ },
+                            onOpenSettings = { showSettingsOverlay = true }
+                        )
+                    }
+                },
                 snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+                floatingActionButton = {
+                    if (showContextFab) {
+                        val (fabIcon, fabLabel, fabContentDesc) = when {
+                            currentTab == LightTab.FOCUS -> if (focusState.isRunning) {
+                                Triple(Icons.Rounded.Pause, "Pause", "Mettre en pause Focus")
+                            } else {
+                                Triple(Icons.Rounded.PlayArrow, "Focus", "Démarrer le minuteur Focus")
+                            }
+                            currentTab == LightTab.MORE && activeMorePage == MoreSubPage.FOCUS_PROFILES ->
+                                Triple(Icons.Rounded.Add, "Profil", "Nouveau profil de Focus")
+                            currentTab == LightTab.MORE && activeMorePage == MoreSubPage.FOCUS_ANALYTICS ->
+                                Triple(Icons.Rounded.PlayArrow, "Focus", "Ouvrir le minuteur Focus")
+                            currentTab == LightTab.MORE && activeMorePage == MoreSubPage.HABITS ->
+                                Triple(Icons.Rounded.Add, "Habitude", "Nouvelle habitude")
+                            currentTab == LightTab.MORE && activeMorePage == MoreSubPage.COUNTDOWN ->
+                                Triple(Icons.Rounded.Add, "Échéance", "Nouvelle échéance")
+                            currentTab == LightTab.MORE && activeMorePage == MoreSubPage.PROJECTS ->
+                                Triple(Icons.Rounded.Add, "Ajouter", "Ajouter une tâche ou un projet")
+                            else -> Triple(Icons.Rounded.Add, "Tâche", "Ajouter une tâche")
+                        }
+                        ExtendedFloatingActionButton(
+                            onClick = {
+                                when {
+                                    currentTab == LightTab.FOCUS -> viewModel.toggleFocusTimer(courses)
+                                    currentTab == LightTab.MORE && activeMorePage == MoreSubPage.FOCUS_PROFILES ->
+                                        focusProfileCreateTrigger++
+                                    currentTab == LightTab.MORE && activeMorePage == MoreSubPage.FOCUS_ANALYTICS ->
+                                        currentTab = LightTab.FOCUS
+                                    currentTab == LightTab.MORE && activeMorePage == MoreSubPage.HABITS -> habitCreateTrigger++
+                                    currentTab == LightTab.MORE && activeMorePage == MoreSubPage.COUNTDOWN -> countdownCreateTrigger++
+                                    currentTab == LightTab.MORE && activeMorePage == MoreSubPage.PROJECTS -> ganttCreateTrigger++
+                                    currentTab == LightTab.MATRIX -> {
+                                        pendingTaskQuadrant = 1
+                                        pendingProjectId = ""
+                                        pendingFocusProfileId = ""
+                                        showTaskCreation = true
+                                    }
+                                    else -> {
+                                        pendingTaskQuadrant = null
+                                        pendingProjectId = ""
+                                        pendingFocusProfileId = ""
+                                        showTaskCreation = true
+                                    }
+                                }
+                            },
+                            icon = { Icon(imageVector = fabIcon, contentDescription = fabContentDesc) },
+                            text = { Text(text = fabLabel, fontWeight = FontWeight.SemiBold) },
+                            containerColor = gradient.accentColor,
+                            contentColor = Color.White,
+                            shape = CircleShape,
+                            modifier = Modifier.testTag("context_fab")
+                        )
+                    }
+                },
                 bottomBar = {
                     if (!useRail) {
                         Surface(
@@ -455,17 +740,26 @@ private fun AuthenticatedStudyShell(
                                     NavigationBarItem(
                                         selected = selected,
                                         onClick = {
-                                            if (tab == LightTab.MORE && currentTab == LightTab.MORE) {
-                                                activeMorePage = null
+                                            if (tab == LightTab.MORE) {
+                                                moreMenuExpanded = true
+                                            } else {
+                                                currentTab = tab
                                             }
-                                            currentTab = tab
                                         },
                                         icon = {
-                                            Icon(
-                                                imageVector = if (selected) tab.selectedIcon else tab.unselectedIcon,
-                                                contentDescription = stringResource(tab.labelRes),
-                                                modifier = Modifier.size(22.dp)
-                                            )
+                                            Box {
+                                                Icon(
+                                                    imageVector = if (selected) tab.selectedIcon else tab.unselectedIcon,
+                                                    contentDescription = stringResource(tab.labelRes),
+                                                    modifier = Modifier.size(22.dp)
+                                                )
+                                                if (tab == LightTab.MORE) {
+                                                    MoreOverflowDropdown(
+                                                        expanded = moreMenuExpanded,
+                                                        onDismiss = { moreMenuExpanded = false }
+                                                    )
+                                                }
+                                            }
                                         },
                                         label = {
                                             Text(
@@ -499,23 +793,32 @@ private fun AuthenticatedStudyShell(
                             containerColor = MaterialTheme.colorScheme.surface,
                             modifier = Modifier
                                 .fillMaxHeight()
-                                .statusBarsPadding()
+                                .then(if (isOnAgentChat) Modifier else Modifier.statusBarsPadding())
                         ) {
                             LightTab.entries.forEach { tab ->
                                 val selected = currentTab == tab
                                 NavigationRailItem(
                                     selected = selected,
                                     onClick = {
-                                        if (tab == LightTab.MORE && currentTab == LightTab.MORE) {
-                                            activeMorePage = null
+                                        if (tab == LightTab.MORE) {
+                                            moreMenuExpanded = true
+                                        } else {
+                                            currentTab = tab
                                         }
-                                        currentTab = tab
                                     },
                                     icon = {
-                                        Icon(
-                                            imageVector = if (selected) tab.selectedIcon else tab.unselectedIcon,
-                                            contentDescription = stringResource(tab.labelRes)
-                                        )
+                                        Box {
+                                            Icon(
+                                                imageVector = if (selected) tab.selectedIcon else tab.unselectedIcon,
+                                                contentDescription = stringResource(tab.labelRes)
+                                            )
+                                            if (tab == LightTab.MORE) {
+                                                MoreOverflowDropdown(
+                                                    expanded = moreMenuExpanded,
+                                                    onDismiss = { moreMenuExpanded = false }
+                                                )
+                                            }
+                                        }
                                     },
                                     label = { Text(stringResource(tab.labelRes)) },
                                     colors = NavigationRailItemDefaults.colors(
@@ -535,7 +838,7 @@ private fun AuthenticatedStudyShell(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
-                            .statusBarsPadding(),
+                            .then(if (isOnAgentChat) Modifier else Modifier.statusBarsPadding()),
                         contentAlignment = Alignment.TopCenter
                     ) {
                         AnimatedContent(
@@ -590,10 +893,7 @@ private fun AuthenticatedStudyShell(
                                     tasks = tasks,
                                     sessions = sessions,
                                     onToggleTask = viewModel::toggleTaskCompleted,
-                                    onStartFocusForTask = { task ->
-                                        viewModel.setFocusTarget(task.courseId, task.title)
-                                        currentTab = LightTab.FOCUS
-                                    },
+                                    onStartFocusForTask = startFocusForTask,
                                     onNavigateToPlanner = { currentTab = LightTab.PLANNER },
                                     onNavigateToProgress = {
                                         activeMorePage = MoreSubPage.PROGRESS
@@ -612,8 +912,12 @@ private fun AuthenticatedStudyShell(
                                     onOpenCreateTask = {
                                         pendingTaskQuadrant = null
                                         pendingProjectId = ""
+                                        pendingFocusProfileId = ""
                                         showTaskCreation = true
-                                    }
+                                    },
+                                    isOnline = isOnline,
+                                    hasPendingWrites = hasPendingWrites,
+                                    isLocalMode = isGoogleAuthPaused
                                     )
                                 }
 
@@ -634,6 +938,7 @@ private fun AuthenticatedStudyShell(
                                     onOpenCreateTask = {
                                         pendingTaskQuadrant = null
                                         pendingProjectId = ""
+                                        pendingFocusProfileId = ""
                                         showTaskCreation = true
                                     },
                                     onOpenSettings = openSettingsAction,
@@ -643,10 +948,7 @@ private fun AuthenticatedStudyShell(
                                     },
                                     onToggleTask = viewModel::toggleTaskCompleted,
                                     onDeleteTask = viewModel::deleteTask,
-                                    onStartFocusForTask = { task ->
-                                        viewModel.setFocusTarget(task.courseId, task.title)
-                                        currentTab = LightTab.FOCUS
-                                    }
+                                    onStartFocusForTask = startFocusForTask
                                 )
 
                                 LightTab.FOCUS -> FocusScreen(
@@ -655,32 +957,35 @@ private fun AuthenticatedStudyShell(
                                     appSettings = appSettings,
                                     courses = courses,
                                     sessions = sessions,
+                                    focusProfiles = focusProfiles,
                                     onSelectKind = viewModel::setFocusKind,
                                     onSelectMode = viewModel::setFocusMode,
                                     onSelectCourse = { course ->
                                         viewModel.setFocusTarget(
                                             courseId = course?.id ?: "",
-                                            taskTitle = course?.title ?: "Session de concentration"
+                                            taskTitle = course?.title ?: "Session de concentration",
+                                            focusProfileId = focusState.selectedFocusProfileId,
+                                            focusProfileTitle = focusState.selectedFocusProfileTitle
                                         )
+                                    },
+                                    onSelectFocusProfile = viewModel::selectFocusProfileForTimer,
+                                    onOpenFocusProfiles = {
+                                        initialFocusProfileDetailId = focusState.selectedFocusProfileId
+                                        activeMorePage = MoreSubPage.FOCUS_PROFILES
+                                        currentTab = LightTab.MORE
                                     },
                                     onTogglePlayPause = { viewModel.toggleFocusTimer(courses) },
                                     onRecordLap = viewModel::recordStopwatchLap,
                                     onReset = viewModel::resetFocusTimer,
                                     onFinishAndLog = { viewModel.finishAndLogFocusNow(courses) },
-                                    onSelectAudioTrack = { track ->
-                                        val wasSameAndPlaying = audioState.selectedTrack.id == track.id && audioState.isPlaying
-                                        viewModel.selectAudioTrack(track.id)
-                                        if (!audioState.isPlaying) {
-                                            viewModel.toggleAudioPlayback()
-                                        } else if (wasSameAndPlaying) {
-                                            viewModel.toggleAudioPlayback()
-                                        }
-                                    },
+                                    onSelectAudioTrack = handleSelectAudioTrack,
                                     onToggleAudioPlayPause = viewModel::toggleAudioPlayback,
                                     onAudioVolumeChange = viewModel::setAudioVolume,
                                     onToggleAutoPlayAudio = viewModel::setAutoPlayAudioWithFocus,
                                     onSelectFocusIllustration = viewModel::selectFocusIllustration,
                                     onSelectFocusTheme = viewModel::selectFocusTheme,
+                                    onUpdateTimerDurations = viewModel::updateTimerDurations,
+                                    onUpdateAutoLogStopwatch = viewModel::updateAutoLogStopwatch,
                                     onOpenSettings = openSettingsAction
                                 )
 
@@ -688,13 +993,11 @@ private fun AuthenticatedStudyShell(
                                     tasks = tasks,
                                     onToggleTask = viewModel::toggleTaskCompleted,
                                     onMoveTaskQuadrant = viewModel::updateTaskQuadrant,
-                                    onStartFocusForTask = { task ->
-                                        viewModel.setFocusTarget(task.courseId, task.title)
-                                        currentTab = LightTab.FOCUS
-                                    },
+                                    onStartFocusForTask = startFocusForTask,
                                     onOpenCreateTaskForQuadrant = { quadrant ->
                                         pendingTaskQuadrant = quadrant
                                         pendingProjectId = ""
+                                        pendingFocusProfileId = ""
                                         showTaskCreation = true
                                     },
                                     onOpenSettings = openSettingsAction
@@ -716,82 +1019,138 @@ private fun AuthenticatedStudyShell(
                                                 habitsCount = habits.size,
                                                 countdownsCount = countdowns.size,
                                                 pendingTasksCount = tasks.count { !it.completed },
-                                                onOpenPage = { page -> activeMorePage = page },
+                                                focusProfilesCount = focusProfiles.size,
+                                                onOpenPage = { page ->
+                                                    if (page == MoreSubPage.SETTINGS) {
+                                                        showSettingsOverlay = true
+                                                    } else {
+                                                        if (page != MoreSubPage.FOCUS_PROFILES) {
+                                                            initialFocusProfileDetailId = ""
+                                                        }
+                                                        activeMorePage = page
+                                                    }
+                                                },
                                                 onOpenGradientPicker = { showGradientSheet = true }
+                                            )
+                                        } else if (subPage == MoreSubPage.AGENT) {
+                                            AgentChatScreen(
+                                                messages = agentMessages,
+                                                threads = agentThreads,
+                                                activeThreadId = activeAgentThreadId,
+                                                isBusy = agentBusy,
+                                                pendingAction = pendingAgentApproval,
+                                                onResolveAgentAction = viewModel::resolveAgentApproval,
+                                                onSendMessage = { prompt, visibleMessage ->
+                                                    viewModel.sendAgentMessage(
+                                                        prompt = prompt,
+                                                        displayPrompt = visibleMessage,
+                                                        onStartFocusRequested = { currentTab = LightTab.FOCUS }
+                                                    )
+                                                },
+                                                onClearConversation = viewModel::clearAgentConversation,
+                                                onSelectThread = viewModel::selectAgentThread,
+                                                onNewThread = viewModel::startNewAgentThread,
+                                                onDeleteThread = viewModel::deleteAgentThread,
+                                                onOpenSettings = openSettingsAction,
+                                                settings = appSettings,
+                                                apiKeyConfigured = agentApiKeyConfigured,
+                                                agentModels = agentModels,
+                                                agentModelsLoading = agentModelsLoading,
+                                                agentModelsError = agentModelsError,
+                                                agentUsage = agentUsage,
+                                                onClearAgentUsage = viewModel::clearAgentUsage,
+                                                onLoadAgentModels = viewModel::loadAgentModels,
+                                                onSaveAgentSettings = viewModel::updateAgentPreferences,
+                                                showEmbeddedNavigationChrome = false,
+                                                externalConfigTrigger = agentConfigTrigger
                                             )
                                         } else {
                                             Column(modifier = Modifier.fillMaxSize()) {
                                                 // Clean iOS sub-page back bar to return to indexed directory
-                                                Row(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                                ) {
-                                                    Surface(
-                                                        onClick = { activeMorePage = null },
-                                                        shape = CircleShape,
-                                                        color = MaterialTheme.colorScheme.surface,
-                                                        border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
-                                                        shadowElevation = 2.dp,
+                                                if (subPage != MoreSubPage.SETTINGS) {
+                                                    Row(
                                                         modifier = Modifier
-                                                            .size(48.dp)
-                                                            .testTag("more_subpage_back_button")
+                                                            .fillMaxWidth()
+                                                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                                                     ) {
-                                                        Box(contentAlignment = Alignment.Center) {
-                                                            Icon(
-                                                                imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                                                                contentDescription = "Retour aux pages indexées",
-                                                                tint = MaterialTheme.colorScheme.onSurface,
-                                                                modifier = Modifier.size(20.dp)
+                                                        Surface(
+                                                            onClick = {
+                                                                initialFocusProfileDetailId = ""
+                                                                activeMorePage = null
+                                                            },
+                                                            shape = CircleShape,
+                                                            color = MaterialTheme.colorScheme.surface,
+                                                            border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
+                                                            shadowElevation = 2.dp,
+                                                            modifier = Modifier
+                                                                .size(48.dp)
+                                                                .testTag("more_subpage_back_button")
+                                                        ) {
+                                                            Box(contentAlignment = Alignment.Center) {
+                                                                Icon(
+                                                                    imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                                                                    contentDescription = "Retour aux pages indexées",
+                                                                    tint = MaterialTheme.colorScheme.onSurface,
+                                                                    modifier = Modifier.size(20.dp)
+                                                                )
+                                                            }
+                                                        }
+                                                        Column {
+                                                            Text(
+                                                                text = "Explorer",
+                                                                style = MaterialTheme.typography.labelSmall,
+                                                                color = gradient.accentColor
+                                                            )
+                                                            Text(
+                                                                text = subPage.title,
+                                                                style = MaterialTheme.typography.titleMedium,
+                                                                color = MaterialTheme.colorScheme.onSurface
                                                             )
                                                         }
-                                                    }
-                                                    Column {
-                                                        Text(
-                                                            text = "Explorer",
-                                                            style = MaterialTheme.typography.labelSmall,
-                                                            color = gradient.accentColor
-                                                        )
-                                                        Text(
-                                                            text = subPage.title,
-                                                            style = MaterialTheme.typography.titleMedium,
-                                                            color = MaterialTheme.colorScheme.onSurface
-                                                        )
                                                     }
                                                 }
 
                                                 Box(modifier = Modifier.weight(1f)) {
                                                     when (subPage) {
-                                                        MoreSubPage.AGENT -> AgentChatScreen(
-                                                            messages = agentMessages,
-                                                            isBusy = agentBusy,
-                                                            pendingAction = pendingAgentApproval,
-                                                            onResolveAgentAction = viewModel::resolveAgentApproval,
-                                                            onSendMessage = { prompt, visibleMessage ->
-                                                                viewModel.sendAgentMessage(
-                                                                    prompt = prompt,
-                                                                    displayPrompt = visibleMessage,
-                                                                    onStartFocusRequested = { currentTab = LightTab.FOCUS }
-                                                                )
-                                                            },
-                                                            onClearConversation = viewModel::clearAgentConversation,
-                                                            onOpenSettings = { activeMorePage = MoreSubPage.SETTINGS },
-                                                            settings = appSettings,
-                                                            apiKeyConfigured = agentApiKeyConfigured,
-                                                            agentModels = agentModels,
-                                                            agentModelsLoading = agentModelsLoading,
-                                                            agentModelsError = agentModelsError,
-                                                            agentUsage = agentUsage,
-                                                            onClearAgentUsage = viewModel::clearAgentUsage,
-                                                            onLoadAgentModels = viewModel::loadAgentModels,
-                                                            onSaveAgentSettings = viewModel::updateAgentPreferences
-                                                        )
+                                                        MoreSubPage.AGENT -> Unit
 
                                                         MoreSubPage.AGENT_CAPABILITIES -> AgentCapabilitiesScreen(
                                                             enabledCapabilities = appSettings.agentCapabilities,
                                                             onCapabilitiesChanged = viewModel::updateAgentCapabilities
+                                                        )
+
+                                                        MoreSubPage.FOCUS_PROFILES -> FocusProfilesScreen(
+                                                            profiles = focusProfiles,
+                                                            tasks = tasks,
+                                                            sessions = sessions,
+                                                            focusState = focusState,
+                                                            initialSelectedProfileId = initialFocusProfileDetailId,
+                                                            externalCreateTrigger = focusProfileCreateTrigger,
+                                                            onCreateProfile = viewModel::createFocusProfile,
+                                                            onDeleteProfile = viewModel::deleteFocusProfile,
+                                                            onAssignTaskToProfile = viewModel::assignTaskToFocusProfile,
+                                                            onToggleTaskCompleted = viewModel::toggleTaskCompleted,
+                                                            onStartFocusForTaskInProfile = { fp, task ->
+                                                                viewModel.startFocusForProfileTask(fp, task, courses)
+                                                            },
+                                                            onToggleTimerPlayPause = { viewModel.toggleFocusTimer(courses) },
+                                                            onOpenTimerScreen = { currentTab = LightTab.FOCUS },
+                                                            onOpenCreateTaskForProfile = { fp ->
+                                                                pendingTaskQuadrant = null
+                                                                pendingProjectId = ""
+                                                                pendingFocusProfileId = fp.id
+                                                                showTaskCreation = true
+                                                            }
+                                                        )
+
+                                                        MoreSubPage.FOCUS_ANALYTICS -> FocusAnalyticsScreen(
+                                                            sessions = sessions,
+                                                            courses = courses,
+                                                            onStartFocusSession = { currentTab = LightTab.FOCUS },
+                                                            onOpenSettings = openSettingsAction,
+                                                            focusProfiles = focusProfiles
                                                         )
 
                                                         MoreSubPage.PROGRESS -> ProgressScreen(
@@ -800,20 +1159,24 @@ private fun AuthenticatedStudyShell(
                                                             tasks = tasks,
                                                             sessions = sessions,
                                                             onUpdateCourseGrade = viewModel::updateCourseGrade,
-                                                            onOpenSettings = { activeMorePage = MoreSubPage.SETTINGS }
+                                                            onOpenSettings = openSettingsAction,
+                                                            habits = habits,
+                                                            focusProfiles = focusProfiles
                                                         )
 
                                                         MoreSubPage.HABITS -> HabitsScreen(
                                                             habits = habits,
                                                             onToggleHabitToday = viewModel::toggleHabitToday,
                                                             onCreateHabit = viewModel::createHabit,
-                                                            onDeleteHabit = viewModel::deleteHabit
+                                                            onDeleteHabit = viewModel::deleteHabit,
+                                                            externalCreateTrigger = habitCreateTrigger
                                                         )
 
                                                         MoreSubPage.COUNTDOWN -> CountdownScreen(
                                                             countdowns = countdowns,
                                                             onCreateCountdown = viewModel::createCountdown,
-                                                            onDeleteCountdown = viewModel::deleteCountdown
+                                                            onDeleteCountdown = viewModel::deleteCountdown,
+                                                            externalCreateTrigger = countdownCreateTrigger
                                                         )
 
                                                         MoreSubPage.SEARCH -> SearchScreen(
@@ -822,10 +1185,7 @@ private fun AuthenticatedStudyShell(
                                                             habits = habits,
                                                             countdowns = countdowns,
                                                             onToggleTask = viewModel::toggleTaskCompleted,
-                                                            onStartFocusForTask = { task ->
-                                                                viewModel.setFocusTarget(task.courseId, task.title)
-                                                                currentTab = LightTab.FOCUS
-                                                            },
+                                                            onStartFocusForTask = startFocusForTask,
                                                             onToggleHabitToday = viewModel::toggleHabitToday
                                                         )
 
@@ -839,10 +1199,12 @@ private fun AuthenticatedStudyShell(
                                                             onCreateTask = { projectId ->
                                                                 pendingTaskQuadrant = null
                                                                 pendingProjectId = projectId
+                                                                pendingFocusProfileId = ""
                                                                 showTaskCreation = true
                                                             },
                                                             onToggleTask = viewModel::toggleTaskCompleted,
-                                                            onDeleteTask = viewModel::deleteTask
+                                                            onDeleteTask = viewModel::deleteTask,
+                                                            externalCreateTrigger = ganttCreateTrigger
                                                         )
 
                                                         MoreSubPage.SETTINGS -> SettingsScreen(
@@ -864,12 +1226,20 @@ private fun AuthenticatedStudyShell(
                                                             onUpdateHapticsEnabled = viewModel::updateHapticsEnabled,
                                                             onUpdateAutoLogStopwatch = viewModel::updateAutoLogStopwatch,
                                                             onUpdateAutoPlayAudioWithFocus = viewModel::setAutoPlayAudioWithFocus,
+                                                            audioState = audioState,
+                                                            onSelectAudioTrack = handleSelectAudioTrack,
+                                                            onToggleAudioPlayPause = viewModel::toggleAudioPlayback,
+                                                            onAudioVolumeChange = viewModel::setAudioVolume,
+                                                            onSelectFocusIllustration = viewModel::selectFocusIllustration,
+                                                            onSelectFocusTheme = viewModel::selectFocusTheme,
                                                             onSelectTheme = viewModel::selectTheme,
                                                             onSelectAppearanceMode = viewModel::selectAppearanceMode,
                                                             onSetGlassEnabled = viewModel::setGlassEnabled,
                                                             onCreateCourse = viewModel::createCourse,
                                                             onDeleteCourse = viewModel::deleteCourse,
                                                             isGoogleAuthPaused = isGoogleAuthPaused,
+                                                            isOnline = isOnline,
+                                                            hasPendingWrites = hasPendingWrites,
                                                             onResumeGoogleSignIn = { onTogglePauseGoogleAuth(false) },
                                                             onPauseGoogleSignIn = { onTogglePauseGoogleAuth(true) },
                                                             onSignOut = {
@@ -890,6 +1260,7 @@ private fun AuthenticatedStudyShell(
                         }
                     }
                 }
+            }
             }
         }
 
@@ -940,12 +1311,20 @@ private fun AuthenticatedStudyShell(
                         onUpdateHapticsEnabled = viewModel::updateHapticsEnabled,
                         onUpdateAutoLogStopwatch = viewModel::updateAutoLogStopwatch,
                         onUpdateAutoPlayAudioWithFocus = viewModel::setAutoPlayAudioWithFocus,
+                        audioState = audioState,
+                        onSelectAudioTrack = handleSelectAudioTrack,
+                        onToggleAudioPlayPause = viewModel::toggleAudioPlayback,
+                        onAudioVolumeChange = viewModel::setAudioVolume,
+                        onSelectFocusIllustration = viewModel::selectFocusIllustration,
+                        onSelectFocusTheme = viewModel::selectFocusTheme,
                         onSelectTheme = viewModel::selectTheme,
                         onSelectAppearanceMode = viewModel::selectAppearanceMode,
                         onSetGlassEnabled = viewModel::setGlassEnabled,
                         onCreateCourse = viewModel::createCourse,
                         onDeleteCourse = viewModel::deleteCourse,
                         isGoogleAuthPaused = isGoogleAuthPaused,
+                        isOnline = isOnline,
+                        hasPendingWrites = hasPendingWrites,
                         onResumeGoogleSignIn = {
                             showSettingsOverlay = false
                             onTogglePauseGoogleAuth(false)
@@ -982,16 +1361,19 @@ private fun AuthenticatedStudyShell(
             TaskCreationScreen(
                 courses = courses,
                 projects = projects,
+                focusProfiles = focusProfiles,
                 initialDateIso = selectedDateIso,
                 initialQuadrant = pendingTaskQuadrant,
                 initialProjectId = pendingProjectId,
+                initialFocusProfileId = pendingFocusProfileId,
                 profile = profile,
                 onCancel = {
                     pendingTaskQuadrant = null
                     pendingProjectId = ""
+                    pendingFocusProfileId = ""
                     showTaskCreation = false
                 },
-                onCreateTask = { course, title, notes, startDateIso, dueDateIso, scheduledTime, priority, category, estimatedMinutes, quadrant, projectId ->
+                onCreateTask = { course, title, notes, startDateIso, dueDateIso, scheduledTime, priority, category, estimatedMinutes, quadrant, projectId, focusProfileId, focusProfileTitle ->
                     viewModel.createTask(
                         course = course,
                         title = title,
@@ -1003,11 +1385,14 @@ private fun AuthenticatedStudyShell(
                         category = category,
                         estimatedMinutes = estimatedMinutes,
                         quadrant = quadrant,
-                        projectId = projectId
+                        projectId = projectId,
+                        focusProfileId = focusProfileId,
+                        focusProfileTitle = focusProfileTitle
                     )
                     viewModel.selectDate(dueDateIso)
                     pendingTaskQuadrant = null
                     pendingProjectId = ""
+                    pendingFocusProfileId = ""
                     showTaskCreation = false
                 }
             )

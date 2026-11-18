@@ -236,6 +236,84 @@ class StudyRepositoryRuleTest : FirestoreEmulatorTestBase() {
         }
     }
 
+    @Test
+    fun projects_crudAndLinkedTaskValidation_respectsFirestoreRules() = runBlocking {
+        val uid = signInTestUser("gantt_${UUID.randomUUID()}@test.com")
+        val repository = StudyRepository(firestore, auth)
+
+        withTimeout(DEFAULT_TIMEOUT_MS) {
+            repository.ensureUserProfileAndSeedIfNew(uid, "Sam", "sam@test.com")
+        }
+
+        val projectId = withTimeout(DEFAULT_TIMEOUT_MS) {
+            repository.createProject(
+                userId = uid,
+                title = "Sprint Architecture",
+                description = "Gantt & règles Firestore",
+                startDateIso = "2026-11-10",
+                dueDateIso = "2026-12-10"
+            )
+        }
+        val projects = withTimeout(FLOW_TIMEOUT_MS) {
+            repository.observeProjects(uid).first { list -> list.any { it.id == projectId } }
+        }
+        val created = projects.first { it.id == projectId }
+        assertEquals("active", created.status)
+
+        withTimeout(DEFAULT_TIMEOUT_MS) {
+            repository.updateProject(created.copy(title = "Sprint Architecture v2", status = "completed"))
+        }
+
+        val linkedTaskId = withTimeout(DEFAULT_TIMEOUT_MS) {
+            repository.createTask(
+                userId = uid,
+                courseId = "gl301",
+                courseTitle = "Architecture Logicielle",
+                title = "Jalon déploiement",
+                notes = "Revue finale",
+                dueDateIso = "2026-12-01",
+                scheduledTime = "09:30",
+                priority = "high",
+                category = "milestone",
+                estimatedMinutes = 60L,
+                startDateIso = "2026-11-15",
+                projectId = projectId
+            )
+        }
+        val linkedTasks = withTimeout(FLOW_TIMEOUT_MS) {
+            repository.observeTasks(uid).first { list -> list.any { it.id == linkedTaskId && it.projectId == projectId } }
+        }
+        assertTrue(linkedTasks.any { it.id == linkedTaskId && it.startDateIso == "2026-11-15" && it.category == "milestone" })
+
+        try {
+            withTimeout(DEFAULT_TIMEOUT_MS) {
+                repository.createTask(
+                    userId = uid,
+                    courseId = "",
+                    courseTitle = "",
+                    title = "Tâche orpheline",
+                    notes = "",
+                    dueDateIso = "2026-12-01",
+                    scheduledTime = "10:00",
+                    priority = "medium",
+                    estimatedMinutes = 30L,
+                    projectId = "non_existent_project_id"
+                )
+            }
+            fail("Expected orphan projectId to be rejected")
+        } catch (_: IllegalArgumentException) {
+            // Expected local validation failure before Firestore write
+        }
+
+        withTimeout(DEFAULT_TIMEOUT_MS) {
+            repository.deleteProject(uid, projectId)
+        }
+        val remainingTasks = withTimeout(FLOW_TIMEOUT_MS) {
+            repository.observeTasks(uid).first { list -> list.any { it.id == linkedTaskId && it.projectId.isEmpty() } }
+        }
+        assertTrue(remainingTasks.any { it.id == linkedTaskId && it.projectId.isEmpty() })
+    }
+
     private companion object {
         const val DEFAULT_TIMEOUT_MS = 5000L
         const val FLOW_TIMEOUT_MS = 4000L

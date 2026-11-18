@@ -13,8 +13,9 @@ class CalendarMonthGridTest {
         val dates = calendarMonthGridDates(YearMonth.of(2024, 2))
 
         assertEquals(35, dates.size)
-        assertEquals(LocalDate.of(2024, 2, 1), dates.first())
-        assertEquals(DayOfWeek.THURSDAY, dates.first()!!.dayOfWeek)
+        assertEquals(listOf(null, null, null), dates.take(3))
+        assertEquals(LocalDate.of(2024, 2, 1), dates[3])
+        assertEquals(DayOfWeek.THURSDAY, dates[3]!!.dayOfWeek)
         assertEquals(29, dates.filterNotNull().size)
         assertEquals(LocalDate.of(2024, 2, 29), dates.last { it != null })
         assertTrue(dates.drop(32).all { it == null })

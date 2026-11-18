@@ -40,10 +40,13 @@ import androidx.compose.material.icons.automirrored.rounded.Assignment
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CloudDone
+import androidx.compose.material.icons.rounded.CloudOff
+import androidx.compose.material.icons.rounded.CloudQueue
 import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.Event
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Psychology
+import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.School
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -78,6 +81,7 @@ import com.example.ui.theme.AppleEmerald
 import com.example.ui.theme.AppleIndigo
 import com.example.ui.theme.AppleRose
 import com.example.ui.theme.AppleSky
+import com.example.ui.theme.LightColorThemes
 import com.example.ui.theme.LightGradientTheme
 import com.example.ui.theme.LightGradients
 import com.example.ui.theme.LocalLightGradient
@@ -166,7 +170,12 @@ fun GradientHeroCard(
 }
 
 @Composable
-fun SyncStatusPill(modifier: Modifier = Modifier) {
+fun SyncStatusPill(
+    isOnline: Boolean = true,
+    hasPendingWrites: Boolean = false,
+    isLocalMode: Boolean = false,
+    modifier: Modifier = Modifier
+) {
     val infiniteTransition = rememberInfiniteTransition(label = "syncPulse")
     val pulseScale by infiniteTransition.animateFloat(
         initialValue = 0.85f,
@@ -177,8 +186,26 @@ fun SyncStatusPill(modifier: Modifier = Modifier) {
         ),
         label = "pulseScale"
     )
+    val dotColor = when {
+        isLocalMode -> AppleSky
+        !isOnline || hasPendingWrites -> AppleAmber
+        else -> AppleEmerald
+    }
+    val statusIcon = when {
+        isLocalMode -> Icons.Rounded.Save
+        !isOnline -> Icons.Rounded.CloudOff
+        hasPendingWrites -> Icons.Rounded.CloudQueue
+        else -> Icons.Rounded.CloudDone
+    }
+    val statusLabel = when {
+        isLocalMode -> "Local · Sauvegardé"
+        !isOnline && hasPendingWrites -> "Hors ligne · En attente"
+        !isOnline -> "Hors ligne · Cache"
+        hasPendingWrites -> "Sync en cours…"
+        else -> "Cloud Sync"
+    }
     Surface(
-        modifier = modifier,
+        modifier = modifier.testTag("sync_status_pill"),
         shape = CircleShape,
         color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
@@ -192,20 +219,21 @@ fun SyncStatusPill(modifier: Modifier = Modifier) {
             Box(
                 modifier = Modifier
                     .size(7.dp)
-                    .scale(pulseScale)
+                    .scale(if (!isLocalMode && (isOnline || hasPendingWrites)) pulseScale else 1f)
                     .clip(CircleShape)
-                    .background(AppleEmerald)
+                    .background(dotColor)
             )
             Icon(
-                imageVector = Icons.Rounded.CloudDone,
-                contentDescription = "Synchronisation cloud active",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                imageVector = statusIcon,
+                contentDescription = statusLabel,
+                tint = dotColor,
                 modifier = Modifier.size(14.dp)
             )
             Text(
-                text = "Cloud",
+                text = statusLabel,
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
             )
         }
     }

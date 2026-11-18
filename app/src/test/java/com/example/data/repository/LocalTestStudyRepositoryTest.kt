@@ -131,4 +131,129 @@ class LocalTestStudyRepositoryTest {
         assertEquals("", detachedTask.projectId)
     }
 
+    @Test
+    fun diskPersistence_survivesRestart_andSyncsIdempotentlyToCloud() = runBlocking {
+        val tempFile = java.io.File.createTempFile("light_workspace_test_", ".json")
+        tempFile.delete()
+        try {
+            val uid = "local_test_user"
+            val firstInstance = LocalTestStudyRepository(tempFile)
+            firstInstance.ensureUserProfileAndSeedIfNew(uid, "Clara", "clara@local.light")
+            firstInstance.saveOnboardingConfiguration(
+                userId = uid,
+                displayName = "Clara",
+                gender = UserGender.FEMININE,
+                birthYear = 2004L,
+                age = 22L,
+                profession = UserProfession.STUDENT,
+                customProfession = "",
+                major = "IA & Systèmes",
+                selectedGradientId = "lagon_boreal",
+                dailyGoalTasks = 6L,
+                notificationsEnabled = true,
+                notificationFrequency = NotificationFrequency.DAILY,
+                selectedHabits = emptyList(),
+                adaptModulesToProfession = true
+            )
+            val customCourseId = firstInstance.createCourse(
+                userId = uid,
+                code = "IA-402",
+                title = "Apprentissage Profond",
+                professor = "Dr. Diallo",
+                colorIndex = 4L,
+                targetMinutes = 900L,
+                grade = 17.5,
+                iconKey = "sparkles"
+            )
+            val projectId = firstInstance.createProject(
+                userId = uid,
+                title = "Capstone IA",
+                description = "Pipeline multimodal",
+                startDateIso = "2026-11-10",
+                dueDateIso = "2026-12-15"
+            )
+            val taskId = firstInstance.createTask(
+                userId = uid,
+                courseId = customCourseId,
+                courseTitle = "Apprentissage Profond",
+                title = "Valider jeu de test",
+                notes = "Métriques F1",
+                dueDateIso = "2026-11-28",
+                scheduledTime = "14:00",
+                priority = "high",
+                estimatedMinutes = 60L,
+                startDateIso = "2026-11-20",
+                projectId = projectId
+            )
+            val habitId = firstInstance.createHabit(
+                userId = uid,
+                title = "Lecture papier",
+                subtitle = "1 article par jour",
+                category = "study",
+                iconKey = "book",
+                colorIndex = 1L
+            )
+            val createdHabit = firstInstance.observeHabits(uid).first().first { it.id == habitId }
+            firstInstance.toggleHabitForDate(uid, createdHabit, "2026-11-17")
+            firstInstance.createCountdown(
+                userId = uid,
+                title = "Grand Oral",
+                notes = "Amphi A",
+                targetDateIso = "2026-12-20",
+                category = "exam",
+                colorIndex = 2L
+            )
+            firstInstance.logFocusSession(
+                userId = uid,
+                courseId = customCourseId,
+                courseTitle = "Apprentissage Profond",
+                taskTitle = "Valider jeu de test",
+                durationMinutes = 45L,
+                mode = "deep_code",
+                dateIso = "2026-11-17"
+            )
+
+            // Cold restart from disk
+            val reloaded = LocalTestStudyRepository(tempFile)
+            reloaded.ensureUserProfileAndSeedIfNew(uid, "Ignored", "ignored@local.light")
+
+            val profile = reloaded.observeUserProfile(uid).first()!!
+            assertTrue(profile.onboardingCompleted)
+            assertEquals("Clara", profile.displayName)
+            assertEquals("lagon_boreal", profile.selectedGradientId)
+            assertTrue(reloaded.observeCourses(uid).first().any { it.code == "IA-402" && it.iconKey == "sparkles" })
+            assertTrue(reloaded.observeProjects(uid).first().any { it.title == "Capstone IA" })
+            val reloadedTask = reloaded.observeTasks(uid).first().first { it.id == taskId }
+            assertEquals(projectId, reloadedTask.projectId)
+            assertEquals("2026-11-20", reloadedTask.startDateIso)
+            assertTrue(reloaded.observeHabits(uid).first().any { it.title == "Lecture papier" && "2026-11-17" in it.completedDates })
+            assertTrue(reloaded.observeCountdowns(uid).first().any { it.title == "Grand Oral" })
+            assertTrue(reloaded.observeFocusSessions(uid).first().any { it.taskTitle == "Valider jeu de test" && it.durationMinutes == 45L })
+
+            // Sync to simulated cloud repo for a real cloud userId
+            val simulatedCloud = LocalTestStudyRepository()
+            val cloudUid = "cloud_uid_clara"
+            val syncedFirst = reloaded.syncToCloudIfNeeded(simulatedCloud, cloudUid, "Clara", "clara@cloud.fr")
+            assertTrue(syncedFirst)
+
+            val cloudProjects = simulatedCloud.observeProjects(cloudUid).first()
+            assertEquals(1, cloudProjects.size)
+            val cloudProjectId = cloudProjects.single().id
+            val cloudTask = simulatedCloud.observeTasks(cloudUid).first().first { it.title == "Valider jeu de test" }
+            assertEquals(cloudProjectId, cloudTask.projectId)
+            assertTrue(simulatedCloud.observeCourses(cloudUid).first().any { it.code == "IA-402" })
+            assertTrue(simulatedCloud.observeHabits(cloudUid).first().any { it.title == "Lecture papier" && "2026-11-17" in it.completedDates })
+            assertTrue(simulatedCloud.observeCountdowns(cloudUid).first().any { it.title == "Grand Oral" })
+            assertTrue(simulatedCloud.observeFocusSessions(cloudUid).first().any { it.taskTitle == "Valider jeu de test" })
+
+            // Idempotent: second call must not duplicate items
+            val syncedSecond = reloaded.syncToCloudIfNeeded(simulatedCloud, cloudUid, "Clara", "clara@cloud.fr")
+            assertFalse(syncedSecond)
+            assertEquals(1, simulatedCloud.observeProjects(cloudUid).first().size)
+            assertEquals(1, simulatedCloud.observeTasks(cloudUid).first().count { it.title == "Valider jeu de test" })
+        } finally {
+            tempFile.delete()
+        }
+    }
+
 }

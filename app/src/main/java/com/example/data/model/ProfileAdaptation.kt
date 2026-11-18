@@ -14,7 +14,8 @@ data class AdaptiveModuleTemplate(
     val title: String,
     val lead: String,
     val colorIndex: Long,
-    val targetMinutes: Long
+    val targetMinutes: Long,
+    val iconKey: String = "book"
 )
 
 data class ProfileAdaptation(

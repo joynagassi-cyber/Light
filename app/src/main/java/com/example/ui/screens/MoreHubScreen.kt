@@ -21,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.DateRange
 import androidx.compose.material.icons.rounded.Event
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.Home
@@ -29,6 +30,8 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.SelfImprovement
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Insights
+import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -59,6 +62,9 @@ enum class MoreSubPage(
     val subtitle: String
 ) {
     AGENT("agent", "Assistant Light", "Préparez et ajustez votre planning par commandes"),
+    AGENT_CAPABILITIES("agent_capabilities", "Capacités de l'agent", "Contrôlez précisément chaque action autorisée"),
+    FOCUS_PROFILES("focus_profiles", "Profils de Focus", "Apprenez ce que vous voulez & assignez vos tâches"),
+    FOCUS_ANALYTICS("focus_analytics", "Focus Analytics", "Durée d'étude quotidienne & courbes Focus"),
     PROGRESS("progress", "Progression", "Objectifs, temps de concentration et résultats"),
     HABITS("habits", "Habitudes & routines", "Rituels, séries et suivi quotidien"),
     COUNTDOWN("countdown", "Échéances & jalons", "Examens, projets et dates importantes"),
@@ -81,7 +87,8 @@ fun MoreHubScreen(
     pendingTasksCount: Int,
     onOpenPage: (MoreSubPage) -> Unit,
     onOpenGradientPicker: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    focusProfilesCount: Int = 0
 ) {
     val gradient = LocalLightGradient.current
 
@@ -96,6 +103,18 @@ fun MoreHubScreen(
             page = MoreSubPage.AGENT_CAPABILITIES,
             icon = Icons.Rounded.Settings,
             color = AppleIndigo
+        ),
+        IndexedPageRow(
+            page = MoreSubPage.FOCUS_PROFILES,
+            icon = Icons.Rounded.School,
+            color = gradient.accentColor,
+            badge = if (focusProfilesCount > 0) "$focusProfilesCount" else null
+        ),
+        IndexedPageRow(
+            page = MoreSubPage.FOCUS_ANALYTICS,
+            icon = Icons.Rounded.Insights,
+            color = gradient.accentColor,
+            badge = "Stats"
         ),
         IndexedPageRow(
             page = MoreSubPage.PROGRESS,

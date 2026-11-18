@@ -115,9 +115,13 @@
           "type": "string",
           "description": "Instructor name."
         },
+        "iconKey": {
+          "type": "string",
+          "description": "Catalog icon identifier (e.g., code, network, database, book)."
+        },
         "colorIndex": {
           "type": "integer",
-          "description": "Visual accent index (0..7)."
+          "description": "Visual accent index (0..15)."
         },
         "targetMinutes": {
           "type": "integer",
@@ -154,6 +158,58 @@
         "updatedAt"
       ]
     },
+    "Project": {
+      "title": "Project",
+      "description": "Structured multi-task study or work project displayed in Gantt and linked to tasks.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner Firebase UID."
+        },
+        "title": {
+          "type": "string",
+          "description": "Project title."
+        },
+        "description": {
+          "type": "string",
+          "description": "Project scope or notes."
+        },
+        "startDateIso": {
+          "type": "string",
+          "description": "Planned start date in YYYY-MM-DD format."
+        },
+        "dueDateIso": {
+          "type": "string",
+          "description": "Target due date in YYYY-MM-DD format (>= startDateIso)."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "on_hold", "completed"],
+          "description": "Current project status."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when created (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when last updated (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "userId",
+        "title",
+        "description",
+        "startDateIso",
+        "dueDateIso",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
     "StudyTask": {
       "title": "StudyTask",
       "description": "Planned study task, assignment, or AI-scheduled revision block.",
@@ -171,6 +227,10 @@
           "type": "string",
           "description": "Denormalized course title for display."
         },
+        "projectId": {
+          "type": "string",
+          "description": "Associated Project document ID or empty string."
+        },
         "title": {
           "type": "string",
           "description": "Task title."
@@ -181,7 +241,11 @@
         },
         "dueDateIso": {
           "type": "string",
-          "description": "Scheduled date in YYYY-MM-DD format."
+          "description": "Scheduled due date in YYYY-MM-DD format."
+        },
+        "startDateIso": {
+          "type": "string",
+          "description": "Optional start date in YYYY-MM-DD format for Gantt ranges (<= dueDateIso)."
         },
         "scheduledTime": {
           "type": "string",
@@ -194,7 +258,7 @@
         },
         "category": {
           "type": "string",
-          "enum": ["exam", "project", "assignment", "revision", "reading"],
+          "enum": ["exam", "project", "milestone", "assignment", "revision", "reading"],
           "description": "Task category tag for color-coded organization."
         },
         "estimatedMinutes": {
@@ -363,6 +427,10 @@
     "/users/{userId}/courses/{courseId}": {
       "schema": { "$ref": "#/entities/Course" },
       "description": "Student's 3rd-year software engineering courses."
+    },
+    "/users/{userId}/projects/{projectId}": {
+      "schema": { "$ref": "#/entities/Project" },
+      "description": "User's structured Gantt projects."
     },
     "/users/{userId}/tasks/{taskId}": {
       "schema": { "$ref": "#/entities/StudyTask" },

@@ -53,7 +53,7 @@ class AiPlannerRepository {
 
     private val plannerModel by lazy {
         Firebase.ai.generativeModel(
-            modelName = "gemini-3.8-flash",
+            modelName = "gemini-2.5-flash",
             generationConfig = generationConfig {
                 responseMimeType = "application/json"
                 responseSchema = studyPlanSchema
@@ -134,6 +134,15 @@ class AiPlannerRepository {
             throw e
         } catch (e: Exception) {
             Log.e(TAG, "Failed to generate smart study plan", e)
+            val msg = e.localizedMessage.orEmpty()
+            if (msg.contains("Unable to resolve host", ignoreCase = true) ||
+                msg.contains("network", ignoreCase = true) ||
+                msg.contains("offline", ignoreCase = true) ||
+                e is java.net.UnknownHostException ||
+                e is java.io.IOException
+            ) {
+                throw IllegalStateException("Connexion Internet requise pour générer un plan IA. Votre planning existant reste disponible hors ligne.")
+            }
             throw e
         }
     }

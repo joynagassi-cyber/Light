@@ -155,7 +155,9 @@ data class StudyTask(
     @ServerTimestamp val updatedAt: Timestamp? = null,
     /** Optional planned start date; older tasks default to their due date in the Gantt view. */
     val startDateIso: String = "",
-    val projectId: String = ""
+    val projectId: String = "",
+    val focusProfileId: String = "",
+    val focusProfileTitle: String = ""
 )
 
 fun StudyTask.resolvedQuadrant(todayIso: String = java.time.LocalDate.now().toString()): Int {
@@ -171,6 +173,20 @@ fun StudyTask.resolvedQuadrant(todayIso: String = java.time.LocalDate.now().toSt
 }
 
 @IgnoreExtraProperties
+data class FocusProfile(
+    @DocumentId val id: String = "",
+    val userId: String = "",
+    val title: String = "",
+    val learningTopic: String = "",
+    val iconKey: String = "brain",
+    val colorIndex: Long = 0L,
+    val defaultMinutes: Long = 25L,
+    val totalFocusMinutes: Long = 0L,
+    @ServerTimestamp val createdAt: Timestamp? = null,
+    @ServerTimestamp val updatedAt: Timestamp? = null
+)
+
+@IgnoreExtraProperties
 data class FocusSession(
     @DocumentId val id: String = "",
     val userId: String = "",
@@ -180,6 +196,9 @@ data class FocusSession(
     val durationMinutes: Long = 25L,
     val mode: String = "pomodoro",
     val dateIso: String = "",
+    val focusProfileId: String = "",
+    val focusProfileTitle: String = "",
+    val taskId: String = "",
     @ServerTimestamp val createdAt: Timestamp? = null,
     @ServerTimestamp val updatedAt: Timestamp? = null
 )

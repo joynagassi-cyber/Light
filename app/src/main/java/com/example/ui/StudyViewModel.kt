@@ -17,6 +17,7 @@ import com.example.data.model.CountdownCategory
 import com.example.data.model.HabitCategory
 import com.example.data.model.AgentSkill
 import com.example.data.model.AgentUsageRecord
+import com.example.data.model.FocusProfile
 import com.example.data.model.FocusSession
 import com.example.data.model.NotificationFrequency
 import com.example.data.model.StudyCountdown
@@ -29,6 +30,8 @@ import com.example.data.model.UserGender
 import com.example.data.model.UserProfession
 import com.example.data.model.UserProfile
 import com.example.data.model.adaptation
+import com.example.data.preferences.AgentConversationThread
+import com.example.data.preferences.AgentThreadsStore
 import com.example.data.preferences.StudyAppSettings
 import com.example.data.preferences.ThemePreferencesStore
 import com.example.data.repository.AgentActionApproval
@@ -86,7 +89,10 @@ data class FocusTimerState(
     val laps: List<Int> = emptyList(),
     val isRunning: Boolean = false,
     val selectedCourseId: String = "",
-    val selectedTaskTitle: String = "Session de concentration"
+    val selectedTaskTitle: String = "Session de concentration",
+    val selectedTaskId: String = "",
+    val selectedFocusProfileId: String = "",
+    val selectedFocusProfileTitle: String = ""
 )
 
 data class FocusAudioUiState(
@@ -112,11 +118,22 @@ class StudyViewModel(
     initialEmail: String,
     private val aiAgentRepository: AiAgentRepository = AiAgentRepository(),
     private val agentModelCatalogRepository: AgentModelCatalogRepository = AgentModelCatalogRepository(),
-    private val focusAudioEngine: FocusAudioEngine = FocusAudioEngine()
+    private val focusAudioEngine: FocusAudioEngine = FocusAudioEngine(),
+    val isOnline: StateFlow<Boolean> = MutableStateFlow(true),
+    val isLocalMode: Boolean = false,
+    private val agentThreadsStore: AgentThreadsStore? = null
 ) : ViewModel() {
 
     private var timerJob: Job? = null
     private var agentRequestJob: Job? = null
+    private var persistThreadsJob: Job? = null
+
+    val hasPendingCloudWrites: StateFlow<Boolean> = repository.observeHasPendingWrites(currentUserId)
+        .catch { error ->
+            if (error is CancellationException && unwrapFirestoreError(error) == null) throw error
+            emit(false)
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), false)
 
     val appSettings: StateFlow<StudyAppSettings> = themePreferencesStore.appSettings
         .stateIn(viewModelScope, SharingStarted.Eagerly, StudyAppSettings())
@@ -157,9 +174,11 @@ class StudyViewModel(
     val projectsState: StateFlow<UiState<List<StudyProject>>> = repository.observeProjects(currentUserId)
         .map<List<StudyProject>, UiState<List<StudyProject>>> { UiState.Success(it) }
         .catch { error ->
-            if (error is CancellationException) throw error
-            Log.w(TAG, "Error observing projects", error)
-            emit(UiState.Error(error.localizedMessage ?: "Impossible de charger les projets"))
+            val fsError = unwrapFirestoreError(error)
+            if (fsError == null && error is CancellationException) throw error
+            val root = fsError ?: error
+            Log.w(TAG, "Error observing projects", root)
+            emit(UiState.Error(root.message ?: "Impossible de charger les projets"))
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), UiState.Loading)
 
@@ -171,6 +190,17 @@ class StudyViewModel(
             val root = fsError ?: error
             Log.w(TAG, "Error observing focus sessions", root)
             emit(UiState.Error(root.message ?: "Impossible de charger les sessions Focus"))
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), UiState.Loading)
+
+    val focusProfilesState: StateFlow<UiState<List<FocusProfile>>> = repository.observeFocusProfiles(currentUserId)
+        .map<List<FocusProfile>, UiState<List<FocusProfile>>> { UiState.Success(it) }
+        .catch { error ->
+            val fsError = unwrapFirestoreError(error)
+            if (fsError == null && error is CancellationException) throw error
+            val root = fsError ?: error
+            Log.w(TAG, "Error observing focus profiles", root)
+            emit(UiState.Error(root.message ?: "Impossible de charger les profils de Focus"))
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), UiState.Loading)
 
@@ -216,7 +246,12 @@ class StudyViewModel(
     private val _bannerMessage = MutableStateFlow<String?>(null)
     val bannerMessage: StateFlow<String?> = _bannerMessage.asStateFlow()
 
-    private val _agentMessages = MutableStateFlow(listOf(welcomeAgentMessage()))
+    private val initialThread = createEmptyAgentThread()
+    private val _agentThreads = MutableStateFlow(listOf(initialThread))
+    val agentThreads: StateFlow<List<AgentConversationThread>> = _agentThreads.asStateFlow()
+    private val _activeAgentThreadId = MutableStateFlow(initialThread.id)
+    val activeAgentThreadId: StateFlow<String> = _activeAgentThreadId.asStateFlow()
+    private val _agentMessages = MutableStateFlow(initialThread.messages)
     val agentMessages: StateFlow<List<AgentChatMessage>> = _agentMessages.asStateFlow()
     private val _pendingAgentApproval = MutableStateFlow<AgentActionApproval?>(null)
     val pendingAgentApproval: StateFlow<AgentActionApproval?> = _pendingAgentApproval.asStateFlow()
@@ -251,6 +286,29 @@ class StudyViewModel(
     }.stateIn(viewModelScope, SharingStarted.Eagerly, FocusAudioUiState())
 
     init {
+        if (agentThreadsStore != null) {
+            viewModelScope.launch {
+                val loaded = agentThreadsStore.loadThreads()
+                if (loaded.isNotEmpty()) {
+                    val userAlreadyInteracted = _agentMessages.value.any { it.isUser }
+                    if (userAlreadyInteracted) {
+                        val merged = _agentThreads.value + loaded.filterNot { loadedItem ->
+                            _agentThreads.value.any { it.id == loadedItem.id }
+                        }
+                        _agentThreads.value = merged
+                    } else {
+                        val first = loaded.first()
+                        val restoredMsgs = first.messages.ifEmpty { listOf(welcomeAgentMessage()) }
+                        _agentThreads.value = loaded.map { thread ->
+                            if (thread.id == first.id && thread.messages.isEmpty()) thread.copy(messages = restoredMsgs) else thread
+                        }
+                        _activeAgentThreadId.value = first.id
+                        _agentMessages.value = restoredMsgs
+                        aiAgentRepository.restoreConversation(restoredMsgs)
+                    }
+                }
+            }
+        }
         viewModelScope.launch {
             val providerId = appSettings.value.agentProvider
             _agentApiKeyConfigured.value = themePreferencesStore.hasAgentApiKey(providerId)
@@ -355,7 +413,11 @@ class StudyViewModel(
                     customProfession = customProfession
                 )
                 aiAgentRepository.resetConversation()
-                _bannerMessage.value = "Profil adapté et synchronisé dans le cloud."
+                _bannerMessage.value = when {
+                    isLocalMode -> "Profil adapté et sauvegardé sur l'appareil."
+                    isOnline.value -> "Profil adapté et synchronisé dans le cloud."
+                    else -> "Profil enregistré hors ligne (sync auto au retour du réseau)."
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -624,7 +686,9 @@ class StudyViewModel(
         estimatedMinutes: Long,
         quadrant: Long? = null,
         startDateIso: String = "",
-        projectId: String = ""
+        projectId: String = "",
+        focusProfileId: String = "",
+        focusProfileTitle: String = ""
     ) {
         viewModelScope.launch {
             try {
@@ -642,13 +706,94 @@ class StudyViewModel(
                     aiGenerated = false,
                     quadrant = quadrant,
                     startDateIso = startDateIso,
-                    projectId = projectId
+                    projectId = projectId,
+                    focusProfileId = focusProfileId,
+                    focusProfileTitle = focusProfileTitle
                 )
-                _bannerMessage.value = "Tâche ajoutée et synchronisée."
+                _bannerMessage.value = when {
+                    isLocalMode -> "Tâche enregistrée sur l'appareil."
+                    isOnline.value -> "Tâche ajoutée et synchronisée."
+                    else -> "Tâche enregistrée hors ligne (sync auto en attente)."
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 _bannerMessage.value = e.localizedMessage ?: "Impossible d'enregistrer la tâche."
+            }
+        }
+    }
+
+    fun createFocusProfile(
+        title: String,
+        learningTopic: String,
+        iconKey: String = "brain",
+        colorIndex: Long = 0L,
+        defaultMinutes: Long = 25L,
+        onCreated: (String) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            try {
+                val createdId = repository.createFocusProfile(
+                    userId = currentUserId,
+                    title = title,
+                    learningTopic = learningTopic,
+                    iconKey = iconKey,
+                    colorIndex = colorIndex,
+                    defaultMinutes = defaultMinutes
+                )
+                _bannerMessage.value = "Profil de focus « ${title.trim()} » créé !"
+                onCreated(createdId)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _bannerMessage.value = e.localizedMessage ?: "Impossible de créer le profil de focus."
+            }
+        }
+    }
+
+    fun deleteFocusProfile(profileId: String) {
+        viewModelScope.launch {
+            try {
+                repository.deleteFocusProfile(currentUserId, profileId)
+                if (_focusState.value.selectedFocusProfileId == profileId) {
+                    _focusState.value = _focusState.value.copy(
+                        selectedFocusProfileId = "",
+                        selectedFocusProfileTitle = ""
+                    )
+                }
+                _bannerMessage.value = "Profil de focus supprimé."
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _bannerMessage.value = e.localizedMessage ?: "Suppression impossible."
+            }
+        }
+    }
+
+    fun assignTaskToFocusProfile(taskId: String, profile: FocusProfile?) {
+        viewModelScope.launch {
+            try {
+                repository.assignTaskToFocusProfile(
+                    userId = currentUserId,
+                    taskId = taskId,
+                    focusProfileId = profile?.id ?: "",
+                    focusProfileTitle = profile?.title ?: ""
+                )
+                if (_focusState.value.selectedTaskId == taskId) {
+                    _focusState.value = _focusState.value.copy(
+                        selectedFocusProfileId = profile?.id ?: "",
+                        selectedFocusProfileTitle = profile?.title ?: ""
+                    )
+                }
+                _bannerMessage.value = if (profile != null) {
+                    "Tâche assignée au profil « ${profile.title} »."
+                } else {
+                    "Tâche retirée du profil de focus."
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _bannerMessage.value = e.localizedMessage ?: "Impossible d'assigner la tâche."
             }
         }
     }
@@ -935,11 +1080,70 @@ class StudyViewModel(
         )
     }
 
-    fun setFocusTarget(courseId: String, taskTitle: String) {
+    fun setFocusTarget(
+        courseId: String,
+        taskTitle: String,
+        taskId: String = "",
+        focusProfileId: String = "",
+        focusProfileTitle: String = ""
+    ) {
         _focusState.value = _focusState.value.copy(
             selectedCourseId = courseId,
-            selectedTaskTitle = taskTitle.ifBlank { "Session de concentration" }
+            selectedTaskTitle = taskTitle.ifBlank { "Session de concentration" },
+            selectedTaskId = taskId,
+            selectedFocusProfileId = focusProfileId,
+            selectedFocusProfileTitle = focusProfileTitle
         )
+    }
+
+    fun selectFocusProfileForTimer(profile: FocusProfile?) {
+        val current = _focusState.value
+        val shouldApplyDuration = !current.isRunning &&
+            current.kind == FocusKind.POMODORO &&
+            profile != null &&
+            current.remainingSeconds == current.totalSeconds
+        val targetSeconds = if (shouldApplyDuration) {
+            profile!!.defaultMinutes.coerceIn(5L, 180L).toInt() * 60
+        } else {
+            current.totalSeconds
+        }
+        _focusState.value = current.copy(
+            selectedFocusProfileId = profile?.id ?: "",
+            selectedFocusProfileTitle = profile?.title ?: "",
+            totalSeconds = targetSeconds,
+            remainingSeconds = if (shouldApplyDuration) targetSeconds else current.remainingSeconds
+        )
+    }
+
+    fun startFocusForProfileTask(
+        profile: FocusProfile,
+        task: StudyTask,
+        courses: List<Course>
+    ) {
+        timerJob?.cancel()
+        val durationSecs = profile.defaultMinutes.coerceIn(5L, 180L).toInt() * 60
+        val targetMode = if (profile.defaultMinutes >= 40L) FocusMode.DEEP_CODE else FocusMode.POMODORO
+        _focusState.value = _focusState.value.copy(
+            kind = FocusKind.POMODORO,
+            mode = targetMode,
+            totalSeconds = durationSecs,
+            remainingSeconds = durationSecs,
+            elapsedSeconds = 0,
+            laps = emptyList(),
+            isRunning = true,
+            selectedCourseId = task.courseId,
+            selectedTaskTitle = task.title,
+            selectedTaskId = task.id,
+            selectedFocusProfileId = profile.id,
+            selectedFocusProfileTitle = profile.title
+        )
+        val settings = appSettings.value
+        if (settings.autoPlayAudioWithFocus && !_audioPlaying.value) {
+            val started = focusAudioEngine.start(settings.selectedAudioTrackId, settings.audioVolume)
+            _audioPlaying.value = started
+        }
+        startFocusTimerLoop(courses)
+        _bannerMessage.value = "En focus sur « ${task.title} » (${profile.title})"
     }
 
     fun recordStopwatchLap() {
@@ -965,30 +1169,35 @@ class StudyViewModel(
                 val started = focusAudioEngine.start(settings.selectedAudioTrackId, settings.audioVolume)
                 _audioPlaying.value = started
             }
-            timerJob?.cancel()
-            timerJob = viewModelScope.launch {
-                if (current.kind == FocusKind.STOPWATCH) {
-                    while (_focusState.value.isRunning) {
-                        delay(1000L)
-                        val latest = _focusState.value
-                        if (!latest.isRunning || latest.kind != FocusKind.STOPWATCH) break
-                        _focusState.value = latest.copy(elapsedSeconds = latest.elapsedSeconds + 1)
-                    }
-                } else {
-                    while (_focusState.value.isRunning && _focusState.value.remainingSeconds > 0) {
-                        delay(1000L)
-                        val latest = _focusState.value
-                        if (!latest.isRunning || latest.kind != FocusKind.POMODORO) break
-                        val next = (latest.remainingSeconds - 1).coerceAtLeast(0)
-                        _focusState.value = latest.copy(remainingSeconds = next)
-                        if (next == 0) {
-                            _focusState.value = _focusState.value.copy(isRunning = false)
-                            if (appSettings.value.autoPlayAudioWithFocus) {
-                                stopAudioPlayback()
-                            }
-                            completeCurrentFocusSession(courses, completedFull = true)
-                            break
+            startFocusTimerLoop(courses)
+        }
+    }
+
+    private fun startFocusTimerLoop(courses: List<Course>) {
+        val kindAtStart = _focusState.value.kind
+        timerJob?.cancel()
+        timerJob = viewModelScope.launch {
+            if (kindAtStart == FocusKind.STOPWATCH) {
+                while (_focusState.value.isRunning) {
+                    delay(1000L)
+                    val latest = _focusState.value
+                    if (!latest.isRunning || latest.kind != FocusKind.STOPWATCH) break
+                    _focusState.value = latest.copy(elapsedSeconds = latest.elapsedSeconds + 1)
+                }
+            } else {
+                while (_focusState.value.isRunning && _focusState.value.remainingSeconds > 0) {
+                    delay(1000L)
+                    val latest = _focusState.value
+                    if (!latest.isRunning || latest.kind != FocusKind.POMODORO) break
+                    val next = (latest.remainingSeconds - 1).coerceAtLeast(0)
+                    _focusState.value = latest.copy(remainingSeconds = next)
+                    if (next == 0) {
+                        _focusState.value = _focusState.value.copy(isRunning = false)
+                        if (appSettings.value.autoPlayAudioWithFocus) {
+                            stopAudioPlayback()
                         }
+                        completeCurrentFocusSession(courses, completedFull = true)
+                        break
                     }
                 }
             }
@@ -1025,7 +1234,7 @@ class StudyViewModel(
                 val mins = (state.elapsedSeconds + 29L) / 60L
                 mins.coerceAtLeast(1L)
             }
-            completedFull -> configuredMinutesFor(state.mode, settings).toLong().coerceAtLeast(1L)
+            completedFull -> (state.totalSeconds / 60L).coerceAtLeast(1L)
             else -> {
                 val elapsedSec = (state.totalSeconds - state.remainingSeconds).coerceAtLeast(60)
                 (elapsedSec / 60L).coerceAtLeast(1L)
@@ -1040,7 +1249,10 @@ class StudyViewModel(
                     courseTitle = selectedCourse?.title ?: "Génie Logiciel",
                     taskTitle = state.selectedTaskTitle,
                     durationMinutes = elapsedMinutes,
-                    mode = state.mode.id
+                    mode = state.mode.id,
+                    focusProfileId = state.selectedFocusProfileId,
+                    focusProfileTitle = state.selectedFocusProfileTitle,
+                    taskId = state.selectedTaskId
                 )
                 val secs = configuredMinutesFor(state.mode, settings) * 60
                 _focusState.value = state.copy(
@@ -1090,7 +1302,7 @@ class StudyViewModel(
         val userMsg = AgentChatMessage(isUser = true, text = displayPrompt?.takeIf { it.isNotBlank() } ?: trimmed)
         val assistantId = UUID.randomUUID().toString()
         val assistantPlaceholder = AgentChatMessage(id = assistantId, isUser = false, text = "…")
-        _agentMessages.value = _agentMessages.value + userMsg + assistantPlaceholder
+        updateActiveThreadMessages(_agentMessages.value + userMsg + assistantPlaceholder, persist = true)
         _agentBusy.value = true
 
         agentRequestJob = viewModelScope.launch {
@@ -1376,7 +1588,7 @@ class StudyViewModel(
                         category = CountdownCategory.sanitizeKey(category),
                         colorIndex = (latestCountdowns.size % 6).toLong()
                     )
-                    return JsonObject(mapOf("success" to JsonPrimitive(true), "countdownId" to JsonPrimitive(id), "title" to JsonPrimitive(title.trim().take(100)), "targetDateIso" to date.toString()))
+                    return JsonObject(mapOf("success" to JsonPrimitive(true), "countdownId" to JsonPrimitive(id), "title" to JsonPrimitive(title.trim().take(100)), "targetDateIso" to JsonPrimitive(date.toString())))
                 }
             }
 
@@ -1422,21 +1634,24 @@ class StudyViewModel(
                     )
                     )
                 }
-                _agentMessages.value = _agentMessages.value.map { message ->
+                val completedMessages = _agentMessages.value.map { message ->
                     if (message.id == assistantId) message.copy(text = result.replyText, actions = result.actions) else message
                 }
+                updateActiveThreadMessages(completedMessages, persist = true)
             } catch (e: CancellationException) {
-                _agentMessages.value = _agentMessages.value.map { message ->
+                val cancelledMessages = _agentMessages.value.map { message ->
                     if (message.id == assistantId) message.copy(text = message.text.takeUnless { it == "…" }.orEmpty().let { partial -> if (partial.isBlank()) "Réponse interrompue." else "$partial\n\nRéponse interrompue." }) else message
                 }
+                updateActiveThreadMessages(cancelledMessages, persist = true)
                 throw e
             } catch (e: Exception) {
-                _agentMessages.value = _agentMessages.value.map { message ->
+                val errorMessages = _agentMessages.value.map { message ->
                     if (message.id == assistantId) message.copy(
                         text = e.localizedMessage ?: "Une erreur est survenue lors de l'appel au fournisseur IA.",
                         isError = true
                     ) else message
                 }
+                updateActiveThreadMessages(errorMessages, persist = true)
             } finally {
                 _agentBusy.value = false
             }
@@ -1501,16 +1716,126 @@ class StudyViewModel(
         viewModelScope.launch { themePreferencesStore.clearAgentUsage() }
     }
 
+    fun startNewAgentThread() {
+        agentRequestJob?.cancel()
+        cancelPendingAgentApproval()
+        _agentBusy.value = false
+        aiAgentRepository.resetConversation()
+        val currentThread = _agentThreads.value.firstOrNull { it.id == _activeAgentThreadId.value }
+        if (currentThread != null && _agentMessages.value.none { it.isUser }) {
+            val resetMsgs = listOf(welcomeAgentMessage())
+            _agentMessages.value = resetMsgs
+            return
+        }
+        val fresh = createEmptyAgentThread()
+        _agentThreads.value = listOf(fresh) + _agentThreads.value
+        _activeAgentThreadId.value = fresh.id
+        _agentMessages.value = fresh.messages
+        persistThreads()
+    }
+
+    fun selectAgentThread(threadId: String) {
+        if (threadId == _activeAgentThreadId.value) return
+        val target = _agentThreads.value.firstOrNull { it.id == threadId } ?: return
+        agentRequestJob?.cancel()
+        cancelPendingAgentApproval()
+        _agentBusy.value = false
+        val restoredMsgs = target.messages.ifEmpty { listOf(welcomeAgentMessage()) }
+        _activeAgentThreadId.value = target.id
+        _agentMessages.value = restoredMsgs
+        aiAgentRepository.restoreConversation(restoredMsgs)
+    }
+
+    fun deleteAgentThread(threadId: String) {
+        val wasActive = threadId == _activeAgentThreadId.value
+        if (wasActive) {
+            agentRequestJob?.cancel()
+            cancelPendingAgentApproval()
+            _agentBusy.value = false
+        }
+        val remaining = _agentThreads.value.filterNot { it.id == threadId }
+        if (remaining.isEmpty()) {
+            val fresh = createEmptyAgentThread()
+            _agentThreads.value = listOf(fresh)
+            _activeAgentThreadId.value = fresh.id
+            _agentMessages.value = fresh.messages
+            aiAgentRepository.resetConversation()
+        } else {
+            _agentThreads.value = remaining
+            if (wasActive) {
+                val next = remaining.first()
+                val restoredMsgs = next.messages.ifEmpty { listOf(welcomeAgentMessage()) }
+                _activeAgentThreadId.value = next.id
+                _agentMessages.value = restoredMsgs
+                aiAgentRepository.restoreConversation(restoredMsgs)
+            }
+        }
+        persistThreads()
+    }
+
     fun clearAgentConversation() {
         agentRequestJob?.cancel()
         cancelPendingAgentApproval()
+        _agentBusy.value = false
         aiAgentRepository.resetConversation()
-        _agentMessages.value = listOf(welcomeAgentMessage())
+        val resetMsgs = listOf(welcomeAgentMessage())
+        val activeId = _activeAgentThreadId.value
+        val updated = _agentThreads.value.map { thread ->
+            if (thread.id == activeId) {
+                thread.copy(
+                    title = "Nouvelle discussion",
+                    updatedAtMillis = System.currentTimeMillis(),
+                    messages = resetMsgs
+                )
+            } else thread
+        }
+        _agentThreads.value = updated
+        _agentMessages.value = resetMsgs
+        persistThreads()
     }
+
+    private fun updateActiveThreadMessages(messages: List<AgentChatMessage>, persist: Boolean) {
+        _agentMessages.value = messages
+        val activeId = _activeAgentThreadId.value
+        val now = System.currentTimeMillis()
+        val derivedTitle = deriveThreadTitle(messages)
+        val existing = _agentThreads.value.firstOrNull { it.id == activeId }
+        val updatedThread = (existing ?: AgentConversationThread(id = activeId)).copy(
+            title = derivedTitle,
+            updatedAtMillis = now,
+            messages = messages
+        )
+        _agentThreads.value = listOf(updatedThread) + _agentThreads.value.filterNot { it.id == activeId }
+        if (persist) persistThreads()
+    }
+
+    private fun persistThreads() {
+        val store = agentThreadsStore ?: return
+        val previousJob = persistThreadsJob
+        persistThreadsJob = viewModelScope.launch {
+            previousJob?.join()
+            val snapshot = _agentThreads.value
+            runCatching { store.saveThreads(snapshot) }
+                .onFailure { Log.w(TAG, "Unable to persist agent threads", it) }
+        }
+    }
+
+    private fun deriveThreadTitle(messages: List<AgentChatMessage>): String {
+        val firstUserPrompt = messages.firstOrNull { it.isUser && it.text.isNotBlank() }?.text?.trim()
+            ?: return "Nouvelle discussion"
+        val clean = firstUserPrompt.replace('\n', ' ').trim()
+        return if (clean.length > 42) "${clean.take(41).trimEnd()}…" else clean
+    }
+
+    private fun createEmptyAgentThread() = AgentConversationThread(
+        title = "Nouvelle discussion",
+        updatedAtMillis = System.currentTimeMillis(),
+        messages = listOf(welcomeAgentMessage())
+    )
 
     private fun welcomeAgentMessage() = AgentChatMessage(
         isUser = false,
-        text = "Bonjour ! Je suis Light, votre assistant de travail. Selon les capacités autorisées, je peux consulter vos données d'étude, créer des tâches, matières, projets, habitudes et échéances, valider une tâche, changer le thème ou lancer Focus. Avant chaque action, je vous présente les détails et j'attends votre accord. Vous gérez mes accès dans Explorer → Capacités de l'agent."
+        text = "Bonjour ! Je suis Light, votre assistant de travail. Selon les capacités autorisées, je peux consulter vos données d'étude, créer des tâches, matières, projets, habitudes et échéances, valider une tâche, changer le thème ou lancer Focus. Avant chaque action, je vous présente les détails et j'attends votre accord. Vous gérez mes accès dans le menu ⋮ → Capacités de l'agent."
     )
 
     private fun unwrapFirestoreError(error: Throwable): FirebaseFirestoreException? =

@@ -40,7 +40,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [36], qualifiers = "w411dp-h915dp-xxhdpi")
+@Config(sdk = [34], qualifiers = "w411dp-h915dp-xxhdpi")
 class FocusAndDrawerUiTest {
 
     @get:Rule

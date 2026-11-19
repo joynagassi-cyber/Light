@@ -1,0 +1,95 @@
+name: Light Android Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version Android (ex. 1.0.0 ; sans préfixe v)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: light-android-release
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/android.yml
+
+  package:
+    name: Build and verify signed binaries
+    needs: validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: android-release
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Validate version
+        env:
+          VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          [[ "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          grep -Fxq "    versionName = \"$VERSION\"" app/build.gradle.kts || {
+            echo '::error::La version demandée ne correspond pas à versionName.'
+            exit 1
+          }
+      - uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: temurin
+      - uses: gradle/actions/setup-gradle@v5
+        with:
+          cache-disabled: true
+      - name: Install Android SDK
+        run: bash ci/setup-android-sdk.sh
+      - name: Sign and verify release
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: bash ci/build-signed-release.sh
+      - uses: actions/upload-artifact@v6
+        with:
+          name: light-release
+          path: release-output/
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: Publish GitHub release
+    needs: package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          name: light-release
+          path: release-output
+      - name: Publish verified assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ inputs.version }}
+        shell: bash
+        working-directory: release-output
+        run: |
+          tag="v$VERSION"
+          sha256sum --check SHA256SUMS.txt
+          existing=$(gh api "repos/$GH_REPO/git/matching-refs/tags/$tag" --jq ".[] | select(.ref == \"refs/tags/$tag\") | .ref")
+          if [[ -n "$existing" ]]; then
+            echo "::error::Le tag $tag existe déjà et ne sera pas écrasé."
+            exit 1
+          fi
+          gh release create "$tag" Light-release.apk Light-release.aab SHA256SUMS.txt \
+            --target "$GITHUB_SHA" --title "Light $VERSION" --generate-notes

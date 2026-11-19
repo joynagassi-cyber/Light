@@ -20,6 +20,7 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import com.example.data.model.Course
 import com.example.data.preferences.AgentConversationThread
@@ -211,23 +212,23 @@ class FocusAndDrawerUiTest {
         composeRule.waitForIdle()
 
         composeRule.onNodeWithTag("focus_customization_sheet").assertIsDisplayed()
-        composeRule.onNodeWithTag("focus_illustration_coder").performClick()
-        composeRule.onNodeWithTag("focus_theme_ocean").performClick()
+        composeRule.onNodeWithTag("focus_illustration_coder").performScrollTo().assertIsDisplayed().performClick()
+        composeRule.onNodeWithTag("focus_theme_ocean").performScrollTo().assertIsDisplayed().performClick()
         composeRule.waitForIdle()
         assertEquals("coder", selectedIllustration)
         assertEquals("ocean", selectedTheme)
 
         // Switch to Audio tab inside the customization sheet
-        composeRule.onNodeWithTag("focus_sheet_tab_audio").performClick()
+        composeRule.onNodeWithTag("focus_sheet_tab_audio").performScrollTo().assertIsDisplayed().performClick()
         composeRule.waitForIdle()
-        composeRule.onNodeWithTag("audio_play_pause_button").performClick()
+        composeRule.onNodeWithTag("audio_play_pause_button").performScrollTo().assertIsDisplayed().performClick()
         composeRule.waitForIdle()
         assertTrue(audioPlaying)
 
         // Switch to Timer tab inside the customization sheet
-        composeRule.onNodeWithTag("focus_sheet_tab_timer").performClick()
+        composeRule.onNodeWithTag("focus_sheet_tab_timer").performScrollTo().assertIsDisplayed().performClick()
         composeRule.waitForIdle()
-        composeRule.onNodeWithText("Pomodoro standard").assertIsDisplayed()
+        composeRule.onNodeWithText("Pomodoro standard").performScrollTo().assertIsDisplayed()
     }
 
     @Test

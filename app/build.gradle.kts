@@ -1,24 +1,28 @@
-import com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy
 import java.time.Duration
 
 plugins {
   alias(libs.plugins.android.application)
-  alias(libs.plugins.kotlin.android)
   alias(libs.plugins.kotlin.compose)
-  alias(libs.plugins.secrets)
-  alias(libs.plugins.google.services)
+  alias(libs.plugins.google.services) apply false
 }
+
+// CI validation must exercise local mode even if an older workflow writes secret files.
+// The release script opts in only after validating the Firebase config and signing key.
+val useReleaseInputs = providers.environmentVariable("GITHUB_ACTIONS").orNull != "true" ||
+  providers.gradleProperty("lightSignedRelease").orNull == "true"
 
 android {
   namespace = "com.example"
-  compileSdk = 35
+  compileSdk {
+    version = release(36) { minorApiLevel = 1 }
+  }
 
   defaultConfig {
     applicationId = "com.aistudio.elanstudy.vkmrxz"
-    minSdk = 24
+    minSdk = 26
     targetSdk = 35
     versionCode = 1
-    versionName = "1.0"
+    versionName = "1.0.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -28,8 +32,8 @@ android {
   signingConfigs {
     create("release") {
       val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
-      val keystoreFile = file(keystorePath)
-      if (keystoreFile.exists()) {
+      val keystoreFile = rootProject.file(keystorePath)
+      if (useReleaseInputs && keystoreFile.isFile) {
         storeFile = keystoreFile
         storePassword = System.getenv("STORE_PASSWORD") ?: "android"
         keyAlias = System.getenv("KEY_ALIAS") ?: "upload"
@@ -83,15 +87,10 @@ android {
   }
 }
 
-// Configure the Secrets Gradle Plugin to use .env and .env.example files
-// to match the convention used in Web projects.
-secrets {
-  propertiesFileName = ".env"
-  defaultPropertiesFileName = ".env.example"
-  ignoreList.add("FIREBASE_APPCHECK_DEBUG_TOKEN")
+// A build without Firebase configuration supports the app’s local mode.
+if (useReleaseInputs && file("google-services.json").isFile) {
+  apply(plugin = "com.google.gms.google-services")
 }
-
-googleServices { missingGoogleServicesStrategy = MissingGoogleServicesStrategy.WARN }
 
 // Some unused dependencies are commented out below instead of being removed.
 // This makes it easy to add them back in the future if needed.
@@ -157,7 +156,6 @@ dependencies {
 }
 
 tasks.withType<Test> {
-  failFast = true
   timeout.set(Duration.ofMinutes(2))
   testLogging {
     events("passed", "failed", "skipped")

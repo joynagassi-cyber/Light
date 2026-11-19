@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="260" viewBox="0 0 1080 260" role="img" aria-labelledby="title desc">
+  <title id="title">Échéances &amp; jalons</title>
+  <desc id="desc">Visualiser le temps restant avant une date importante.</desc>
+  <rect x="1" y="1" width="1078" height="258" rx="22" fill="#101728" stroke="#36445F" opacity="1"/>
+  <line x1="376" y1="30" x2="376" y2="230" stroke="#36445F" stroke-width="1" stroke-dasharray="none" stroke-linecap="round"/>
+  <circle cx="43" cy="43" r="4" fill="#FFD293" stroke="none" stroke-width="1"/>
+  <text x="56" y="48" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="14" fill="#FFD293" font-weight="750" text-anchor="start" letter-spacing="2">LIGHT / 10</text>
+  <text x="36" y="105" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="29" fill="#F7F8FF" font-weight="760" text-anchor="start" letter-spacing="0">Échéances &amp; jalons</text>
+  <text x="38" y="146" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="18" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">Visualiser le temps restant</text>
+  <text x="38" y="170" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="18" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">avant une date importante.</text>
+  <text x="38" y="224" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="12" fill="#FFD293" font-weight="720" text-anchor="start" letter-spacing="0.75">COMPTE À REBOURS</text>
+  <rect x="404" y="33" width="642" height="194" rx="14" fill="#171F35" stroke="#36445F" opacity="1"/>
+  <text x="420" y="58" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#9BAAC6" font-weight="700" text-anchor="start" letter-spacing="1">PROCHAIN JALON</text>
+  <text x="431" y="150" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="72" fill="#FFD293" font-weight="800" text-anchor="start" letter-spacing="0">05</text>
+  <text x="434" y="183" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#C0CBE1" font-weight="680" text-anchor="start" letter-spacing="1">JOURS RESTANTS</text>
+  <line x1="593" y1="70" x2="593" y2="197" stroke="#36445F" stroke-width="1" stroke-dasharray="none" stroke-linecap="round"/>
+  <text x="626" y="108" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="23" fill="#F7F8FF" font-weight="740" text-anchor="start" letter-spacing="0">Partiel d’algorithmique</text>
+  <rect x="627" y="127" width="106" height="28" rx="14" fill="#101728" stroke="#36445F" opacity="1"/>
+  <circle cx="641" cy="141" r="3" fill="#FFD293" stroke="none" stroke-width="1"/>
+  <text x="652" y="146" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" fill="#FFD293" font-weight="650" text-anchor="start" letter-spacing="0">Examen</text>
+  <rect x="743" y="127" width="131" height="28" rx="14" fill="#101728" stroke="#36445F" opacity="1"/>
+  <circle cx="757" cy="141" r="3" fill="#B9A5FF" stroke="none" stroke-width="1"/>
+  <text x="768" y="146" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" fill="#B9A5FF" font-weight="650" text-anchor="start" letter-spacing="0">Date cible</text>
+  <text x="628" y="183" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">Examens  /  Projets  /  Événements</text>
+</svg>

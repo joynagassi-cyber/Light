@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="260" viewBox="0 0 1080 260" role="img" aria-labelledby="title desc">
+  <title id="title">Habitudes &amp; routines</title>
+  <desc id="desc">Cocher un rituel par date et suivre sa régularité.</desc>
+  <rect x="1" y="1" width="1078" height="258" rx="22" fill="#101728" stroke="#36445F" opacity="1"/>
+  <line x1="376" y1="30" x2="376" y2="230" stroke="#36445F" stroke-width="1" stroke-dasharray="none" stroke-linecap="round"/>
+  <circle cx="43" cy="43" r="4" fill="#87F4D0" stroke="none" stroke-width="1"/>
+  <text x="56" y="48" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="14" fill="#87F4D0" font-weight="750" text-anchor="start" letter-spacing="2">LIGHT / 09</text>
+  <text x="36" y="105" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="29" fill="#F7F8FF" font-weight="760" text-anchor="start" letter-spacing="0">Habitudes &amp; routines</text>
+  <text x="38" y="146" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="18" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">Cocher un rituel par date</text>
+  <text x="38" y="170" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="18" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">et suivre sa régularité.</text>
+  <text x="38" y="224" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="12" fill="#87F4D0" font-weight="720" text-anchor="start" letter-spacing="0.75">JOURNAL DE RÉGULARITÉ</text>
+  <rect x="404" y="33" width="642" height="194" rx="14" fill="#171F35" stroke="#36445F" opacity="1"/>
+  <text x="420" y="58" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#9BAAC6" font-weight="700" text-anchor="start" letter-spacing="1">RITUELS DE LA SEMAINE</text>
+  <text x="633" y="92" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#9BAAC6" font-weight="720" text-anchor="middle" letter-spacing="0">L</text>
+  <text x="687" y="92" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#9BAAC6" font-weight="720" text-anchor="middle" letter-spacing="0">M</text>
+  <text x="741" y="92" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#9BAAC6" font-weight="720" text-anchor="middle" letter-spacing="0">M</text>
+  <text x="795" y="92" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#9BAAC6" font-weight="720" text-anchor="middle" letter-spacing="0">J</text>
+  <text x="849" y="92" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#9BAAC6" font-weight="720" text-anchor="middle" letter-spacing="0">V</text>
+  <text x="903" y="92" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#9BAAC6" font-weight="720" text-anchor="middle" letter-spacing="0">S</text>
+  <text x="957" y="92" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#9BAAC6" font-weight="720" text-anchor="middle" letter-spacing="0">D</text>
+  <text x="428" y="124" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="17" fill="#F7F8FF" font-weight="550" text-anchor="start" letter-spacing="0">Lecture</text>
+  <rect x="621" y="106" width="24" height="24" rx="7" fill="#87F4D0" stroke="none" opacity="1"/>
+  <path d="M628 118l3 4 7-8" stroke="#101728" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="675" y="106" width="24" height="24" rx="7" fill="#101728" stroke="#36445F" opacity="1"/>
+  <rect x="729" y="106" width="24" height="24" rx="7" fill="#87F4D0" stroke="none" opacity="1"/>
+  <path d="M736 118l3 4 7-8" stroke="#101728" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="783" y="106" width="24" height="24" rx="7" fill="#87F4D0" stroke="none" opacity="1"/>
+  <path d="M790 118l3 4 7-8" stroke="#101728" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="837" y="106" width="24" height="24" rx="7" fill="#87F4D0" stroke="none" opacity="1"/>
+  <path d="M844 118l3 4 7-8" stroke="#101728" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="891" y="106" width="24" height="24" rx="7" fill="#101728" stroke="#36445F" opacity="1"/>
+  <rect x="945" y="106" width="24" height="24" rx="7" fill="#101728" stroke="#36445F" opacity="1"/>
+  <text x="428" y="162" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="17" fill="#F7F8FF" font-weight="550" text-anchor="start" letter-spacing="0">Révision</text>
+  <rect x="621" y="144" width="24" height="24" rx="7" fill="#87F4D0" stroke="none" opacity="1"/>
+  <path d="M628 156l3 4 7-8" stroke="#101728" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="675" y="144" width="24" height="24" rx="7" fill="#87F4D0" stroke="none" opacity="1"/>
+  <path d="M682 156l3 4 7-8" stroke="#101728" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="729" y="144" width="24" height="24" rx="7" fill="#87F4D0" stroke="none" opacity="1"/>
+  <path d="M736 156l3 4 7-8" stroke="#101728" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="783" y="144" width="24" height="24" rx="7" fill="#101728" stroke="#36445F" opacity="1"/>
+  <rect x="837" y="144" width="24" height="24" rx="7" fill="#87F4D0" stroke="none" opacity="1"/>
+  <path d="M844 156l3 4 7-8" stroke="#101728" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="891" y="144" width="24" height="24" rx="7" fill="#101728" stroke="#36445F" opacity="1"/>
+  <rect x="945" y="144" width="24" height="24" rx="7" fill="#101728" stroke="#36445F" opacity="1"/>
+  <text x="428" y="200" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="17" fill="#F7F8FF" font-weight="550" text-anchor="start" letter-spacing="0">Exercices</text>
+  <rect x="621" y="182" width="24" height="24" rx="7" fill="#87F4D0" stroke="none" opacity="1"/>
+  <path d="M628 194l3 4 7-8" stroke="#101728" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="675" y="182" width="24" height="24" rx="7" fill="#101728" stroke="#36445F" opacity="1"/>
+  <rect x="729" y="182" width="24" height="24" rx="7" fill="#87F4D0" stroke="none" opacity="1"/>
+  <path d="M736 194l3 4 7-8" stroke="#101728" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="783" y="182" width="24" height="24" rx="7" fill="#87F4D0" stroke="none" opacity="1"/>
+  <path d="M790 194l3 4 7-8" stroke="#101728" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="837" y="182" width="24" height="24" rx="7" fill="#87F4D0" stroke="none" opacity="1"/>
+  <path d="M844 194l3 4 7-8" stroke="#101728" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="891" y="182" width="24" height="24" rx="7" fill="#101728" stroke="#36445F" opacity="1"/>
+  <rect x="945" y="182" width="24" height="24" rx="7" fill="#101728" stroke="#36445F" opacity="1"/>
+</svg>

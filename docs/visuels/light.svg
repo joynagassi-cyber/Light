@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="358" viewBox="0 0 1080 358" role="img" aria-labelledby="title desc">
+  <title id="title">Light — espace d’étude Android</title>
+  <desc id="desc">Planifier, se concentrer et suivre sa progression. Le visuel est une illustration, pas une capture.</desc>
+  <defs><linearGradient id="night" x2="1" y2="1" gradientUnits="objectBoundingBox"><stop stop-color="#13182F"/><stop offset=".65" stop-color="#222344"/><stop offset="1" stop-color="#192D44"/></linearGradient><linearGradient id="beam"><stop stop-color="#C7ADFF"/><stop offset="1" stop-color="#87F4D0"/></linearGradient><pattern id="dot" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1" fill="#B9A5FF" opacity=".34"/></pattern><clipPath id="bounds"><rect x="1" y="1" width="1078" height="356" rx="30"/></clipPath></defs>
+  <rect x="1" y="1" width="1078" height="356" rx="30" fill="url(#night)" stroke="#36445F" opacity="1"/>
+  <g clip-path="url(#bounds)">
+  <rect x="550" y="0" width="530" height="358" rx="0" fill="url(#dot)" stroke="none" opacity="1"/>
+  <circle cx="945" cy="155" r="184" fill="none" stroke="#596398" stroke-width="1"/>
+  <circle cx="945" cy="155" r="202" fill="none" stroke="#464F76" stroke-width="1"/>
+  <path d="M550 330 Q740 390 1010 52" stroke="url(#beam)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <rect x="48" y="43" width="42" height="42" rx="12" fill="#322E55" stroke="#7665A7" opacity="1"/>
+  <path d="M70 51 Q71 61 82 64 Q71 66 70 77 Q67 66 58 64 Q67 61 70 51Z" stroke="none" stroke-width="0" fill="url(#beam)" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="103" y="69" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="14" fill="#87F4D0" font-weight="750" text-anchor="start" letter-spacing="1.5">WORKSPACE D’ÉTUDE  /  ANDROID</text>
+  <text x="47" y="171" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="103" fill="#F7F8FF" font-weight="800" text-anchor="start" letter-spacing="-6">Light</text>
+  <text x="51" y="219" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="30" fill="#E4DCFF" font-weight="650" text-anchor="start" letter-spacing="0">Un espace pour étudier avec clarté.</text>
+  <text x="52" y="258" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="18" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">Planifier ses tâches, se concentrer, suivre ses progrès.</text>
+  <rect x="52" y="292" width="99" height="28" rx="14" fill="#101728" stroke="#36445F" opacity="1"/>
+  <circle cx="66" cy="306" r="3" fill="#B9A5FF" stroke="none" stroke-width="1"/>
+  <text x="77" y="311" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" fill="#B9A5FF" font-weight="650" text-anchor="start" letter-spacing="0">Kotlin</text>
+  <rect x="162" y="292" width="113" height="28" rx="14" fill="#101728" stroke="#36445F" opacity="1"/>
+  <circle cx="176" cy="306" r="3" fill="#87F4D0" stroke="none" stroke-width="1"/>
+  <text x="187" y="311" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" fill="#87F4D0" font-weight="650" text-anchor="start" letter-spacing="0">Compose</text>
+  <rect x="286" y="292" width="136" height="28" rx="14" fill="#101728" stroke="#36445F" opacity="1"/>
+  <circle cx="300" cy="306" r="3" fill="#9EC9FF" stroke="none" stroke-width="1"/>
+  <text x="311" y="311" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" fill="#9EC9FF" font-weight="650" text-anchor="start" letter-spacing="0">Mode local</text>
+  <rect x="632" y="59" width="330" height="226" rx="23" fill="#121B31" stroke="#6875A7" opacity="1"/>
+  <text x="658" y="93" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="14" fill="#87F4D0" font-weight="750" text-anchor="start" letter-spacing="1.4">MON ESPACE</text>
+  <text x="658" y="122" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="22" fill="#F7F8FF" font-weight="700" text-anchor="start" letter-spacing="0">Une session à la fois</text>
+  <line x1="658" y1="137" x2="934" y2="137" stroke="#36445F" stroke-width="1" stroke-dasharray="none" stroke-linecap="round"/>
+  <circle cx="667" cy="167" r="4" fill="#B9A5FF" stroke="none" stroke-width="1"/>
+  <text x="682" y="172" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">Planifier</text>
+  <rect x="793" y="163" width="140" height="8" rx="4" fill="#2A3451" stroke="none" opacity="1"/>
+  <rect x="793" y="163" width="103" height="8" rx="4" fill="#B9A5FF" stroke="none" opacity="1"/>
+  <circle cx="667" cy="202" r="4" fill="#87F4D0" stroke="none" stroke-width="1"/>
+  <text x="682" y="207" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">Se concentrer</text>
+  <rect x="793" y="198" width="140" height="8" rx="4" fill="#2A3451" stroke="none" opacity="1"/>
+  <rect x="793" y="198" width="132" height="8" rx="4" fill="#87F4D0" stroke="none" opacity="1"/>
+  <circle cx="667" cy="237" r="4" fill="#9EC9FF" stroke="none" stroke-width="1"/>
+  <text x="682" y="242" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">Faire le bilan</text>
+  <rect x="793" y="233" width="140" height="8" rx="4" fill="#2A3451" stroke="none" opacity="1"/>
+  <rect x="793" y="233" width="71" height="8" rx="4" fill="#9EC9FF" stroke="none" opacity="1"/>
+  <rect x="869" y="246" width="150" height="56" rx="16" fill="#282447" stroke="#A78DEB" opacity="1"/>
+  <text x="888" y="281" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="29" fill="#F7F8FF" font-weight="750" text-anchor="start" letter-spacing="0">25:00</text>
+  <circle cx="992" cy="274" r="10" fill="#87F4D0" stroke="none" stroke-width="1"/>
+  <path d="M990 270l6 4-6 4z" stroke="#101728" stroke-width="1" fill="#101728" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

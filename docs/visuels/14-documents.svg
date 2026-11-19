@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="260" viewBox="0 0 1080 260" role="img" aria-labelledby="title desc">
+  <title id="title">Pièces jointes</title>
+  <desc id="desc">Extraire le texte sur l’appareil avant de décider de l’envoyer.</desc>
+  <rect x="1" y="1" width="1078" height="258" rx="22" fill="#101728" stroke="#36445F" opacity="1"/>
+  <line x1="376" y1="30" x2="376" y2="230" stroke="#36445F" stroke-width="1" stroke-dasharray="none" stroke-linecap="round"/>
+  <circle cx="43" cy="43" r="4" fill="#9EC9FF" stroke="none" stroke-width="1"/>
+  <text x="56" y="48" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="14" fill="#9EC9FF" font-weight="750" text-anchor="start" letter-spacing="2">LIGHT / 14</text>
+  <text x="36" y="105" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="34" fill="#F7F8FF" font-weight="760" text-anchor="start" letter-spacing="0">Pièces jointes</text>
+  <text x="38" y="146" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="18" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">Extraire le texte sur l’appareil</text>
+  <text x="38" y="170" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="18" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">avant de décider de l’envoyer.</text>
+  <text x="38" y="224" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="12" fill="#9EC9FF" font-weight="720" text-anchor="start" letter-spacing="0.75">EXTRACTION LOCALE</text>
+  <rect x="403" y="71" width="146" height="118" rx="14" fill="#171F35" stroke="#36445F" opacity="1"/>
+  <text x="419" y="96" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#9BAAC6" font-weight="700" text-anchor="start" letter-spacing="1">01</text>
+  <text x="417" y="132" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="17" fill="#9EC9FF" font-weight="740" text-anchor="start" letter-spacing="0">Sélection</text>
+  <text x="417" y="157" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">PDF, PNG…</text>
+  <line x1="553" y1="130" x2="564" y2="130" stroke="#9EC9FF" stroke-width="2" stroke-dasharray="none" stroke-linecap="round"/>
+  <path d="M558 126l6 4-6 4" stroke="#9EC9FF" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="568" y="71" width="146" height="118" rx="14" fill="#171F35" stroke="#36445F" opacity="1"/>
+  <text x="584" y="96" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#9BAAC6" font-weight="700" text-anchor="start" letter-spacing="1">02</text>
+  <text x="582" y="132" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="17" fill="#9EC9FF" font-weight="740" text-anchor="start" letter-spacing="0">Extraction</text>
+  <text x="582" y="157" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">Texte / OCR</text>
+  <line x1="718" y1="130" x2="729" y2="130" stroke="#9EC9FF" stroke-width="2" stroke-dasharray="none" stroke-linecap="round"/>
+  <path d="M723 126l6 4-6 4" stroke="#9EC9FF" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="733" y="71" width="146" height="118" rx="14" fill="#171F35" stroke="#36445F" opacity="1"/>
+  <text x="749" y="96" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#9BAAC6" font-weight="700" text-anchor="start" letter-spacing="1">03</text>
+  <text x="747" y="132" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="17" fill="#9EC9FF" font-weight="740" text-anchor="start" letter-spacing="0">Consentement</text>
+  <text x="747" y="157" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">Avant envoi</text>
+  <line x1="883" y1="130" x2="894" y2="130" stroke="#9EC9FF" stroke-width="2" stroke-dasharray="none" stroke-linecap="round"/>
+  <path d="M888 126l6 4-6 4" stroke="#9EC9FF" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="898" y="71" width="146" height="118" rx="14" fill="#171F35" stroke="#36445F" opacity="1"/>
+  <text x="914" y="96" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#9BAAC6" font-weight="700" text-anchor="start" letter-spacing="1">04</text>
+  <text x="912" y="132" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="17" fill="#9EC9FF" font-weight="740" text-anchor="start" letter-spacing="0">Fournisseur</text>
+  <text x="912" y="157" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">Texte transmis</text>
+</svg>

@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="260" viewBox="0 0 1080 260" role="img" aria-labelledby="title desc">
+  <title id="title">Progression</title>
+  <desc id="desc">Suivre le travail par matière et relire ses résultats.</desc>
+  <rect x="1" y="1" width="1078" height="258" rx="22" fill="#101728" stroke="#36445F" opacity="1"/>
+  <line x1="376" y1="30" x2="376" y2="230" stroke="#36445F" stroke-width="1" stroke-dasharray="none" stroke-linecap="round"/>
+  <circle cx="43" cy="43" r="4" fill="#B9A5FF" stroke="none" stroke-width="1"/>
+  <text x="56" y="48" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="14" fill="#B9A5FF" font-weight="750" text-anchor="start" letter-spacing="2">LIGHT / 08</text>
+  <text x="36" y="105" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="34" fill="#F7F8FF" font-weight="760" text-anchor="start" letter-spacing="0">Progression</text>
+  <text x="38" y="146" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="18" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">Suivre le travail par matière</text>
+  <text x="38" y="170" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="18" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">et relire ses résultats.</text>
+  <text x="38" y="224" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="12" fill="#B9A5FF" font-weight="720" text-anchor="start" letter-spacing="0.75">OBJECTIFS / NOTES / BILAN</text>
+  <rect x="404" y="33" width="312" height="194" rx="14" fill="#171F35" stroke="#36445F" opacity="1"/>
+  <text x="420" y="58" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#9BAAC6" font-weight="700" text-anchor="start" letter-spacing="1">OBJECTIFS PAR MATIÈRE</text>
+  <rect x="730" y="33" width="316" height="194" rx="14" fill="#171F35" stroke="#36445F" opacity="1"/>
+  <text x="746" y="58" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#9BAAC6" font-weight="700" text-anchor="start" letter-spacing="1">ÉQUILIBRE</text>
+  <text x="422" y="82" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">Algorithmique</text>
+  <rect x="422" y="90" width="269" height="9" rx="4" fill="#34445E" stroke="none" opacity="1"/>
+  <rect x="422" y="90" width="191" height="9" rx="4" fill="#B9A5FF" stroke="none" opacity="1"/>
+  <text x="422" y="126" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">Architecture</text>
+  <rect x="422" y="134" width="269" height="9" rx="4" fill="#34445E" stroke="none" opacity="1"/>
+  <rect x="422" y="134" width="144" height="9" rx="4" fill="#87F4D0" stroke="none" opacity="1"/>
+  <text x="422" y="170" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">Systèmes</text>
+  <rect x="422" y="178" width="269" height="9" rx="4" fill="#34445E" stroke="none" opacity="1"/>
+  <rect x="422" y="178" width="103" height="9" rx="4" fill="#9EC9FF" stroke="none" opacity="1"/>
+  <path d="M887 72l58 42-22 68h-72l-22-68zM887 95l36 26-14 42h-44l-14-42z" stroke="#36445F" stroke-width="1" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M887 72v62m58-20-58 20m36 48-36-48m-36 48 36-48m-58-20 58 20" stroke="#36445F" stroke-width="1" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M887 87l40 34-14 44-46-3-24-44z" stroke="#B9A5FF" stroke-width="3" fill="#343258" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="887" y="210" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" fill="#C0CBE1" font-weight="650" text-anchor="middle" letter-spacing="0">Radar de maîtrise</text>
+</svg>

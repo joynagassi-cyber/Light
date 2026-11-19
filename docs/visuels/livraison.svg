@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="260" viewBox="0 0 1080 260" role="img" aria-labelledby="title desc">
+  <title id="title">Chaîne de livraison</title>
+  <desc id="desc">Valider le code, signer les binaires, vérifier et publier.</desc>
+  <rect x="1" y="1" width="1078" height="258" rx="22" fill="#101728" stroke="#36445F" opacity="1"/>
+  <line x1="376" y1="30" x2="376" y2="230" stroke="#36445F" stroke-width="1" stroke-dasharray="none" stroke-linecap="round"/>
+  <circle cx="43" cy="43" r="4" fill="#87F4D0" stroke="none" stroke-width="1"/>
+  <text x="56" y="48" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="14" fill="#87F4D0" font-weight="750" text-anchor="start" letter-spacing="2">LIGHT / CI</text>
+  <text x="36" y="105" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="29" fill="#F7F8FF" font-weight="760" text-anchor="start" letter-spacing="0">Chaîne de livraison</text>
+  <text x="38" y="146" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="18" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">Valider le code, signer les</text>
+  <text x="38" y="170" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="18" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">binaires, vérifier et publier.</text>
+  <text x="38" y="224" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="12" fill="#87F4D0" font-weight="720" text-anchor="start" letter-spacing="0.75">GITHUB ACTIONS</text>
+  <rect x="403" y="71" width="146" height="118" rx="14" fill="#171F35" stroke="#36445F" opacity="1"/>
+  <text x="419" y="96" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#9BAAC6" font-weight="700" text-anchor="start" letter-spacing="1">01</text>
+  <text x="417" y="132" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="17" fill="#87F4D0" font-weight="740" text-anchor="start" letter-spacing="0">Validation</text>
+  <text x="417" y="157" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">Build + tests</text>
+  <line x1="553" y1="130" x2="564" y2="130" stroke="#87F4D0" stroke-width="2" stroke-dasharray="none" stroke-linecap="round"/>
+  <path d="M558 126l6 4-6 4" stroke="#87F4D0" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="568" y="71" width="146" height="118" rx="14" fill="#171F35" stroke="#36445F" opacity="1"/>
+  <text x="584" y="96" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#9BAAC6" font-weight="700" text-anchor="start" letter-spacing="1">02</text>
+  <text x="582" y="132" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="17" fill="#87F4D0" font-weight="740" text-anchor="start" letter-spacing="0">Signature</text>
+  <text x="582" y="157" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">APK + AAB</text>
+  <line x1="718" y1="130" x2="729" y2="130" stroke="#87F4D0" stroke-width="2" stroke-dasharray="none" stroke-linecap="round"/>
+  <path d="M723 126l6 4-6 4" stroke="#87F4D0" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="733" y="71" width="146" height="118" rx="14" fill="#171F35" stroke="#36445F" opacity="1"/>
+  <text x="749" y="96" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#9BAAC6" font-weight="700" text-anchor="start" letter-spacing="1">03</text>
+  <text x="747" y="132" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="17" fill="#87F4D0" font-weight="740" text-anchor="start" letter-spacing="0">Vérification</text>
+  <text x="747" y="157" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">Signatures + SHA</text>
+  <line x1="883" y1="130" x2="894" y2="130" stroke="#87F4D0" stroke-width="2" stroke-dasharray="none" stroke-linecap="round"/>
+  <path d="M888 126l6 4-6 4" stroke="#87F4D0" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="898" y="71" width="146" height="118" rx="14" fill="#171F35" stroke="#36445F" opacity="1"/>
+  <text x="914" y="96" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#9BAAC6" font-weight="700" text-anchor="start" letter-spacing="1">04</text>
+  <text x="912" y="132" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="17" fill="#87F4D0" font-weight="740" text-anchor="start" letter-spacing="0">Publication</text>
+  <text x="912" y="157" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">GitHub Release</text>
+</svg>

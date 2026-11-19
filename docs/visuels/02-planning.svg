@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="260" viewBox="0 0 1080 260" role="img" aria-labelledby="title desc">
+  <title id="title">Planning &amp; tâches</title>
+  <desc id="desc">Poser une date, une durée et un contexte de travail.</desc>
+  <rect x="1" y="1" width="1078" height="258" rx="22" fill="#101728" stroke="#36445F" opacity="1"/>
+  <line x1="376" y1="30" x2="376" y2="230" stroke="#36445F" stroke-width="1" stroke-dasharray="none" stroke-linecap="round"/>
+  <circle cx="43" cy="43" r="4" fill="#9EC9FF" stroke="none" stroke-width="1"/>
+  <text x="56" y="48" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="14" fill="#9EC9FF" font-weight="750" text-anchor="start" letter-spacing="2">LIGHT / 02</text>
+  <text x="36" y="105" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="29" fill="#F7F8FF" font-weight="760" text-anchor="start" letter-spacing="0">Planning &amp; tâches</text>
+  <text x="38" y="146" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="18" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">Poser une date, une durée</text>
+  <text x="38" y="170" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="18" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">et un contexte de travail.</text>
+  <text x="38" y="224" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="12" fill="#9EC9FF" font-weight="720" text-anchor="start" letter-spacing="0.75">JOUR / SEMAINE / MOIS</text>
+  <rect x="404" y="33" width="642" height="194" rx="14" fill="#171F35" stroke="#36445F" opacity="1"/>
+  <text x="420" y="58" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#9BAAC6" font-weight="700" text-anchor="start" letter-spacing="1">CALENDRIER</text>
+  <rect x="756" y="44" width="85" height="28" rx="14" fill="#101728" stroke="#36445F" opacity="1"/>
+  <circle cx="770" cy="58" r="3" fill="#9BAAC6" stroke="none" stroke-width="1"/>
+  <text x="781" y="63" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" fill="#9BAAC6" font-weight="650" text-anchor="start" letter-spacing="0">Jour</text>
+  <rect x="847" y="44" width="85" height="28" rx="14" fill="#101728" stroke="#36445F" opacity="1"/>
+  <circle cx="861" cy="58" r="3" fill="#87F4D0" stroke="none" stroke-width="1"/>
+  <text x="872" y="63" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" fill="#87F4D0" font-weight="650" text-anchor="start" letter-spacing="0">Semaine</text>
+  <rect x="938" y="44" width="85" height="28" rx="14" fill="#101728" stroke="#36445F" opacity="1"/>
+  <circle cx="952" cy="58" r="3" fill="#9BAAC6" stroke="none" stroke-width="1"/>
+  <text x="963" y="63" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" fill="#9BAAC6" font-weight="650" text-anchor="start" letter-spacing="0">Mois</text>
+  <rect x="420" y="90" width="83" height="112" rx="8" fill="#11182C" stroke="#293A56" opacity="1"/>
+  <text x="461" y="111" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="12" fill="#C0CBE1" font-weight="700" text-anchor="middle" letter-spacing="0">LUN</text>
+  <rect x="426" y="128" width="71" height="26" rx="6" fill="#B9A5FF" stroke="none" opacity="1"/>
+  <text x="461" y="146" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#101728" font-weight="770" text-anchor="middle" letter-spacing="0">09:00</text>
+  <rect x="507" y="90" width="83" height="112" rx="8" fill="#11182C" stroke="#293A56" opacity="1"/>
+  <text x="548" y="111" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="12" fill="#C0CBE1" font-weight="700" text-anchor="middle" letter-spacing="0">MAR</text>
+  <rect x="594" y="90" width="83" height="112" rx="8" fill="#11182C" stroke="#293A56" opacity="1"/>
+  <text x="635" y="111" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="12" fill="#C0CBE1" font-weight="700" text-anchor="middle" letter-spacing="0">MER</text>
+  <rect x="600" y="148" width="71" height="26" rx="6" fill="#9EC9FF" stroke="none" opacity="1"/>
+  <text x="635" y="166" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#101728" font-weight="770" text-anchor="middle" letter-spacing="0">14:00</text>
+  <rect x="681" y="90" width="83" height="112" rx="8" fill="#11182C" stroke="#293A56" opacity="1"/>
+  <text x="722" y="111" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="12" fill="#C0CBE1" font-weight="700" text-anchor="middle" letter-spacing="0">JEU</text>
+  <rect x="687" y="158" width="71" height="26" rx="6" fill="#87F4D0" stroke="none" opacity="1"/>
+  <text x="722" y="176" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#101728" font-weight="770" text-anchor="middle" letter-spacing="0">10:30</text>
+  <rect x="768" y="90" width="83" height="112" rx="8" fill="#11182C" stroke="#293A56" opacity="1"/>
+  <text x="809" y="111" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="12" fill="#C0CBE1" font-weight="700" text-anchor="middle" letter-spacing="0">VEN</text>
+  <rect x="774" y="128" width="71" height="26" rx="6" fill="#FFD293" stroke="none" opacity="1"/>
+  <text x="809" y="146" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#101728" font-weight="770" text-anchor="middle" letter-spacing="0">16:00</text>
+  <rect x="855" y="90" width="83" height="112" rx="8" fill="#11182C" stroke="#293A56" opacity="1"/>
+  <text x="896" y="111" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="12" fill="#C0CBE1" font-weight="700" text-anchor="middle" letter-spacing="0">SAM</text>
+  <rect x="942" y="90" width="83" height="112" rx="8" fill="#11182C" stroke="#293A56" opacity="1"/>
+  <text x="983" y="111" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="12" fill="#C0CBE1" font-weight="700" text-anchor="middle" letter-spacing="0">DIM</text>
+</svg>

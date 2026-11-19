@@ -15,7 +15,7 @@ android {
 
   defaultConfig {
     applicationId = "com.aistudio.elanstudy.vkmrxz"
-    minSdk = 24
+    minSdk = 26
     targetSdk = 35
     versionCode = 1
     versionName = "1.0"
@@ -31,9 +31,9 @@ android {
       val keystoreFile = file(keystorePath)
       if (keystoreFile.exists()) {
         storeFile = keystoreFile
-        storePassword = System.getenv("STORE_PASSWORD") ?: "android"
+        storePassword = System.getenv("STORE_PASSWORD") ?: "Light_App_Release_2026_KeySecure!"
         keyAlias = System.getenv("KEY_ALIAS") ?: "upload"
-        keyPassword = System.getenv("KEY_PASSWORD") ?: System.getenv("STORE_PASSWORD") ?: "android"
+        keyPassword = System.getenv("KEY_PASSWORD") ?: System.getenv("STORE_PASSWORD") ?: "Light_App_Release_2026_KeySecure!"
       }
     }
     create("debugConfig") {

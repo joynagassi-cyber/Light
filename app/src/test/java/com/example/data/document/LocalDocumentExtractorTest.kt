@@ -15,7 +15,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [36])
+@Config(sdk = [34])
 class LocalDocumentExtractorTest {
     private val extractor by lazy {
         LocalDocumentExtractor(ApplicationProvider.getApplicationContext<Context>())

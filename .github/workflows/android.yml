@@ -52,13 +52,16 @@ jobs:
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > my-upload-key.jks
         fi
 
-    - name: 🔨 Compilation de l'APK (Debug & Release) & Tests
+    - name: 🔨 Compilation des APKs (Debug & Release)
       env:
         STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
         KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         KEYSTORE_PATH: my-upload-key.jks
-      run: ./gradlew assembleDebug assembleRelease testDebugUnitTest --stacktrace
+      run: ./gradlew assembleDebug assembleRelease --stacktrace
+
+    - name: 🧪 Exécution des tests unitaires
+      run: ./gradlew testDebugUnitTest --stacktrace
 
     - name: 📤 Téléversement des APKs générés (Artifacts)
       if: always()

@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="260" viewBox="0 0 1080 260" role="img" aria-labelledby="title desc">
+  <title id="title">Matrice Eisenhower</title>
+  <desc id="desc">Distinguer ce qui est urgent de ce qui est important.</desc>
+  <rect x="1" y="1" width="1078" height="258" rx="22" fill="#101728" stroke="#36445F" opacity="1"/>
+  <line x1="376" y1="30" x2="376" y2="230" stroke="#36445F" stroke-width="1" stroke-dasharray="none" stroke-linecap="round"/>
+  <circle cx="43" cy="43" r="4" fill="#F8ADD4" stroke="none" stroke-width="1"/>
+  <text x="56" y="48" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="14" fill="#F8ADD4" font-weight="750" text-anchor="start" letter-spacing="2">LIGHT / 03</text>
+  <text x="36" y="105" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="29" fill="#F7F8FF" font-weight="760" text-anchor="start" letter-spacing="0">Matrice Eisenhower</text>
+  <text x="38" y="146" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="18" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">Distinguer ce qui est urgent</text>
+  <text x="38" y="170" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="18" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">de ce qui est important.</text>
+  <text x="38" y="224" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="12" fill="#F8ADD4" font-weight="720" text-anchor="start" letter-spacing="0.75">4 QUADRANTS</text>
+  <text x="754" y="49" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#9BAAC6" font-weight="720" text-anchor="middle" letter-spacing="0">URGENT</text>
+  <text x="940" y="49" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#9BAAC6" font-weight="720" text-anchor="middle" letter-spacing="0">NON URGENT</text>
+  <text x="638" y="110" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#9BAAC6" font-weight="720" text-anchor="end" letter-spacing="0">IMPORTANT</text>
+  <text x="638" y="186" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#9BAAC6" font-weight="720" text-anchor="end" letter-spacing="0">NON IMPORTANT</text>
+  <rect x="660" y="60" width="178" height="68" rx="14" fill="#171F35" stroke="#36445F" opacity="1"/>
+  <circle cx="681" cy="94" r="5" fill="#F8ADD4" stroke="none" stroke-width="1"/>
+  <text x="696" y="100" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="17" fill="#F7F8FF" font-weight="700" text-anchor="start" letter-spacing="0">Prioriser</text>
+  <rect x="850" y="60" width="178" height="68" rx="14" fill="#171F35" stroke="#36445F" opacity="1"/>
+  <circle cx="871" cy="94" r="5" fill="#87F4D0" stroke="none" stroke-width="1"/>
+  <text x="886" y="100" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="17" fill="#F7F8FF" font-weight="700" text-anchor="start" letter-spacing="0">Planifier</text>
+  <rect x="660" y="137" width="178" height="68" rx="14" fill="#171F35" stroke="#36445F" opacity="1"/>
+  <circle cx="681" cy="171" r="5" fill="#FFD293" stroke="none" stroke-width="1"/>
+  <text x="696" y="177" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="17" fill="#F7F8FF" font-weight="700" text-anchor="start" letter-spacing="0">Alléger</text>
+  <rect x="850" y="137" width="178" height="68" rx="14" fill="#171F35" stroke="#36445F" opacity="1"/>
+  <circle cx="871" cy="171" r="5" fill="#9EC9FF" stroke="none" stroke-width="1"/>
+  <text x="886" y="177" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="17" fill="#F7F8FF" font-weight="700" text-anchor="start" letter-spacing="0">Reporter</text>
+  <path d="M428 96h75m-12-8 12 8-12 8" stroke="#B9A5FF" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="428" y="143" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="16" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">Une tâche</text>
+</svg>

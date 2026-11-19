@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="260" viewBox="0 0 1080 260" role="img" aria-labelledby="title desc">
+  <title id="title">Accueil</title>
+  <desc id="desc">Retrouver ses tâches et ses repères du jour en un coup d’œil.</desc>
+  <rect x="1" y="1" width="1078" height="258" rx="22" fill="#101728" stroke="#36445F" opacity="1"/>
+  <line x1="376" y1="30" x2="376" y2="230" stroke="#36445F" stroke-width="1" stroke-dasharray="none" stroke-linecap="round"/>
+  <circle cx="43" cy="43" r="4" fill="#87F4D0" stroke="none" stroke-width="1"/>
+  <text x="56" y="48" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="14" fill="#87F4D0" font-weight="750" text-anchor="start" letter-spacing="2">LIGHT / 01</text>
+  <text x="36" y="105" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="34" fill="#F7F8FF" font-weight="760" text-anchor="start" letter-spacing="0">Accueil</text>
+  <text x="38" y="146" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="18" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">Retrouver ses tâches et ses</text>
+  <text x="38" y="170" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="18" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">repères du jour en un coup d’œil.</text>
+  <text x="38" y="224" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="12" fill="#87F4D0" font-weight="720" text-anchor="start" letter-spacing="0.75">TABLEAU DE BORD</text>
+  <rect x="404" y="33" width="354" height="194" rx="14" fill="#171F35" stroke="#36445F" opacity="1"/>
+  <text x="420" y="58" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#9BAAC6" font-weight="700" text-anchor="start" letter-spacing="1">AUJOURD’HUI</text>
+  <line x1="420" y1="108" x2="742" y2="108" stroke="#36445F" stroke-width="1" stroke-dasharray="none" stroke-linecap="round"/>
+  <circle cx="437" cy="88" r="9" fill="#101728" stroke="#B9A5FF" stroke-width="2"/>
+  <text x="456" y="94" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="16" fill="#F7F8FF" font-weight="550" text-anchor="start" letter-spacing="0">Réviser le chapitre 4</text>
+  <line x1="420" y1="156" x2="742" y2="156" stroke="#36445F" stroke-width="1" stroke-dasharray="none" stroke-linecap="round"/>
+  <circle cx="437" cy="136" r="9" fill="#101728" stroke="#87F4D0" stroke-width="2"/>
+  <text x="456" y="142" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="16" fill="#F7F8FF" font-weight="550" text-anchor="start" letter-spacing="0">Pratiquer les exercices</text>
+  <circle cx="437" cy="184" r="9" fill="#101728" stroke="#9EC9FF" stroke-width="2"/>
+  <text x="456" y="190" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="16" fill="#F7F8FF" font-weight="550" text-anchor="start" letter-spacing="0">Préparer la prochaine séance</text>
+  <rect x="773" y="33" width="273" height="194" rx="14" fill="#171F35" stroke="#36445F" opacity="1"/>
+  <text x="789" y="58" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#9BAAC6" font-weight="700" text-anchor="start" letter-spacing="1">OBJECTIF DU JOUR</text>
+  <text x="793" y="118" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="49" fill="#F7F8FF" font-weight="760" text-anchor="start" letter-spacing="0">2 / 3</text>
+  <text x="797" y="147" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="16" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">tâches terminées</text>
+  <rect x="794" y="176" width="228" height="10" rx="5" fill="#33415E" stroke="none" opacity="1"/>
+  <rect x="794" y="176" width="152" height="10" rx="5" fill="#87F4D0" stroke="none" opacity="1"/>
+</svg>

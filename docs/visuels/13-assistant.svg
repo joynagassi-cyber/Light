@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="260" viewBox="0 0 1080 260" role="img" aria-labelledby="title desc">
+  <title id="title">Assistant Light</title>
+  <desc id="desc">Dialoguer avec l’agent et garder la main sur ses actions.</desc>
+  <rect x="1" y="1" width="1078" height="258" rx="22" fill="#101728" stroke="#36445F" opacity="1"/>
+  <line x1="376" y1="30" x2="376" y2="230" stroke="#36445F" stroke-width="1" stroke-dasharray="none" stroke-linecap="round"/>
+  <circle cx="43" cy="43" r="4" fill="#F8ADD4" stroke="none" stroke-width="1"/>
+  <text x="56" y="48" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="14" fill="#F8ADD4" font-weight="750" text-anchor="start" letter-spacing="2">LIGHT / 13</text>
+  <text x="36" y="105" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="34" fill="#F7F8FF" font-weight="760" text-anchor="start" letter-spacing="0">Assistant Light</text>
+  <text x="38" y="146" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="18" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">Dialoguer avec l’agent et</text>
+  <text x="38" y="170" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="18" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">garder la main sur ses actions.</text>
+  <text x="38" y="224" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="12" fill="#F8ADD4" font-weight="720" text-anchor="start" letter-spacing="0.75">VALIDATION HUMAINE</text>
+  <rect x="404" y="33" width="303" height="194" rx="14" fill="#171F35" stroke="#36445F" opacity="1"/>
+  <text x="420" y="58" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#9BAAC6" font-weight="700" text-anchor="start" letter-spacing="1">CONVERSATION</text>
+  <rect x="420" y="70" width="268" height="37" rx="10" fill="#232E48" stroke="none" opacity="1"/>
+  <text x="433" y="94" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" fill="#F7F8FF" font-weight="550" text-anchor="start" letter-spacing="0">Prépare mes révisions.</text>
+  <rect x="420" y="117" width="268" height="47" rx="10" fill="#30294D" stroke="none" opacity="1"/>
+  <text x="433" y="140" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" fill="#F7F8FF" font-weight="550" text-anchor="start" letter-spacing="0">Proposition : créer une tâche</text>
+  <text x="434" y="192" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" fill="#9BAAC6" font-weight="550" text-anchor="start" letter-spacing="0">Fils · Fournisseurs · Capacités</text>
+  <line x1="714" y1="130" x2="734" y2="130" stroke="#B9A5FF" stroke-width="2" stroke-dasharray="none" stroke-linecap="round"/>
+  <path d="M728 126l6 4-6 4" stroke="#B9A5FF" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="741" y="33" width="305" height="194" rx="14" fill="#171F35" stroke="#36445F" opacity="1"/>
+  <text x="757" y="58" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#9BAAC6" font-weight="700" text-anchor="start" letter-spacing="1">ACTION CONTRÔLÉE</text>
+  <text x="757" y="98" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="17" fill="#F7F8FF" font-weight="720" text-anchor="start" letter-spacing="0">Créer « Réviser les graphes »</text>
+  <text x="757" y="126" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">Aucune écriture avant accord.</text>
+  <rect x="759" y="152" width="114" height="28" rx="14" fill="#101728" stroke="#36445F" opacity="1"/>
+  <circle cx="773" cy="166" r="3" fill="#87F4D0" stroke="none" stroke-width="1"/>
+  <text x="784" y="171" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" fill="#87F4D0" font-weight="650" text-anchor="start" letter-spacing="0">Autoriser</text>
+  <rect x="886" y="152" width="104" height="28" rx="14" fill="#101728" stroke="#36445F" opacity="1"/>
+  <circle cx="900" cy="166" r="3" fill="#F8ADD4" stroke="none" stroke-width="1"/>
+  <text x="911" y="171" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" fill="#F8ADD4" font-weight="650" text-anchor="start" letter-spacing="0">Refuser</text>
+</svg>

@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="260" viewBox="0 0 1080 260" role="img" aria-labelledby="title desc">
+  <title id="title">Local et connecté</title>
+  <desc id="desc">Commencer sans compte ; se connecter si nécessaire.</desc>
+  <rect x="1" y="1" width="1078" height="258" rx="22" fill="#101728" stroke="#36445F" opacity="1"/>
+  <line x1="376" y1="30" x2="376" y2="230" stroke="#36445F" stroke-width="1" stroke-dasharray="none" stroke-linecap="round"/>
+  <circle cx="43" cy="43" r="4" fill="#87F4D0" stroke="none" stroke-width="1"/>
+  <text x="56" y="48" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="14" fill="#87F4D0" font-weight="750" text-anchor="start" letter-spacing="2">LIGHT / 16</text>
+  <text x="36" y="105" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="29" fill="#F7F8FF" font-weight="760" text-anchor="start" letter-spacing="0">Local et connecté</text>
+  <text x="38" y="146" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="18" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">Commencer sans compte ;</text>
+  <text x="38" y="170" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="18" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">se connecter si nécessaire.</text>
+  <text x="38" y="224" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="12" fill="#87F4D0" font-weight="720" text-anchor="start" letter-spacing="0.75">STOCKAGE / SYNCHRONISATION</text>
+  <rect x="404" y="33" width="302" height="194" rx="14" fill="#171F35" stroke="#36445F" opacity="1"/>
+  <text x="420" y="58" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#9BAAC6" font-weight="700" text-anchor="start" letter-spacing="1">SUR L’APPAREIL</text>
+  <rect x="743" y="33" width="303" height="194" rx="14" fill="#171F35" stroke="#36445F" opacity="1"/>
+  <text x="759" y="58" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#9BAAC6" font-weight="700" text-anchor="start" letter-spacing="1">COMPTE CONNECTÉ</text>
+  <text x="424" y="101" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="23" fill="#87F4D0" font-weight="740" text-anchor="start" letter-spacing="0">Espace local</text>
+  <text x="425" y="130" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="16" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">Sans compte Google</text>
+  <text x="425" y="175" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" fill="#F7F8FF" font-weight="550" text-anchor="start" letter-spacing="0">Données dans un fichier privé</text>
+  <text x="763" y="101" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="23" fill="#B9A5FF" font-weight="740" text-anchor="start" letter-spacing="0">Cloud Firestore</text>
+  <text x="764" y="130" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="16" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">Firebase Auth · connexion Google</text>
+  <text x="764" y="175" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" fill="#F7F8FF" font-weight="550" text-anchor="start" letter-spacing="0">Cache persistant de Firestore</text>
+  <line x1="712" y1="129" x2="736" y2="129" stroke="#87F4D0" stroke-width="2" stroke-dasharray="none" stroke-linecap="round"/>
+  <path d="M730 125l6 4-6 4" stroke="#87F4D0" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

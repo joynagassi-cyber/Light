@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="260" viewBox="0 0 1080 260" role="img" aria-labelledby="title desc">
+  <title id="title">Recherche</title>
+  <desc id="desc">Retrouver un élément sans parcourir tous les écrans.</desc>
+  <rect x="1" y="1" width="1078" height="258" rx="22" fill="#101728" stroke="#36445F" opacity="1"/>
+  <line x1="376" y1="30" x2="376" y2="230" stroke="#36445F" stroke-width="1" stroke-dasharray="none" stroke-linecap="round"/>
+  <circle cx="43" cy="43" r="4" fill="#9EC9FF" stroke="none" stroke-width="1"/>
+  <text x="56" y="48" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="14" fill="#9EC9FF" font-weight="750" text-anchor="start" letter-spacing="2">LIGHT / 11</text>
+  <text x="36" y="105" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="34" fill="#F7F8FF" font-weight="760" text-anchor="start" letter-spacing="0">Recherche</text>
+  <text x="38" y="146" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="18" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">Retrouver un élément sans</text>
+  <text x="38" y="170" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="18" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">parcourir tous les écrans.</text>
+  <text x="38" y="224" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="12" fill="#9EC9FF" font-weight="720" text-anchor="start" letter-spacing="0.75">4 TYPES DE RÉSULTATS</text>
+  <rect x="404" y="33" width="642" height="194" rx="14" fill="#171F35" stroke="#36445F" opacity="1"/>
+  <rect x="423" y="49" width="601" height="44" rx="11" fill="#101728" stroke="#5A6E99" opacity="1"/>
+  <circle cx="446" cy="69" r="7" fill="none" stroke="#9EC9FF" stroke-width="2"/>
+  <line x1="451" y1="75" x2="456" y2="80" stroke="#9EC9FF" stroke-width="2" stroke-dasharray="none" stroke-linecap="round"/>
+  <text x="470" y="78" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="19" fill="#F7F8FF" font-weight="630" text-anchor="start" letter-spacing="0">algorithmique</text>
+  <rect x="424" y="106" width="101" height="28" rx="14" fill="#101728" stroke="#36445F" opacity="1"/>
+  <circle cx="438" cy="120" r="3" fill="#B9A5FF" stroke="none" stroke-width="1"/>
+  <text x="449" y="125" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" fill="#B9A5FF" font-weight="650" text-anchor="start" letter-spacing="0">Tâches</text>
+  <rect x="536" y="106" width="89" height="28" rx="14" fill="#101728" stroke="#36445F" opacity="1"/>
+  <circle cx="550" cy="120" r="3" fill="#9EC9FF" stroke="none" stroke-width="1"/>
+  <text x="561" y="125" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" fill="#9EC9FF" font-weight="650" text-anchor="start" letter-spacing="0">Cours</text>
+  <rect x="636" y="106" width="121" height="28" rx="14" fill="#101728" stroke="#36445F" opacity="1"/>
+  <circle cx="650" cy="120" r="3" fill="#87F4D0" stroke="none" stroke-width="1"/>
+  <text x="661" y="125" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" fill="#87F4D0" font-weight="650" text-anchor="start" letter-spacing="0">Habitudes</text>
+  <rect x="769" y="106" width="122" height="28" rx="14" fill="#101728" stroke="#36445F" opacity="1"/>
+  <circle cx="783" cy="120" r="3" fill="#FFD293" stroke="none" stroke-width="1"/>
+  <text x="794" y="125" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" fill="#FFD293" font-weight="650" text-anchor="start" letter-spacing="0">Échéances</text>
+  <line x1="423" y1="150" x2="1022" y2="150" stroke="#36445F" stroke-width="1" stroke-dasharray="none" stroke-linecap="round"/>
+  <text x="431" y="179" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="17" fill="#F7F8FF" font-weight="550" text-anchor="start" letter-spacing="0">Réviser les graphes</text>
+  <text x="431" y="205" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" fill="#9BAAC6" font-weight="550" text-anchor="start" letter-spacing="0">Résultat · Tâche</text>
+</svg>

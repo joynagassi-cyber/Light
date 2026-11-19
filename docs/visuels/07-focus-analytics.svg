@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="260" viewBox="0 0 1080 260" role="img" aria-labelledby="title desc">
+  <title id="title">Focus Analytics</title>
+  <desc id="desc">Comparer la durée des séances par jour, mode et profil.</desc>
+  <rect x="1" y="1" width="1078" height="258" rx="22" fill="#101728" stroke="#36445F" opacity="1"/>
+  <line x1="376" y1="30" x2="376" y2="230" stroke="#36445F" stroke-width="1" stroke-dasharray="none" stroke-linecap="round"/>
+  <circle cx="43" cy="43" r="4" fill="#87F4D0" stroke="none" stroke-width="1"/>
+  <text x="56" y="48" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="14" fill="#87F4D0" font-weight="750" text-anchor="start" letter-spacing="2">LIGHT / 07</text>
+  <text x="36" y="105" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="34" fill="#F7F8FF" font-weight="760" text-anchor="start" letter-spacing="0">Focus Analytics</text>
+  <text x="38" y="146" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="18" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">Comparer la durée des séances</text>
+  <text x="38" y="170" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="18" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">par jour, mode et profil.</text>
+  <text x="38" y="224" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="12" fill="#87F4D0" font-weight="720" text-anchor="start" letter-spacing="0.75">COURBE / HEATMAP / RYTHME</text>
+  <rect x="404" y="33" width="365" height="194" rx="14" fill="#171F35" stroke="#36445F" opacity="1"/>
+  <text x="420" y="58" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#9BAAC6" font-weight="700" text-anchor="start" letter-spacing="1">MINUTES PAR JOUR</text>
+  <rect x="782" y="33" width="264" height="194" rx="14" fill="#171F35" stroke="#36445F" opacity="1"/>
+  <text x="798" y="58" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#9BAAC6" font-weight="700" text-anchor="start" letter-spacing="1">RÉPARTITION</text>
+  <line x1="431" y1="90" x2="741" y2="90" stroke="#36445F" stroke-width="1" stroke-dasharray="none" stroke-linecap="round"/>
+  <line x1="431" y1="121" x2="741" y2="121" stroke="#36445F" stroke-width="1" stroke-dasharray="none" stroke-linecap="round"/>
+  <line x1="431" y1="152" x2="741" y2="152" stroke="#36445F" stroke-width="1" stroke-dasharray="none" stroke-linecap="round"/>
+  <line x1="431" y1="183" x2="741" y2="183" stroke="#36445F" stroke-width="1" stroke-dasharray="none" stroke-linecap="round"/>
+  <path d="M431 176L481 153 533 165 585 123 636 140 687 101 739 115" stroke="#87F4D0" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="431" cy="176" r="4" fill="#87F4D0" stroke="none" stroke-width="1"/>
+  <circle cx="481" cy="153" r="4" fill="#87F4D0" stroke="none" stroke-width="1"/>
+  <circle cx="533" cy="165" r="4" fill="#87F4D0" stroke="none" stroke-width="1"/>
+  <circle cx="585" cy="123" r="4" fill="#87F4D0" stroke="none" stroke-width="1"/>
+  <circle cx="636" cy="140" r="4" fill="#87F4D0" stroke="none" stroke-width="1"/>
+  <circle cx="687" cy="101" r="4" fill="#87F4D0" stroke="none" stroke-width="1"/>
+  <circle cx="739" cy="115" r="4" fill="#87F4D0" stroke="none" stroke-width="1"/>
+  <text x="431" y="208" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#9BAAC6" font-weight="660" text-anchor="middle" letter-spacing="0">L</text>
+  <text x="482" y="208" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#9BAAC6" font-weight="660" text-anchor="middle" letter-spacing="0">M</text>
+  <text x="533" y="208" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#9BAAC6" font-weight="660" text-anchor="middle" letter-spacing="0">M</text>
+  <text x="584" y="208" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#9BAAC6" font-weight="660" text-anchor="middle" letter-spacing="0">J</text>
+  <text x="635" y="208" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#9BAAC6" font-weight="660" text-anchor="middle" letter-spacing="0">V</text>
+  <text x="686" y="208" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#9BAAC6" font-weight="660" text-anchor="middle" letter-spacing="0">S</text>
+  <text x="737" y="208" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" fill="#9BAAC6" font-weight="660" text-anchor="middle" letter-spacing="0">D</text>
+  <circle cx="851" cy="136" r="40" fill="none" stroke="#384763" stroke-width="12"/>
+  <path d="M851 96a40 40 0 1 1 -39 50" stroke="#B9A5FF" stroke-width="12" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M811 139a40 40 0 0 1 15-35" stroke="#9EC9FF" stroke-width="12" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="915" y="123" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="17" fill="#F7F8FF" font-weight="680" text-anchor="start" letter-spacing="0">Modes</text>
+  <text x="915" y="151" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="17" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">Profils</text>
+</svg>

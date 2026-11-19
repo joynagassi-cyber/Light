@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="260" viewBox="0 0 1080 260" role="img" aria-labelledby="title desc">
+  <title id="title">Minuteur Focus</title>
+  <desc id="desc">Travailler par session, avec un fond sonore au choix.</desc>
+  <rect x="1" y="1" width="1078" height="258" rx="22" fill="#101728" stroke="#36445F" opacity="1"/>
+  <line x1="376" y1="30" x2="376" y2="230" stroke="#36445F" stroke-width="1" stroke-dasharray="none" stroke-linecap="round"/>
+  <circle cx="43" cy="43" r="4" fill="#87F4D0" stroke="none" stroke-width="1"/>
+  <text x="56" y="48" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="14" fill="#87F4D0" font-weight="750" text-anchor="start" letter-spacing="2">LIGHT / 05</text>
+  <text x="36" y="105" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="34" fill="#F7F8FF" font-weight="760" text-anchor="start" letter-spacing="0">Minuteur Focus</text>
+  <text x="38" y="146" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="18" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">Travailler par session,</text>
+  <text x="38" y="170" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="18" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">avec un fond sonore au choix.</text>
+  <text x="38" y="224" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="12" fill="#87F4D0" font-weight="720" text-anchor="start" letter-spacing="0.75">MINUTEUR / CHRONO / AUDIO</text>
+  <rect x="404" y="33" width="642" height="194" rx="14" fill="#171F35" stroke="#36445F" opacity="1"/>
+  <circle cx="522" cy="129" r="67" fill="none" stroke="#374663" stroke-width="8"/>
+  <path d="M522 62a67 67 0 1 1 -60 96" stroke="#87F4D0" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="522" y="139" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="28" fill="#F7F8FF" font-weight="750" text-anchor="middle" letter-spacing="0">25:00</text>
+  <line x1="618" y1="58" x2="618" y2="200" stroke="#36445F" stroke-width="1" stroke-dasharray="none" stroke-linecap="round"/>
+  <text x="651" y="83" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="17" fill="#F7F8FF" font-weight="700" text-anchor="start" letter-spacing="0">Choisir un mode</text>
+  <rect x="652" y="96" width="116" height="28" rx="14" fill="#101728" stroke="#36445F" opacity="1"/>
+  <circle cx="666" cy="110" r="3" fill="#87F4D0" stroke="none" stroke-width="1"/>
+  <text x="677" y="115" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" fill="#87F4D0" font-weight="650" text-anchor="start" letter-spacing="0">Pomodoro</text>
+  <rect x="779" y="96" width="117" height="28" rx="14" fill="#101728" stroke="#36445F" opacity="1"/>
+  <circle cx="793" cy="110" r="3" fill="#B9A5FF" stroke="none" stroke-width="1"/>
+  <text x="804" y="115" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" fill="#B9A5FF" font-weight="650" text-anchor="start" letter-spacing="0">Deep Code</text>
+  <rect x="652" y="136" width="116" height="28" rx="14" fill="#101728" stroke="#36445F" opacity="1"/>
+  <circle cx="666" cy="150" r="3" fill="#FFD293" stroke="none" stroke-width="1"/>
+  <text x="677" y="155" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" fill="#FFD293" font-weight="650" text-anchor="start" letter-spacing="0">Pause</text>
+  <rect x="779" y="136" width="117" height="28" rx="14" fill="#101728" stroke="#36445F" opacity="1"/>
+  <circle cx="793" cy="150" r="3" fill="#9EC9FF" stroke="none" stroke-width="1"/>
+  <text x="804" y="155" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" fill="#9EC9FF" font-weight="650" text-anchor="start" letter-spacing="0">Chrono</text>
+  <text x="654" y="194" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="16" fill="#C0CBE1" font-weight="550" text-anchor="start" letter-spacing="0">Session → historique Focus</text>
+</svg>

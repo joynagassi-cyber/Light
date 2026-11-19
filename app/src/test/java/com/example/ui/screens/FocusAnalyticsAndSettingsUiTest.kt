@@ -3,6 +3,7 @@ package com.example.ui.screens
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
@@ -362,30 +363,35 @@ class FocusAnalyticsAndSettingsUiTest {
             }
         }
 
-        composeRule.waitForIdle()
-        // Existing Trend chart still present
-        composeRule.onNodeWithTag("progress_trend_chart").assertIsDisplayed()
+        val progressList = composeRule.onNodeWithTag("progress_screen")
+        val studyChart = hasAnyAncestor(hasTestTag("progress_study_chart_card"))
+        val trend = hasTestTag("progress_trend_chart") and studyChart
+        progressList.performScrollToNode(trend)
+        composeRule.onNode(trend).assertIsDisplayed()
 
-        // Switch existing Graphique d'étude card tabs to new Heatmap & Radar 5D modes
+        // The heatmap and radar are rendered both here and in dedicated cards.
+        // Scope each assertion to the card being tested, regardless of the viewport.
+        progressList.performScrollToNode(hasTestTag("chart_mode_heatmap"))
         composeRule.onNodeWithTag("chart_mode_heatmap").performScrollTo().performClick()
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag("focus_analytics_heatmap").assertIsDisplayed()
+        val heatmap = hasTestTag("focus_analytics_heatmap") and studyChart
+        progressList.performScrollToNode(heatmap)
+        composeRule.onNode(heatmap).assertIsDisplayed()
 
+        progressList.performScrollToNode(hasTestTag("chart_mode_radar"))
         composeRule.onNodeWithTag("chart_mode_radar").performScrollTo().performClick()
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag("progress_mastery_radar").assertIsDisplayed()
+        val radar = hasTestTag("progress_mastery_radar") and studyChart
+        progressList.performScrollToNode(radar)
+        composeRule.onNode(radar).assertIsDisplayed()
 
-        // Dedicated premium cards in ProgressScreen
-        composeRule.onNodeWithTag("progress_screen").performScrollToNode(hasTestTag("progress_habit_heatmap_card"))
-        composeRule.onNodeWithTag("progress_habit_heatmap_card").assertIsDisplayed()
-
-        composeRule.onNodeWithTag("progress_screen").performScrollToNode(hasTestTag("progress_velocity_card"))
-        composeRule.onNodeWithTag("progress_velocity_chart").assertIsDisplayed()
-
-        composeRule.onNodeWithTag("progress_screen").performScrollToNode(hasTestTag("progress_mastery_radar_card"))
-        composeRule.onNodeWithTag("progress_mastery_radar_card").assertIsDisplayed()
-
-        composeRule.onNodeWithTag("progress_screen").performScrollToNode(hasTestTag("progress_course_matrix_card"))
-        composeRule.onNodeWithTag("progress_course_matrix_chart").assertIsDisplayed()
+        listOf(
+            "progress_habit_heatmap_card" to "focus_analytics_heatmap",
+            "progress_velocity_card" to "progress_velocity_chart",
+            "progress_mastery_radar_card" to "progress_mastery_radar",
+            "progress_course_matrix_card" to "progress_course_matrix_chart"
+        ).forEach { (cardTag, chartTag) ->
+            val chart = hasTestTag(chartTag) and hasAnyAncestor(hasTestTag(cardTag))
+            progressList.performScrollToNode(chart)
+            composeRule.onNode(chart).assertIsDisplayed()
+        }
     }
 }

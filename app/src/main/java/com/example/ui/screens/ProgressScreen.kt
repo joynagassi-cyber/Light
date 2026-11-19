@@ -315,7 +315,7 @@ fun ProgressScreen(
 
         // Interactive Multi-Mode ProgressChart Card
         item {
-            AppleCard(modifier = Modifier.fillMaxWidth()) {
+            AppleCard(modifier = Modifier.fillMaxWidth().testTag("progress_study_chart_card")) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,

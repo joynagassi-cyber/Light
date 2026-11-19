@@ -266,6 +266,15 @@ errors = [line for line in lines if re.match(r"^(e: |.* > .* FAILED$)", line)]
 if not errors and "* What went wrong:" in lines:
     start = lines.index("* What went wrong:") + 1
     errors = lines[start:lines.index("* Try:", start)] if "* Try:" in lines[start:] else lines[start:start + 20]
+if "testDebugUnitTest" in log:
+    import xml.etree.ElementTree as ET
+
+    for report in Path("app/build/test-results/testDebugUnitTest").glob("TEST-*.xml"):
+        for failure in ET.parse(report).iter("failure"):
+            text = failure.text or ""
+            frame = next((line for line in text.splitlines() if "at com.example." in line), "")
+            errors.append(failure.get("message", "")[:600] + " " + frame.strip())
+
 message = "\n".join(errors[:35])[:6000]
 if message:
     print("::error title=Gradle diagnostics::" + message.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A"))

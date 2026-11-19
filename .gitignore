@@ -27,3 +27,4 @@ google-services.json
 *-debug.log
 firestore-debug.log
 firebase-debug.log
+/release-output/

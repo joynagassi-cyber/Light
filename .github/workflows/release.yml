@@ -48,7 +48,7 @@ jobs:
         with:
           cache-disabled: true
       - name: Install Android SDK
-        run: sdkmanager 'platforms;android-36.1' 'build-tools;36.0.0'
+        run: bash ci/setup-android-sdk.sh
       - name: Sign and verify release
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}

@@ -10,7 +10,7 @@ for name in GOOGLE_SERVICES_JSON KEYSTORE_BASE64 STORE_PASSWORD KEY_ALIAS KEY_PA
 done
 
 config=app/google-services.json
-if [[ -e "$config" ]]; then
+if [[ -e "$config" || -L "$config" ]]; then
   echo '::error::app/google-services.json existe déjà ; le fichier local ne sera pas remplacé.'
   exit 1
 fi

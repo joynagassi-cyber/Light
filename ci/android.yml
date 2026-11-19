@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: android-ci-${{ github.ref }}
+  group: android-ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -40,6 +40,8 @@ jobs:
           name: android-test-reports
           path: app/build/reports/tests/
           retention-days: 14
+      - name: Verify debug APK signature
+        run: '"$ANDROID_HOME/build-tools/36.0.0/apksigner" verify app/build/outputs/apk/debug/app-debug.apk'
       - name: Upload debug APK (local mode)
         uses: actions/upload-artifact@v6
         with:

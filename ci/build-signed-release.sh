@@ -75,7 +75,7 @@ keytool -certreq -keystore "$KEYSTORE_PATH" -alias "$KEY_ALIAS" \
 
 stage='assemblage Gradle de l’APK/AAB signé'
 gradle_log=$(mktemp "${RUNNER_TEMP:-/tmp}/light-gradle.XXXXXXXX")
-if ! ./gradlew :app:assembleRelease :app:bundleRelease -PlightSignedRelease=true --no-build-cache --console=plain 2>&1 | tee "$gradle_log"; then
+if ! ./gradlew :app:assembleRelease :app:bundleRelease -PlightSignedRelease=true --no-build-cache --console=plain >"$gradle_log" 2>&1; then
   # Report only Gradle's failure summary, with signing and Firebase values removed.
   python3 - "$gradle_log" "$config" <<'PY'
 import json
@@ -103,16 +103,17 @@ if summary is None:
 else:
     stop = next((i for i in range(summary + 1, len(lines)) if lines[i].startswith("* ")), len(lines))
     selected = lines[summary + 1:stop]
-text = "\n".join(selected[:12]).strip()
+text = "\n".join(selected[:24]).strip()
 redactions = set(values(json.loads(Path(sys.argv[2]).read_text())))
 redactions.update(os.environ.get(name, "") for name in ("KEYSTORE_PATH", "STORE_PASSWORD", "KEY_PASSWORD"))
 for value in sorted(filter(None, redactions), key=len, reverse=True):
     text = text.replace(value, "[masqué]")
 if text:
-    print("::error title=Gradle release::" + text[:1800].replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A"))
+    print("::error title=Gradle release::" + text[:3000].replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A"))
 PY
   exit 1
 fi
+grep -E '^BUILD SUCCESSFUL' "$gradle_log" || true
 stage='vérification des signatures APK/AAB'
 apk=app/build/outputs/apk/release/app-release.apk
 aab=app/build/outputs/bundle/release/app-release.aab

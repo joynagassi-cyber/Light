@@ -1,15 +1,9 @@
 # CI/CD Android de Light
 
-## Activation des workflows
+## Workflows GitHub Actions
 
-Les fichiers `ci/android.yml` et `ci/ci-cd.yml` sont les versions à installer sur
-GitHub Actions. Un compte autorisé à modifier les workflows doit les copier et
-commiter les deux fichiers ensemble (les modèles dans `ci/` ne s’exécutent pas) :
-
-```sh
-cp ci/android.yml .github/workflows/android.yml
-cp ci/ci-cd.yml .github/workflows/release.yml
-```
+La validation est définie dans `.github/workflows/android.yml` et la publication
+manuelle dans `.github/workflows/release.yml`.
 
 **Light Android CI** exécute `assembleDebug`, `assembleRelease` et
 `testDebugUnitTest` sur les PR et sur `main`, avec JDK 17 et le SDK Android 36.1.

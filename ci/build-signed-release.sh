@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
+stage='validation des secrets'
+trap 'echo "::error::Échec de la publication : $stage"' ERR
 umask 077
 
 for name in GOOGLE_SERVICES_JSON KEYSTORE_BASE64 STORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
@@ -19,6 +21,7 @@ KEYSTORE_PATH=$(mktemp "${RUNNER_TEMP:-/tmp}/light-keystore.XXXXXXXX")
 trap 'rm -f -- "$config" "$KEYSTORE_PATH"' EXIT
 
 # Validate the configuration without echoing its contents or overwriting a local file.
+stage='validation de la configuration Firebase'
 python3 - "$config" <<'PY'
 import base64
 import json
@@ -45,20 +48,34 @@ except (KeyError, TypeError, ValueError, AttributeError, StopIteration):
 with Path(sys.argv[1]).open("x") as config:
     json.dump(payload, config)
 PY
+stage='décodage du keystore'
 printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
 unset GOOGLE_SERVICES_JSON KEYSTORE_BASE64
 
-# The old certificate's private key was made public. Never sign a release with it.
-compromised_sha256=7201f852a9dae4091587d2fae631bdd82183d74c90050b14bfc9459216bc21be02
+# Block both the fingerprint advertised in the old guide and the certificate
+# actually embedded in the publicly exposed keystore.
+stage='lecture du certificat de signature (keystore, alias ou mot de passe)'
 fingerprint=$(keytool -list -v -J-Duser.language=en -J-Duser.country=US \
   -keystore "$KEYSTORE_PATH" -alias "$KEY_ALIAS" -storepass:env STORE_PASSWORD |
   awk '$1 == "SHA256:" {gsub(/:/, "", $2); if (!seen++) print tolower($2)}')
-if [[ ! "$fingerprint" =~ ^[a-f0-9]{64}$ || "$fingerprint" == "$compromised_sha256" ]]; then
-  echo '::error::Certificat de publication invalide ou compromis. Utiliser une nouvelle clé privée.'
+case "$fingerprint" in
+  7201f852a9dae4091587d2fae631bdd82183d74c90050b14bfc9459216bc21be02|f8e1a3f55e7733e94e8e36a9ea977362cf380a0ef20dee7611ed83ab061b301e)
+    echo '::error::Certificat de publication compromis. Utiliser une nouvelle clé privée.'
+    exit 1
+    ;;
+esac
+if [[ ! "$fingerprint" =~ ^[a-f0-9]{64}$ ]]; then
+  echo '::error::Impossible de lire une empreinte SHA-256 valide du certificat.'
   exit 1
 fi
 
+stage='vérification de la clé privée (KEY_PASSWORD et KEY_ALIAS)'
+keytool -certreq -keystore "$KEYSTORE_PATH" -alias "$KEY_ALIAS" \
+  -storepass:env STORE_PASSWORD -keypass:env KEY_PASSWORD -file /dev/null
+
+stage='assemblage Gradle de l’APK/AAB signé'
 ./gradlew :app:assembleRelease :app:bundleRelease -PlightSignedRelease=true --no-build-cache --console=plain
+stage='vérification des signatures APK/AAB'
 apk=app/build/outputs/apk/release/app-release.apk
 aab=app/build/outputs/bundle/release/app-release.aab
 actual=$("${ANDROID_HOME:?}/build-tools/36.0.0/apksigner" verify --print-certs "$apk" |
@@ -70,6 +87,7 @@ aab_fingerprint=$(keytool -printcert -jarfile "$aab" -J-Duser.language=en -J-Dus
 [[ "$aab_fingerprint" == "$fingerprint" ]]
 LC_ALL=C jarsigner -J-Duser.language=en -verify "$aab" | grep -Fx 'jar verified.'
 
+stage='préparation des fichiers de release'
 mkdir -p release-output
 cp "$apk" release-output/Light-release.apk
 cp "$aab" release-output/Light-release.aab

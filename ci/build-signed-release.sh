@@ -18,7 +18,7 @@ if [[ -e "$config" || -L "$config" ]]; then
 fi
 export KEYSTORE_PATH
 KEYSTORE_PATH=$(mktemp "${RUNNER_TEMP:-/tmp}/light-keystore.XXXXXXXX")
-trap 'rm -f -- "$config" "$KEYSTORE_PATH"' EXIT
+trap 'rm -f -- "$config" "$KEYSTORE_PATH" "${gradle_log:-}"' EXIT
 
 # Validate the configuration without echoing its contents or overwriting a local file.
 stage='validation de la configuration Firebase'
@@ -74,7 +74,45 @@ keytool -certreq -keystore "$KEYSTORE_PATH" -alias "$KEY_ALIAS" \
   -storepass:env STORE_PASSWORD -keypass:env KEY_PASSWORD -file /dev/null
 
 stage='assemblage Gradle de l’APK/AAB signé'
-./gradlew :app:assembleRelease :app:bundleRelease -PlightSignedRelease=true --no-build-cache --console=plain
+gradle_log=$(mktemp "${RUNNER_TEMP:-/tmp}/light-gradle.XXXXXXXX")
+if ! ./gradlew :app:assembleRelease :app:bundleRelease -PlightSignedRelease=true --no-build-cache --console=plain 2>&1 | tee "$gradle_log"; then
+  # Report only Gradle's failure summary, with signing and Firebase values removed.
+  python3 - "$gradle_log" "$config" <<'PY'
+import json
+import os
+from pathlib import Path
+import re
+import sys
+
+
+def values(value):
+    if isinstance(value, str) and len(value) >= 8:
+        yield value
+    elif isinstance(value, dict):
+        for child in value.values():
+            yield from values(child)
+    elif isinstance(value, list):
+        for child in value:
+            yield from values(child)
+
+
+lines = Path(sys.argv[1]).read_text(errors="replace").splitlines()
+summary = next((i for i, line in enumerate(lines) if line.strip() == "* What went wrong:"), None)
+if summary is None:
+    selected = [line for line in lines if re.match(r"^(Error:|Exception in thread |> Task .* FAILED)", line)]
+else:
+    stop = next((i for i in range(summary + 1, len(lines)) if lines[i].startswith("* ")), len(lines))
+    selected = lines[summary + 1:stop]
+text = "\n".join(selected[:12]).strip()
+redactions = set(values(json.loads(Path(sys.argv[2]).read_text())))
+redactions.update(os.environ.get(name, "") for name in ("KEYSTORE_PATH", "STORE_PASSWORD", "KEY_PASSWORD"))
+for value in sorted(filter(None, redactions), key=len, reverse=True):
+    text = text.replace(value, "[masqué]")
+if text:
+    print("::error title=Gradle release::" + text[:1800].replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A"))
+PY
+  exit 1
+fi
 stage='vérification des signatures APK/AAB'
 apk=app/build/outputs/apk/release/app-release.apk
 aab=app/build/outputs/bundle/release/app-release.aab

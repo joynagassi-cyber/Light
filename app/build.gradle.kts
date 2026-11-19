@@ -1,21 +1,21 @@
-import com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy
 import java.time.Duration
 
 plugins {
   alias(libs.plugins.android.application)
-  alias(libs.plugins.kotlin.android)
   alias(libs.plugins.kotlin.compose)
   alias(libs.plugins.secrets)
-  alias(libs.plugins.google.services)
+  alias(libs.plugins.google.services) apply false
 }
 
 android {
   namespace = "com.example"
-  compileSdk = 35
+  compileSdk {
+    version = release(36) { minorApiLevel = 1 }
+  }
 
   defaultConfig {
     applicationId = "com.aistudio.elanstudy.vkmrxz"
-    minSdk = 24
+    minSdk = 26
     targetSdk = 35
     versionCode = 1
     versionName = "1.0"
@@ -28,7 +28,7 @@ android {
   signingConfigs {
     create("release") {
       val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
-      val keystoreFile = file(keystorePath)
+      val keystoreFile = rootProject.file(keystorePath)
       if (keystoreFile.exists()) {
         storeFile = keystoreFile
         storePassword = System.getenv("STORE_PASSWORD") ?: "android"
@@ -91,7 +91,10 @@ secrets {
   ignoreList.add("FIREBASE_APPCHECK_DEBUG_TOKEN")
 }
 
-googleServices { missingGoogleServicesStrategy = MissingGoogleServicesStrategy.WARN }
+// A build without Firebase configuration supports the app’s local mode.
+if (file("google-services.json").isFile) {
+  apply(plugin = "com.google.gms.google-services")
+}
 
 // Some unused dependencies are commented out below instead of being removed.
 // This makes it easy to add them back in the future if needed.

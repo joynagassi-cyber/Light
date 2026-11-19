@@ -35,9 +35,9 @@ android {
       val keystoreFile = rootProject.file(keystorePath)
       if (useReleaseInputs && keystoreFile.isFile) {
         storeFile = keystoreFile
-        storePassword = System.getenv("STORE_PASSWORD") ?: "android"
+        storePassword = System.getenv("STORE_PASSWORD") ?: "Light_App_Release_2026_KeySecure!"
         keyAlias = System.getenv("KEY_ALIAS") ?: "upload"
-        keyPassword = System.getenv("KEY_PASSWORD") ?: System.getenv("STORE_PASSWORD") ?: "android"
+        keyPassword = System.getenv("KEY_PASSWORD") ?: System.getenv("STORE_PASSWORD") ?: "Light_App_Release_2026_KeySecure!"
       }
     }
     create("debugConfig") {

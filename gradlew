@@ -246,4 +246,33 @@ eval "set -- $(
         tr '\n' ' '
     )" '"$@"'
 
+# Temporary CI diagnostics while the Actions logs are unavailable in Arena.
+if [ "${GITHUB_ACTIONS:-}" = true ]; then
+    log=$(mktemp)
+    if "$JAVACMD" "$@" >"$log" 2>&1; then
+        cat "$log"
+        rm -f "$log"
+        exit 0
+    else
+        status=$?
+        cat "$log"
+        python3 - "$log" <<'PYLOG'
+import re
+import sys
+from pathlib import Path
+log = Path(sys.argv[1]).read_text(errors="replace")
+lines = log.splitlines()
+errors = [line for line in lines if re.match(r"^(e: |.* > .* FAILED$)", line)]
+if not errors and "* What went wrong:" in lines:
+    start = lines.index("* What went wrong:") + 1
+    errors = lines[start:lines.index("* Try:", start)] if "* Try:" in lines[start:] else lines[start:start + 20]
+message = "\n".join(errors[:35])[:6000]
+if message:
+    print("::error title=Gradle diagnostics::" + message.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A"))
+PYLOG
+        rm -f "$log"
+        exit "$status"
+    fi
+fi
+
 exec "$JAVACMD" "$@"

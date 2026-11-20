@@ -9,6 +9,7 @@ import com.example.data.model.StudyCountdown
 import com.example.data.model.StudyHabit
 import com.example.data.model.StudyProject
 import com.example.data.model.StudyTask
+import com.example.data.model.NavigationLayout
 import com.example.data.model.TaskCategory
 import com.example.data.model.UserGender
 import com.example.data.model.UserProfession
@@ -18,6 +19,9 @@ import kotlinx.coroutines.flow.flowOf
 import java.time.LocalDate
 
 interface StudyWorkspaceRepository {
+    fun observeNavigationLayout(userId: String): Flow<NavigationLayout>
+    suspend fun saveNavigationLayout(userId: String, layout: NavigationLayout)
+
     fun observeUserProfile(userId: String): Flow<UserProfile?>
     fun observeCourses(userId: String): Flow<List<Course>>
     fun observeTasks(userId: String): Flow<List<StudyTask>>

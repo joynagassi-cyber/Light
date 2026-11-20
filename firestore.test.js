@@ -466,3 +466,33 @@ test("Gantt dependencies accept existing owner tasks and reject invalid referenc
   await assertSucceeds(child.update({ completed: true, updatedAt: pastDate() }));
   await assertSucceeds(child.update({ predecessorIds: [], updatedAt: pastDate() }));
 });
+
+test("Navigation syncs between devices, including an offline edit, and rejects settings and credentials", async () => {
+  const assert = require("node:assert/strict");
+  const firebase = require("firebase/compat/app");
+  require("firebase/compat/firestore");
+  const a = testEnv.authenticatedContext(ALICE_UID).firestore();
+  const b = testEnv.authenticatedContext(ALICE_UID).firestore();
+  const other = testEnv.authenticatedContext(BOB_UID).firestore();
+  const nav = (db) => db.collection("users").doc(ALICE_UID).collection("preferences").doc("navigation");
+  const updatedAt = () => firebase.firestore.FieldValue.serverTimestamp();
+  const layout = { order: ["planner", "home", "focus", "matrix"], hidden: ["focus"], icons: { planner: "star" } };
+  await assertSucceeds(nav(a).set({ ...layout, updatedAt: updatedAt() }));
+  assert.deepEqual((await nav(b).get({ source: "server" })).data().order, layout.order);
+  await b.disableNetwork();
+  const pendingWrite = nav(b).set({ ...layout, hidden: ["focus", "matrix"], updatedAt: updatedAt() });
+  const cached = await nav(b).get({ source: "cache" });
+  assert.equal(cached.metadata.hasPendingWrites, true);
+  assert.deepEqual(cached.data().hidden, ["focus", "matrix"]);
+  await b.enableNetwork();
+  await assertSucceeds(pendingWrite);
+  assert.deepEqual((await nav(a).get({ source: "server" })).data().hidden, ["focus", "matrix"]);
+  await assertFails(nav(other).get());
+  await assertFails(nav(other).set({ ...layout, updatedAt: updatedAt() }));
+  for (const bad of [
+    { order: ["home", "planner", "focus", "settings"] },
+    { order: ["home", "home", "focus", "matrix"] },
+    { hidden: ["home"] }, { hidden: ["focus", "matrix", "planner"] },
+    { icons: { home: "unsupported" } }, { apiKey: "fixture" },
+  ]) await assertFails(nav(a).set({ ...layout, ...bad, updatedAt: updatedAt() }));
+});

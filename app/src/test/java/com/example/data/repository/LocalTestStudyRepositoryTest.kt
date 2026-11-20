@@ -2,6 +2,7 @@ package com.example.data.repository
 
 import com.example.data.model.AdaptiveHabitTemplate
 import com.example.data.model.HabitCategory
+import com.example.data.model.NavigationLayout
 import com.example.data.model.NotificationFrequency
 import com.example.data.model.UserGender
 import com.example.data.model.UserProfession
@@ -14,6 +15,24 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LocalTestStudyRepositoryTest {
+
+    @Test fun navigationLayoutSurvivesRestartAndDropsUnexpectedRoutes() = runBlocking {
+        val storage = kotlin.io.path.createTempDirectory("light-nav").toFile()
+        try {
+            val file = java.io.File(storage, "workspace.json")
+            LocalTestStudyRepository(file).saveNavigationLayout("local", NavigationLayout(
+                order = listOf("planner", "settings", "planner", "home"),
+                hidden = listOf("home", "matrix", "focus", "planner"),
+                icons = mapOf("planner" to "star", "settings" to "bolt", "home" to "invalid"),
+            ))
+            val layout = LocalTestStudyRepository(file).observeNavigationLayout("local").first()
+            assertEquals(listOf("planner", "home", "focus", "matrix"), layout.order)
+            assertEquals(listOf("planner", "home"), layout.visible)
+            assertEquals(mapOf("planner" to "star"), layout.icons)
+        } finally {
+            storage.deleteRecursively()
+        }
+    }
 
     @Test
     fun taskOrderDependenciesAndMoveSurviveOpeningTheRepositoryAgain() = runBlocking {

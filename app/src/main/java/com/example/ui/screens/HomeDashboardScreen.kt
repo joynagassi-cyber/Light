@@ -80,6 +80,7 @@ import com.example.ui.theme.AppleEmerald
 import com.example.ui.theme.AppleRose
 import com.example.ui.theme.AppleSky
 import com.example.ui.theme.LocalLightGradient
+import com.example.ui.theme.LightTouchTarget
 import com.example.ui.theme.appBrush
 import com.example.ui.theme.appVerticalBrush
 import java.time.LocalDate
@@ -99,6 +100,7 @@ fun HomeDashboardScreen(
     onNavigateToAgent: () -> Unit,
     onOpenStopwatch: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenProfile: (() -> Unit)? = null,
     onOpenGradientPicker: () -> Unit,
     onOpenCreateTask: () -> Unit,
     modifier: Modifier = Modifier
@@ -142,7 +144,8 @@ fun HomeDashboardScreen(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(44.dp)
+                            .then(if (onOpenProfile != null) Modifier.clickable(onClick = onOpenProfile).testTag("home_open_profile") else Modifier)
+                            .size(LightTouchTarget.minimum)
                             .clip(CircleShape)
                             .background(gradient.appBrush())
                             .padding(2.dp)

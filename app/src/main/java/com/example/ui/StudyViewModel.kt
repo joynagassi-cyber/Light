@@ -24,6 +24,7 @@ import com.example.data.model.StudyCountdown
 import com.example.data.model.StudyHabit
 import com.example.data.model.StudyProject
 import com.example.data.model.StudyTask
+import com.example.data.model.NavigationLayout
 import com.example.data.model.MAX_TASK_PREDECESSORS
 import com.example.data.model.wouldCreateTaskCycle
 import com.example.data.model.TaskCategory
@@ -141,6 +142,25 @@ class StudyViewModel(
 
     val appSettings: StateFlow<StudyAppSettings> = themePreferencesStore.appSettings
         .stateIn(viewModelScope, SharingStarted.Eagerly, StudyAppSettings())
+
+    val navigationLayout: StateFlow<NavigationLayout> = repository.observeNavigationLayout(currentUserId)
+        .catch { error ->
+            if (error is CancellationException) throw error
+            Log.w(TAG, "Navigation preferences unavailable", error)
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), NavigationLayout())
+
+    fun saveNavigationLayout(layout: NavigationLayout) {
+        viewModelScope.launch {
+            try {
+                repository.saveNavigationLayout(currentUserId, layout)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                _bannerMessage.value = "Impossible d’enregistrer la barre de navigation."
+            }
+        }
+    }
 
     val profileState: StateFlow<UiState<UserProfile?>> = repository.observeUserProfile(currentUserId)
         .map<UserProfile?, UiState<UserProfile?>> { UiState.Success(it) }
@@ -1887,7 +1907,7 @@ class StudyViewModel(
 
     private fun welcomeAgentMessage() = AgentChatMessage(
         isUser = false,
-        text = "Bonjour ! Je suis Light, votre assistant de travail. Selon les capacités autorisées, je peux consulter vos données d'étude, créer des tâches, matières, projets, habitudes et échéances, valider une tâche, changer le thème ou lancer Focus. Avant chaque action, je vous présente les détails et j'attends votre accord. Vous gérez mes accès dans le menu ⋮ → Capacités de l'agent."
+        text = "Bonjour ! Je suis Light, votre assistant de travail. Selon les capacités autorisées, je peux consulter vos données d'étude, créer des tâches, matières, projets, habitudes et échéances, valider une tâche, changer le thème ou lancer Focus. Avant chaque action, je vous présente les détails et j'attends votre accord. Vous gérez mes accès dans Paramètres → Capacités de l’agent."
     )
 
     private fun unwrapFirestoreError(error: Throwable): FirebaseFirestoreException? =

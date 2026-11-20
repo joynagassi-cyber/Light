@@ -13,6 +13,7 @@ import com.example.data.model.StudyCountdown
 import com.example.data.model.StudyHabit
 import com.example.data.model.StudyProject
 import com.example.data.model.StudyTask
+import com.example.data.model.NavigationLayout
 import com.example.data.model.normalizeSubtasks
 import com.example.data.model.TaskCategory
 import com.example.data.model.UserGender
@@ -58,6 +59,7 @@ class LocalTestStudyRepository(
         storageFile = File(context.applicationContext.filesDir, "light_local_workspace.json")
     )
 
+    private val navigationLayout = MutableStateFlow(NavigationLayout())
     private val profileFlow = MutableStateFlow<UserProfile?>(null)
     private val coursesFlow = MutableStateFlow<List<Course>>(emptyList())
     private val tasksFlow = MutableStateFlow<List<StudyTask>>(emptyList())
@@ -74,6 +76,13 @@ class LocalTestStudyRepository(
 
     init {
         loadFromDisk()
+    }
+
+    override fun observeNavigationLayout(userId: String): Flow<NavigationLayout> = navigationLayout.asStateFlow()
+
+    override suspend fun saveNavigationLayout(userId: String, layout: NavigationLayout) {
+        navigationLayout.value = layout.normalized()
+        markModifiedAndPersist()
     }
 
     override fun observeUserProfile(userId: String): Flow<UserProfile?> = profileFlow.asStateFlow()
@@ -1037,6 +1046,13 @@ class LocalTestStudyRepository(
                 root["syncedCloudUserIds"]?.jsonArray?.forEach { elem ->
                     elem.jsonPrimitive.contentOrNull?.takeIf { it.isNotBlank() }?.let { syncedCloudUserIds += it }
                 }
+                (root["navigation"] as? JsonObject)?.let { nav ->
+                    fun strings(key: String) = (nav[key] as? JsonArray).orEmpty().mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
+                    navigationLayout.value = NavigationLayout(strings("order"), strings("hidden"),
+                        (nav["icons"] as? JsonObject).orEmpty().mapNotNull { (route, icon) ->
+                            (icon as? JsonPrimitive)?.contentOrNull?.let { route to it }
+                        }.toMap()).normalized()
+                }
                 profileFlow.value = root["profile"]?.let { elem ->
                     (elem as? JsonObject)?.let(::decodeProfile)
                 }
@@ -1072,6 +1088,12 @@ class LocalTestStudyRepository(
         put("hasUserModifications", hasUserModifications)
         put("syncedCloudUserIds", buildJsonArray {
             syncedCloudUserIds.forEach { add(JsonPrimitive(it)) }
+        })
+        val nav = navigationLayout.value
+        put("navigation", buildJsonObject {
+            put("order", JsonArray(nav.order.map { JsonPrimitive(it) }))
+            put("hidden", JsonArray(nav.hidden.map { JsonPrimitive(it) }))
+            put("icons", JsonObject(nav.icons.mapValues { JsonPrimitive(it.value) }))
         })
         profileFlow.value?.let { put("profile", encodeProfile(it)) }
         put("courses", buildJsonArray { coursesFlow.value.forEach { add(encodeCourse(it)) } })

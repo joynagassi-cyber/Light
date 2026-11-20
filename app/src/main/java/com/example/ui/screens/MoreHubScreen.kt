@@ -62,7 +62,6 @@ enum class MoreSubPage(
     val subtitle: String
 ) {
     AGENT("agent", "Assistant Light", "Préparez et ajustez votre planning par commandes"),
-    AGENT_CAPABILITIES("agent_capabilities", "Capacités de l'agent", "Contrôlez précisément chaque action autorisée"),
     FOCUS_PROFILES("focus_profiles", "Profils de Focus", "Apprenez ce que vous voulez & assignez vos tâches"),
     FOCUS_ANALYTICS("focus_analytics", "Focus Analytics", "Durée d'étude quotidienne & courbes Focus"),
     PROGRESS("progress", "Progression", "Objectifs, temps de concentration et résultats"),
@@ -70,7 +69,6 @@ enum class MoreSubPage(
     COUNTDOWN("countdown", "Échéances & jalons", "Examens, projets et dates importantes"),
     SEARCH("search", "Rechercher", "Tâches, cours, habitudes et échéances"),
     PROJECTS("projects", "Planning Gantt", "Tâches, matières, jalons et échéances"),
-    SETTINGS("settings", "Paramètres", "Profil, apparence, notifications et compte")
 }
 
 private data class IndexedPageRow(
@@ -98,11 +96,6 @@ fun MoreHubScreen(
             icon = Icons.Rounded.AutoAwesome,
             color = gradient.accentColor,
             badge = "IA"
-        ),
-        IndexedPageRow(
-            page = MoreSubPage.AGENT_CAPABILITIES,
-            icon = Icons.Rounded.Settings,
-            color = AppleIndigo
         ),
         IndexedPageRow(
             page = MoreSubPage.FOCUS_PROFILES,
@@ -145,11 +138,7 @@ fun MoreHubScreen(
             color = AppleIndigo,
             badge = if (pendingTasksCount > 0) "$pendingTasksCount" else null
         ),
-        IndexedPageRow(
-            page = MoreSubPage.SETTINGS,
-            icon = Icons.Rounded.Settings,
-            color = AppleAmber
-        )
+
     )
 
     LazyColumn(

@@ -36,7 +36,6 @@ import com.example.R
 import com.example.data.model.AgentProvider
 import com.example.data.model.AgentModelOption
 import androidx.compose.ui.unit.dp
-import com.example.data.model.AgentCapabilities
 import com.example.data.model.AgentSkill
 import com.example.data.preferences.StudyAppSettings
 import java.util.UUID
@@ -56,7 +55,6 @@ fun AgentSettingsDialog(
     var baseUrl by remember(settings.agentBaseUrl) { mutableStateOf(settings.agentBaseUrl) }
     var model by remember(settings.agentModel) { mutableStateOf(settings.agentModel) }
     var reflection by remember(settings.agentReflection) { mutableStateOf(settings.agentReflection) }
-    var capabilities by remember(settings.agentCapabilities) { mutableStateOf(settings.agentCapabilities) }
     var skills by remember(settings.agentSkills) { mutableStateOf(settings.agentSkills) }
     var apiKey by remember { mutableStateOf("") }
     var clearKey by remember { mutableStateOf(false) }
@@ -149,21 +147,6 @@ fun AgentSettingsDialog(
                     }
                 }
 
-                Text("Capacités autorisées", style = MaterialTheme.typography.titleSmall)
-                AgentCapabilities.all.forEach { (key, label) ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(label, style = MaterialTheme.typography.bodySmall)
-                        Switch(
-                            checked = key in capabilities,
-                            onCheckedChange = { enabled -> capabilities = if (enabled) capabilities + key else capabilities - key }
-                        )
-                    }
-                }
-
                 Text("Compétences personnalisées", style = MaterialTheme.typography.titleSmall)
                 Text("Ajoutez des consignes réutilisables pour apprendre à l'agent votre façon de travailler.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedTextField(newSkillName, { newSkillName = it }, label = { Text("Nom de la compétence") }, singleLine = true, modifier = Modifier.fillMaxWidth())
@@ -198,7 +181,7 @@ fun AgentSettingsDialog(
         },
         confirmButton = {
             TextButton(onClick = {
-                onSave(provider, baseUrl.trim(), model.trim(), reflection, capabilities, skills, apiKey.takeIf { it.isNotBlank() }, clearKey)
+                onSave(provider, baseUrl.trim(), model.trim(), reflection, settings.agentCapabilities, skills, apiKey.takeIf { it.isNotBlank() }, clearKey)
             }) { Text("Enregistrer") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } }

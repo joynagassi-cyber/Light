@@ -118,3 +118,19 @@ Le tag `FirestoreError` fournit désormais `code`, `operationType` et un chemin 
 - « Annuler » ferme l’état de chargement, conserve le brouillon et empêche une réponse tardive de remplacer l’état courant. Le fournisseur peut avoir déjà traité et facturé la requête ; l’annulation dans Light ne prétend pas annuler ce traitement à distance.
 - Non vérifié : génération réelle sur Anthropic et les autres fournisseurs. Ce complément ne réécrit pas le chat Anthropic lui-même. Pas de changement de phase, de release ni de déploiement. Pour le Gate 2, suivre le parcours physique ci-dessus.
 - **Preuves du commit `09adc18`** : [CI Android réussie](https://github.com/joynagassi-cyber/Light/actions/runs/44714127250), y compris le contrat du fournisseur, la compilation debug/release et la vérification de la signature debug. Les tests de contrat n’appellent aucun service réel.
+
+# Phase 3 — Navigation, profil, réglages et bibliothèque
+
+**Démarrée sur demande explicite. Les Gates physiques précédents ne sont pas validés rétroactivement ; Gate 3 non validé.**
+
+### Premier lot : navigation et points d’entrée
+
+- **Barre de navigation** : page dédiée dans Paramètres, réordonnancement par flèches accessibles, activation et quatre icônes au choix en plus de l’icône par défaut. Deux à quatre fonctionnalités visibles, Accueil obligatoire pour garder le chemin vers les réglages. Explorer reste fixe, donne accès aux fonctions masquées et ne contient ni Paramètres ni Capacités. La barre et le rail tablette partagent la même configuration.
+- **Synchronisation** : document `users/{uid}/preferences/navigation`, privé au compte, liste fermée de routes et d’icônes. La dernière écriture validée remplace la disposition entière ; la mise en cache Firestore existante est utilisée pour les modifications hors ligne. En stockage local, la disposition survit au redémarrage. Les nouvelles règles sont à tester sur un projet de test avant déploiement ; aucune règle n’est publiée ici.
+- **Profil et Capacités** : l’avatar d’Accueil et l’entrée Compte ouvrent la même page Profil, et non une feuille. La couverture par défaut est un dégradé déterministe par UID. Les capacités ont une page dans Paramètres et ne sont plus éditables dans Explorer ni dans la fenêtre de configuration du chat.
+
+### Preuves, limites et décisions
+
+- Tests prévus pour l’ordre, l’icône, les limites et la persistance locale ; scénario émulateur à deux clients du même compte, dont une écriture hors ligne, refus d’un autre compte et du stockage d’une clé. Ces contrôles ne remplacent pas l’essai physique.
+- **Non fait dans ce lot** : conversion des autres entrées héritées de Paramètres en pages, import de couverture et Unsplash avec proxy/attribution/tracking, liens de création de clés et réglages image, bibliothèque cloud et rendu isolé des artefacts (Markdown/PDF/HTML). Pas d’intégration Unsplash/Agnes sur la base d’une URL ou d’un secret supposé. Phase 4 non démarrée.
+- **À vérifier sur téléphone pour ce lot** : réordonner deux fonctions, en masquer une, changer d’icône ; vérifier le résultat sur un second téléphone du même compte, puis modifier hors ligne et rouvrir Light. Depuis l’avatar et Paramètres, vérifier le même profil en clair et sombre et les retours vers le bon écran. Le Gate 3 complet attend aussi les éléments non faits ci-dessus.

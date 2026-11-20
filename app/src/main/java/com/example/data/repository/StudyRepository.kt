@@ -16,6 +16,7 @@ import com.example.data.model.StudyCountdown
 import com.example.data.model.StudyHabit
 import com.example.data.model.StudyProject
 import com.example.data.model.StudyTask
+import com.example.data.model.NavigationLayout
 import com.example.data.model.normalizeSubtasks
 import com.example.data.model.TaskCategory
 import com.example.data.model.UserGender
@@ -55,6 +56,7 @@ class StudyRepository(
     )
 
     private fun userDoc(userId: String) = db.collection("users").document(userId)
+    private fun navigationDoc(userId: String) = userDoc(userId).collection("preferences").document("navigation")
     private fun coursesCol(userId: String) = userDoc(userId).collection("courses")
     private fun tasksCol(userId: String) = userDoc(userId).collection("tasks")
     private fun projectsCol(userId: String) = userDoc(userId).collection("projects")
@@ -66,6 +68,25 @@ class StudyRepository(
     private fun requireSignedInUid(): String {
         return auth.currentUser?.uid
             ?: throw IllegalStateException("L'utilisateur doit être connecté avec Google.")
+    }
+
+    override fun observeNavigationLayout(userId: String): Flow<NavigationLayout> =
+        navigationDoc(userId).snapshots().map { doc ->
+            NavigationLayout(
+                order = (doc.get("order") as? List<*>)?.filterIsInstance<String>().orEmpty(),
+                hidden = (doc.get("hidden") as? List<*>)?.filterIsInstance<String>().orEmpty(),
+                icons = (doc.get("icons") as? Map<*, *>)?.entries?.mapNotNull { (route, icon) ->
+                    if (route is String && icon is String) route to icon else null
+                }?.toMap().orEmpty(),
+            ).normalized()
+        }
+
+    override suspend fun saveNavigationLayout(userId: String, layout: NavigationLayout) {
+        require(requireSignedInUid() == userId) { "Utilisateur non autorisé." }
+        val safe = layout.normalized()
+        val ref = navigationDoc(userId)
+        awaitOptimisticWrite(ref.set(mapOf("order" to safe.order, "hidden" to safe.hidden, "icons" to safe.icons,
+            "updatedAt" to FieldValue.serverTimestamp())), OperationType.WRITE, ref.path)
     }
 
     override fun observeUserProfile(userId: String): Flow<UserProfile?> =
@@ -221,7 +242,8 @@ class StudyRepository(
             focusProfilesCol(userId).snapshots(MetadataChanges.INCLUDE).map { it.metadata.hasPendingWrites() }.catch { emit(false) }
         ) { profilePending, tasksPending, projectsPending, habitsPending, focusProfilesPending ->
             profilePending || tasksPending || projectsPending || habitsPending || focusProfilesPending
-        }
+        }.combine(navigationDoc(userId).snapshots(MetadataChanges.INCLUDE)
+            .map { it.metadata.hasPendingWrites() }.catch { emit(false) }) { existing, navigation -> existing || navigation }
 
     private suspend fun awaitOptimisticWrite(
         task: Task<*>,

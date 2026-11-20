@@ -8,7 +8,7 @@ apk="$folder/Light-release.apk"
 package='com.aistudio.elanstudy.vkmrxz'
 sha='5eea2619bfca1ae62383139c673576a416d145b9156fde31bf4e3a638bf5330b'
 # SHA-256 of the signing certificate used for Light's first public release.
-cert='d167b2c477b3a0f3222b26a0a1818acfd3ea4f9a3f233a603b68532d76f82a1e'
+cert='d167b2c477b3a0f3222b260ca1818aceb3ea4f9a3f233a603b68532d76f82a1e'
 
 verify() {
     local tools="${ANDROID_HOME:?}/build-tools/36.0.0"
@@ -21,11 +21,17 @@ verify() {
     [[ $(wc -c < "$apk") -eq 83761102 ]]
     signature=$("$tools/apksigner" verify --verbose --print-certs --min-sdk-version 26 "$apk")
     printf '%s\n' "$signature" | grep -E '^Verifies$|^Verified using v[0-9]|^Signer #1 certificate SHA-256 digest:'
-    grep -Fxq "Signer #1 certificate SHA-256 digest: $cert" <<< "$signature"
+    if ! grep -Fxq "Signer #1 certificate SHA-256 digest: $cert" <<< "$signature"; then
+        echo "::error::Le certificat embarqué diffère de l’empreinte de référence v1.0.0."
+        return 1
+    fi
     badging=$("$tools/aapt" dump badging "$apk")
     grep -E '^package:|^sdkVersion:|^targetSdkVersion:|^native-code:' <<< "$badging"
-    grep -Fq "package: name='$package' versionCode='1' versionName='1.0.0'" <<< "$badging"
-    grep -Fxq "sdkVersion:'26'" <<< "$badging"
+    if ! grep -Fq "package: name='$package' versionCode='1' versionName='1.0.0'" <<< "$badging" ||
+        ! grep -Fxq "sdkVersion:'26'" <<< "$badging"; then
+        echo "::error::Les métadonnées de package, version ou minSdk diffèrent de la référence v1.0.0."
+        return 1
+    fi
     sed -n "s/^launchable-activity: name='\([^']*\)'.*/\1/p" <<< "$badging" > "$folder/activity"
     [[ -s "$folder/activity" ]]
 }
@@ -41,7 +47,13 @@ install() {
         echo 'First install test requires a clean emulator.' >&2
         return 1
     fi
-    python3 ci/android_install.py "$apk" --checksums "$folder/SHA256SUMS.txt"
+    python3 ci/android_install.py "$apk" --checksums "$folder/SHA256SUMS.txt" > "$folder/adb-install.txt.log" 2>&1 || {
+        cat "$folder/adb-install.txt.log"
+        code=$(grep -oE 'INSTALL_FAILED_[A-Z0-9_]+' "$folder/adb-install.txt.log" | head -1 || true)
+        echo "::error::Première installation refusée sur API $reported_api : ${code:-code Android indisponible}."
+        return 1
+    }
+    cat "$folder/adb-install.txt.log"
     installed=$(adb shell pm path "$package" | tr -d '\r')
     [[ $installed == package:* ]]
     echo 'Package installé (Package Manager).'

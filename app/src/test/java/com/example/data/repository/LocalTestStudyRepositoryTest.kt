@@ -16,6 +16,33 @@ import org.junit.Test
 class LocalTestStudyRepositoryTest {
 
     @Test
+    fun taskOrderDependenciesAndMoveSurviveOpeningTheRepositoryAgain() = runBlocking {
+        val storage = kotlin.io.path.createTempDirectory("light-phase2").toFile()
+        try {
+            val file = java.io.File(storage, "workspace.json")
+            val repo = LocalTestStudyRepository(file)
+            suspend fun create(title: String, steps: List<String> = emptyList()) = repo.createTask(
+                userId = "test", courseId = "", courseTitle = "", title = title, notes = "",
+                startDateIso = "2026-11-18", dueDateIso = "2026-11-19", scheduledTime = "09:30",
+                priority = "medium", estimatedMinutes = 30L, subtasks = steps,
+            )
+            val first = create("Préparer le cours")
+            val next = create("Réviser", listOf("Faire les exercices", "Relire le chapitre"))
+            repo.setTaskPredecessors("test", next, listOf(first))
+            repo.moveTask("test", next, "2026-11-20", "2026-11-21", "10:30")
+
+            val reopened = LocalTestStudyRepository(file).observeTasks("test").first().single { it.id == next }
+            assertEquals(listOf("Faire les exercices", "Relire le chapitre"), reopened.subtasks)
+            assertEquals(listOf(first), reopened.predecessorIds)
+            assertEquals("2026-11-20", reopened.startDateIso)
+            assertEquals("2026-11-21", reopened.dueDateIso)
+            assertEquals("10:30", reopened.scheduledTime)
+        } finally {
+            storage.deleteRecursively()
+        }
+    }
+
+    @Test
     fun localTestMode_seedsInitialWorkspace_andAdaptsAfterOnboarding() = runBlocking {
         val repo = LocalTestStudyRepository()
         val uid = "local_test_user"

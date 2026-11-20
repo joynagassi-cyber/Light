@@ -1045,9 +1045,8 @@ class StudyViewModel(
         viewModelScope.launch {
             try {
                 val tasks = plan.tasks.map { aiTask ->
-                    val matchedCourse = courses.firstOrNull {
-                        it.code.equals(aiTask.courseCode, ignoreCase = true) ||
-                            it.title.contains(aiTask.courseCode, ignoreCase = true)
+                    val matchedCourse = aiTask.courseCode.takeIf(String::isNotBlank)?.let { code ->
+                        courses.firstOrNull { it.code.equals(code, ignoreCase = true) }
                     }
                     StudyTask(
                         userId = currentUserId,

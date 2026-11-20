@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -67,6 +68,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.testTag
@@ -733,7 +735,7 @@ private fun GanttTaskRow(
 }
 
 @Composable
-private fun GanttTaskBar(
+internal fun GanttTaskBar(
     task: StudyTask,
     span: GanttTaskSpan,
     scale: GanttScale,
@@ -818,8 +820,10 @@ private fun GanttDependenciesDialog(
                     items(candidates, key = { it.first.id }) { (candidate, cycle) ->
                         val checked = candidate.id in selected
                         val enabled = checked || (!cycle && selected.size < MAX_TASK_PREDECESSORS)
-                        fun toggle() { selected = if (checked) selected - candidate.id else selected + candidate.id }
-                        Row(Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = ::toggle), verticalAlignment = Alignment.CenterVertically) {
+                        Row(Modifier.fillMaxWidth().toggleable(
+                            value = checked, enabled = enabled, role = Role.Checkbox,
+                            onValueChange = { select -> selected = if (select) selected + candidate.id else selected - candidate.id },
+                        ), verticalAlignment = Alignment.CenterVertically) {
                             Checkbox(checked, onCheckedChange = null, enabled = enabled, modifier = Modifier.size(LightSpacing.six))
                             Column(Modifier.weight(1f)) {
                                 Text(candidate.title)

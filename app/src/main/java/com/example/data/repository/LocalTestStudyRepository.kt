@@ -13,6 +13,7 @@ import com.example.data.model.StudyCountdown
 import com.example.data.model.StudyHabit
 import com.example.data.model.StudyProject
 import com.example.data.model.StudyTask
+import com.example.data.model.normalizeSubtasks
 import com.example.data.model.TaskCategory
 import com.example.data.model.UserGender
 import com.example.data.model.UserProfession
@@ -482,7 +483,8 @@ class LocalTestStudyRepository(
         startDateIso: String,
         projectId: String,
         focusProfileId: String,
-        focusProfileTitle: String
+        focusProfileTitle: String,
+        subtasks: List<String>
     ): String {
         val project = projectsFlow.value.firstOrNull { it.id == projectId }
         require(projectId.isBlank() || project != null) { "Le projet sélectionné n'existe plus." }
@@ -496,6 +498,7 @@ class LocalTestStudyRepository(
             courseTitle = courseTitle.take(100),
             title = title.trim().take(140),
             notes = notes.trim().take(500),
+            subtasks = normalizeSubtasks(subtasks),
             dueDateIso = dueDateIso.trim().take(20),
             startDateIso = startDateIso.trim().take(20).ifBlank { dueDateIso.trim().take(20) },
             projectId = projectId,
@@ -536,6 +539,11 @@ class LocalTestStudyRepository(
         tasksFlow.update { list ->
             list.map { item -> if (item.id == task.id) item.copy(completed = !item.completed) else item }
         }
+        markModifiedAndPersist()
+    }
+
+    override suspend fun moveTask(userId: String, taskId: String, start: String, due: String) {
+        tasksFlow.update { tasks -> tasks.map { if (it.id == taskId && it.userId == userId) it.copy(startDateIso = start, dueDateIso = due) else it } }
         markModifiedAndPersist()
     }
 
@@ -907,7 +915,8 @@ class LocalTestStudyRepository(
                     startDateIso = localTask.startDateIso,
                     projectId = mappedProjectId,
                     focusProfileId = mappedFocusProfileId,
-                    focusProfileTitle = localTask.focusProfileTitle
+                    focusProfileTitle = localTask.focusProfileTitle,
+                    subtasks = localTask.subtasks
                 )
                 if (localTask.completed) {
                     cloudRepo.toggleTaskCompleted(cloudUserId, localTask.copy(id = createdId, completed = false))
@@ -1158,6 +1167,7 @@ class LocalTestStudyRepository(
         put("courseTitle", t.courseTitle)
         put("title", t.title)
         put("notes", t.notes)
+        put("subtasks", buildJsonArray { t.subtasks.forEach { add(JsonPrimitive(it)) } })
         put("dueDateIso", t.dueDateIso)
         put("scheduledTime", t.scheduledTime)
         put("priority", t.priority)
@@ -1179,6 +1189,7 @@ class LocalTestStudyRepository(
         courseTitle = obj["courseTitle"]?.jsonPrimitive?.contentOrNull.orEmpty(),
         title = obj["title"]?.jsonPrimitive?.contentOrNull.orEmpty(),
         notes = obj["notes"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+        subtasks = normalizeSubtasks((obj["subtasks"] as? JsonArray).orEmpty().mapNotNull { (it as? JsonPrimitive)?.contentOrNull }),
         dueDateIso = obj["dueDateIso"]?.jsonPrimitive?.contentOrNull.orEmpty(),
         scheduledTime = obj["scheduledTime"]?.jsonPrimitive?.contentOrNull.orEmpty(),
         priority = obj["priority"]?.jsonPrimitive?.contentOrNull ?: "medium",

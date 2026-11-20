@@ -157,8 +157,15 @@ data class StudyTask(
     val startDateIso: String = "",
     val projectId: String = "",
     val focusProfileId: String = "",
-    val focusProfileTitle: String = ""
+    val focusProfileTitle: String = "",
+    val subtasks: List<String> = emptyList()
 )
+
+const val MAX_TASK_SUBTASKS = 8
+const val MAX_SUBTASK_LENGTH = 120
+
+fun normalizeSubtasks(items: List<String>): List<String> = items
+    .asSequence().map { it.trim().take(MAX_SUBTASK_LENGTH) }.filter { it.isNotEmpty() }.take(MAX_TASK_SUBTASKS).toList()
 
 fun StudyTask.resolvedQuadrant(todayIso: String = java.time.LocalDate.now().toString()): Int {
     if (quadrant in 1L..4L) return quadrant.toInt()

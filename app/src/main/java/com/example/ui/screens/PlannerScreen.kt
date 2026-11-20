@@ -301,7 +301,7 @@ fun PlannerScreen(
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 4.dp))
                             DropdownMenuItem(
                                 text = {
-                                    Text(if (aiExpanded) "Masquer Assistant IA" else "Planificateur IA Gemini")
+                                    Text(if (aiExpanded) "Masquer Assistant IA" else "Planificateur IA")
                                 },
                                 leadingIcon = {
                                     Icon(
@@ -730,7 +730,7 @@ private fun SmartAiPlannerCard(
                             )
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
-                                text = "Gemini structure votre planning...",
+                                text = "Le modèle actif prépare votre planning…",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -921,6 +921,10 @@ private fun PlannerTaskRow(
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
+                }
+                task.subtasks.forEachIndexed { index, subtask ->
+                    Text("${index + 1}. $subtask", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(

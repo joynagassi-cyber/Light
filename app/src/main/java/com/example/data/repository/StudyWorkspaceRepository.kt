@@ -105,11 +105,13 @@ interface StudyWorkspaceRepository {
         startDateIso: String = "",
         projectId: String = "",
         focusProfileId: String = "",
-        focusProfileTitle: String = ""
+        focusProfileTitle: String = "",
+        subtasks: List<String> = emptyList()
     ): String
 
     suspend fun createTasksBatch(userId: String, tasks: List<StudyTask>)
     suspend fun toggleTaskCompleted(userId: String, task: StudyTask)
+    suspend fun moveTask(userId: String, taskId: String, start: String, due: String)
     suspend fun updateTaskQuadrant(userId: String, taskId: String, quadrant: Long)
     suspend fun assignTaskToFocusProfile(
         userId: String,

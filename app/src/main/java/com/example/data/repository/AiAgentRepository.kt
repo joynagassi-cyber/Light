@@ -429,15 +429,7 @@ Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
     ): AgentTurnResult {
         require(!apiKey.isNullOrBlank()) { "Ajoutez une clé API dans les réglages de Light Agent pour utiliser ce fournisseur." }
         require(settings.agentModel.isNotBlank()) { "Indiquez le nom du modèle à utiliser." }
-        val root = settings.agentBaseUrl.trim().trimEnd('/')
-        require(root.startsWith("https://", ignoreCase = true)) { "L'URL du fournisseur doit commencer par https:// pour protéger votre clé API." }
-        val endpoint = when {
-            root.endsWith("/chat/completions", ignoreCase = true) -> root
-            root.endsWith("/v1", ignoreCase = true) -> "$root/chat/completions"
-            else -> "$root/v1/chat/completions"
-        }
-        val endpointUrl = URL(endpoint)
-        require(endpointUrl.host.isNotBlank() && endpointUrl.userInfo == null) { "L'URL du fournisseur n'est pas valide." }
+        val endpoint = compatibleEndpoint(settings.agentBaseUrl)
         if (openAiHistory.isEmpty()) {
             openAiHistory += buildJsonObject {
                 put("role", "system")
@@ -522,6 +514,33 @@ Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
             }
         }
         return AgentTurnResult("J'ai arrêté la séquence après plusieurs appels d'outils. Vérifiez le résultat dans l'application.", executedActions)
+    }
+
+    private fun compatibleEndpoint(baseUrl: String): String {
+        val root = baseUrl.trim().trimEnd('/')
+        require(root.startsWith("https://", ignoreCase = true)) { "L'URL du fournisseur doit commencer par https:// pour protéger votre clé API." }
+        val endpoint = when {
+            root.endsWith("/chat/completions", ignoreCase = true) -> root
+            root.endsWith("/v1", ignoreCase = true) -> "$root/chat/completions"
+            else -> "$root/v1/chat/completions"
+        }
+        val endpointUrl = URL(endpoint)
+        require(endpointUrl.host.isNotBlank() && endpointUrl.userInfo == null) { "L'URL du fournisseur n'est pas valide." }
+        return endpoint
+    }
+
+    /** A stateless completion: planning never inherits chat history, skills or tools. */
+    internal suspend fun completePlannerPrompt(prompt: String, settings: StudyAppSettings, apiKey: String?): String {
+        require(settings.agentModel.isNotBlank()) { "Sélectionnez d’abord un modèle dans les réglages de Light Agent." }
+        require(!apiKey.isNullOrBlank()) { "Ajoutez la clé API du fournisseur actif dans les réglages de Light Agent." }
+        val request = buildJsonObject {
+            put("model", settings.agentModel.trim())
+            put("messages", JsonArray(listOf(buildJsonObject { put("role", "user"); put("content", prompt) })))
+        }
+        val response = postChatCompletion(compatibleEndpoint(settings.agentBaseUrl), apiKey, request, settings.agentProvider)
+        return response["choices"]?.jsonArray?.firstOrNull()?.jsonObject?.get("message")?.jsonObject
+            ?.get("content")?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
+            ?: error("Le modèle actif n’a pas renvoyé de plan exploitable.")
     }
 
     private suspend fun postChatCompletion(endpoint: String, apiKey: String, payload: JsonObject, providerId: String): JsonObject =

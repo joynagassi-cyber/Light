@@ -136,6 +136,7 @@ import com.example.ui.screens.EisenhowerScreen
 import com.example.ui.screens.FocusAnalyticsScreen
 import com.example.ui.screens.FocusProfilesScreen
 import com.example.ui.screens.FocusScreen
+import com.example.ui.screens.ImmersiveFocusSession
 import com.example.ui.screens.GanttScreen
 import com.example.ui.screens.HabitsScreen
 import com.example.ui.screens.HomeDashboardScreen
@@ -461,12 +462,20 @@ private fun AuthenticatedStudyShell(
 
     val isLoadingInitialProfile = profileState is UiState.Loading
     val needsOnboarding = (profile != null && !profile.onboardingCompleted) || showOnboardingOverlay
+    var immersiveDismissed by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(focusState.isRunning) {
+        if (!focusState.isRunning) immersiveDismissed = false
+    }
+    val showImmersiveFocus = currentTab == LightTab.FOCUS && focusState.isRunning && !immersiveDismissed &&
+        !showSettingsOverlay && !showTaskCreation && !needsOnboarding && !isLoadingInitialProfile
     val isOnAgentChat = !needsOnboarding && !isLoadingInitialProfile &&
         currentTab == LightTab.MORE && activeMorePage == MoreSubPage.AGENT &&
         !showSettingsOverlay && !showTaskCreation
 
     if (!needsOnboarding && !isLoadingInitialProfile) {
-        if (isOnAgentChat && agentDrawerState.isOpen) {
+        if (showImmersiveFocus) {
+            BackHandler { immersiveDismissed = true }
+        } else if (isOnAgentChat && agentDrawerState.isOpen) {
             BackHandler {
                 scope.launch { agentDrawerState.close() }
             }
@@ -533,6 +542,8 @@ private fun AuthenticatedStudyShell(
                 },
                 onSkip = { showOnboardingOverlay = false }
             )
+        } else if (showImmersiveFocus) {
+            ImmersiveFocusSession(focusState, onExit = { immersiveDismissed = true })
         } else {
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val useRail = maxWidth >= 700.dp
@@ -1169,6 +1180,7 @@ private fun AuthenticatedStudyShell(
                                                             },
                                                             onToggleTask = viewModel::toggleTaskCompleted,
                                                             onDeleteTask = viewModel::deleteTask,
+                                                            onMoveTask = viewModel::moveTask,
                                                             externalCreateTrigger = ganttCreateTrigger
                                                         )
 
@@ -1310,15 +1322,7 @@ private fun AuthenticatedStudyShell(
             }
         }
 
-        AnimatedVisibility(
-            visible = showTaskCreation,
-            enter = slideInVertically(
-                animationSpec = tween(280, easing = FastOutSlowInEasing)
-            ) { fullHeight -> fullHeight } + fadeIn(tween(220)),
-            exit = slideOutVertically(
-                animationSpec = tween(240, easing = FastOutSlowInEasing)
-            ) { fullHeight -> fullHeight } + fadeOut(tween(180))
-        ) {
+        if (showTaskCreation) {
             TaskCreationScreen(
                 courses = courses,
                 projects = projects,
@@ -1327,14 +1331,13 @@ private fun AuthenticatedStudyShell(
                 initialQuadrant = pendingTaskQuadrant,
                 initialProjectId = pendingProjectId,
                 initialFocusProfileId = pendingFocusProfileId,
-                profile = profile,
                 onCancel = {
                     pendingTaskQuadrant = null
                     pendingProjectId = ""
                     pendingFocusProfileId = ""
                     showTaskCreation = false
                 },
-                onCreateTask = { course, title, notes, startDateIso, dueDateIso, scheduledTime, priority, category, estimatedMinutes, quadrant, projectId, focusProfileId, focusProfileTitle ->
+                onCreateTask = { course, title, notes, startDateIso, dueDateIso, scheduledTime, priority, category, estimatedMinutes, quadrant, projectId, focusProfileId, focusProfileTitle, subtasks ->
                     viewModel.createTask(
                         course = course,
                         title = title,
@@ -1348,7 +1351,8 @@ private fun AuthenticatedStudyShell(
                         quadrant = quadrant,
                         projectId = projectId,
                         focusProfileId = focusProfileId,
-                        focusProfileTitle = focusProfileTitle
+                        focusProfileTitle = focusProfileTitle,
+                        subtasks = subtasks
                     )
                     viewModel.selectDate(dueDateIso)
                     pendingTaskQuadrant = null

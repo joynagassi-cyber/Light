@@ -429,3 +429,19 @@ test("Same-account devices observe committed task creation in both directions; o
     await assertFails(taskRef(otherUser, id).get());
   }
 });
+
+test("Task subtasks preserve order and reject invalid items; moving both dates is atomic", async () => {
+  const db = testEnv.authenticatedContext(ALICE_UID).firestore();
+  const task = db.collection("users").doc(ALICE_UID).collection("tasks").doc("draft");
+  await assertSucceeds(task.set({
+    userId: ALICE_UID, title: "Réviser", startDateIso: "2026-11-18", dueDateIso: "2026-11-19",
+    subtasks: ["Lire", "Résumer"], priority: "medium", estimatedMinutes: 30,
+    completed: false, aiGenerated: false, createdAt: pastDate(), updatedAt: pastDate(),
+  }));
+  require("node:assert/strict").deepEqual((await task.get()).data().subtasks, ["Lire", "Résumer"]);
+  for (const subtasks of [Array(9).fill("test"), ["Lire", 2], [""], ["x".repeat(121)]]) {
+    await assertFails(task.update({ subtasks, updatedAt: pastDate() }));
+  }
+  await assertFails(task.update({ startDateIso: "2026-11-21", updatedAt: pastDate() }));
+  await assertSucceeds(task.update({ startDateIso: "2026-11-21", dueDateIso: "2026-11-22", updatedAt: pastDate() }));
+});

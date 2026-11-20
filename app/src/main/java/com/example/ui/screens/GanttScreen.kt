@@ -94,6 +94,7 @@ fun GanttScreen(
     onCreateTask: (String) -> Unit,
     onToggleTask: (StudyTask) -> Unit,
     onDeleteTask: (String) -> Unit,
+    onMoveTask: ((StudyTask, LocalDate) -> Unit)? = null,
     externalCreateTrigger: Int = 0,
     modifier: Modifier = Modifier
 ) {
@@ -115,7 +116,13 @@ fun GanttScreen(
     val scale = GanttScale.fromKey(scaleKey)
     val anchor = remember(anchorIso) { runCatching { LocalDate.parse(anchorIso) }.getOrElse { LocalDate.now() } }
     val window = remember(anchor, scale) { ganttWindow(anchor, scale) }
-    val validTasks = remember(tasks) { tasks.filter { it.ganttSpan() != null } }
+    val validTasks = remember(tasks, projects) {
+        val projectIds = projects.mapTo(mutableSetOf()) { it.id }
+        tasks.filter { it.ganttSpan() != null }.map { task ->
+            // A deleted/unavailable project must not hide its task from the timeline.
+            if (task.projectId.isNotBlank() && task.projectId !in projectIds) task.copy(projectId = "") else task
+        }
+    }
     val visibleProjects = remember(projects, validTasks, window, selectedProjectId) {
         projects.filter { project ->
             val span = project.ganttSpan()
@@ -125,7 +132,6 @@ fun GanttScreen(
         }
     }
     val visibleTasks = remember(validTasks, window, statusFilter, selectedCourseId, selectedProjectId, projects) {
-        val validProjectIds = projects.mapTo(mutableSetOf()) { it.id }
         validTasks.filter { task ->
             val statusMatches = when (statusFilter) {
                 GanttStatusFilter.ALL -> true
@@ -134,8 +140,7 @@ fun GanttScreen(
             }
             val courseMatches = selectedCourseId == "all" || task.courseId == selectedCourseId
             val projectMatches = selectedProjectId == "all" || task.projectId == selectedProjectId
-            val projectReferenceValid = task.projectId.isBlank() || task.projectId in validProjectIds
-            statusMatches && courseMatches && projectMatches && projectReferenceValid && window.contains(task)
+            statusMatches && courseMatches && projectMatches && window.contains(task)
         }.sortedWith(compareBy<StudyTask> { it.dueDateIso }.thenBy { it.scheduledTime }.thenBy { it.title })
     }
     val overdueCount = validTasks.count { !it.completed && it.dueDateIso < LocalDate.now().toString() }
@@ -307,7 +312,7 @@ fun GanttScreen(
                             }
                             val projectTasks = visibleTasks.filter { it.projectId == project.id }
                             items(projectTasks, key = { "gantt_${it.id}" }) { task ->
-                                GanttTaskRow(task, window, scale, leftWidth, columnWidth, timelineScroll, onToggleTask) { taskPendingDeletion = task }
+                                GanttTaskRow(task, window, scale, leftWidth, columnWidth, timelineScroll, onToggleTask, onMoveTask) { taskPendingDeletion = task }
                             }
                         }
                         unassignedGroups.forEach { (groupKey, groupTasks) ->
@@ -330,7 +335,7 @@ fun GanttScreen(
                                 }
                             }
                             items(groupTasks, key = { "gantt_${it.id}" }) { task ->
-                                GanttTaskRow(task, window, scale, leftWidth, columnWidth, timelineScroll, onToggleTask) { taskPendingDeletion = task }
+                                GanttTaskRow(task, window, scale, leftWidth, columnWidth, timelineScroll, onToggleTask, onMoveTask) { taskPendingDeletion = task }
                             }
                         }
                     }
@@ -615,11 +620,13 @@ private fun GanttTaskRow(
     columnWidth: Dp,
     timelineScroll: ScrollState,
     onToggleTask: (StudyTask) -> Unit,
+    onMoveTask: ((StudyTask, LocalDate) -> Unit)?,
     onDeleteTask: (String) -> Unit
 ) {
     val span = task.ganttSpan() ?: return
     val gradient = LocalLightGradient.current
     var menuExpanded by remember(task.id) { mutableStateOf(false) }
+    var showMovePicker by remember(task.id) { mutableStateOf(false) }
     val rowHeight = 62.dp
     val chartWidth = columnWidth * window.columnCount
     val textColor = if (task.completed) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
@@ -643,6 +650,7 @@ private fun GanttTaskRow(
                 }
                 DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
                     DropdownMenuItem(text = { Text(if (task.completed) "Réouvrir" else "Marquer terminée") }, leadingIcon = { Icon(Icons.Rounded.CheckCircle, null) }, onClick = { onToggleTask(task); menuExpanded = false })
+                    if (onMoveTask != null) DropdownMenuItem(text = { Text("Déplacer…") }, onClick = { menuExpanded = false; showMovePicker = true })
                     DropdownMenuItem(text = { Text("Supprimer") }, leadingIcon = { Icon(Icons.Rounded.DeleteOutline, null) }, onClick = { onDeleteTask(task.id); menuExpanded = false })
                 }
             }
@@ -689,6 +697,13 @@ private fun GanttTaskRow(
           }
         }
     }
+    if (showMovePicker && onMoveTask != null) {
+        GanttMoveDatePicker(span.start, onDismiss = { showMovePicker = false }) { date ->
+            onMoveTask(task, date)
+            showMovePicker = false
+        }
+    }
+
 }
 
 private fun barPosition(task: StudyTask, span: GanttTaskSpan, window: GanttWindow, scale: GanttScale): Pair<Float, Float>? {
@@ -731,3 +746,17 @@ private fun stepAnchor(anchor: LocalDate, scale: GanttScale, direction: Long): L
 private fun shortGanttDate(iso: String): String = runCatching {
     LocalDate.parse(iso).format(DateTimeFormatter.ofPattern("d MMM", Locale.FRENCH))
 }.getOrDefault(iso)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun GanttMoveDatePicker(start: LocalDate, onDismiss: () -> Unit, onMove: (LocalDate) -> Unit) {
+    val state = rememberDatePickerState(initialSelectedDateMillis = start.atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli())
+    DatePickerDialog(onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = {
+                state.selectedDateMillis?.let { onMove(Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()) }
+            }) { Text("Déplacer") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } }
+    ) { DatePicker(state) }
+}

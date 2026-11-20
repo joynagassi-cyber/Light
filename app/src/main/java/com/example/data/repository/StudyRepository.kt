@@ -16,6 +16,7 @@ import com.example.data.model.StudyCountdown
 import com.example.data.model.StudyHabit
 import com.example.data.model.StudyProject
 import com.example.data.model.StudyTask
+import com.example.data.model.normalizeSubtasks
 import com.example.data.model.TaskCategory
 import com.example.data.model.UserGender
 import com.example.data.model.UserProfession
@@ -950,7 +951,8 @@ class StudyRepository(
         startDateIso: String,
         projectId: String,
         focusProfileId: String,
-        focusProfileTitle: String
+        focusProfileTitle: String,
+        subtasks: List<String>
     ): String {
         require(requireSignedInUid() == userId) { "Utilisateur non autorisé." }
         val safeProjectId = projectId.trim().take(128)
@@ -967,6 +969,7 @@ class StudyRepository(
             put("courseTitle", courseTitle.take(100))
             put("title", title.trim().take(140))
             put("notes", notes.trim().take(500))
+            normalizeSubtasks(subtasks).takeIf { it.isNotEmpty() }?.let { put("subtasks", it) }
             put("dueDateIso", dueDateIso.trim().take(20))
             put("startDateIso", startDateIso.trim().take(20).ifBlank { dueDateIso.trim().take(20) })
             put("projectId", safeProjectId)
@@ -1054,6 +1057,13 @@ class StudyRepository(
             handleFirestoreError(e, OperationType.UPDATE, docRef.path)
             throw e
         }
+    }
+
+    override suspend fun moveTask(userId: String, taskId: String, start: String, due: String) {
+        require(requireSignedInUid() == userId) { "Utilisateur non autorisé." }
+        val ref = tasksCol(userId).document(taskId)
+        awaitOptimisticWrite(ref.update(mapOf("startDateIso" to start, "dueDateIso" to due,
+            "updatedAt" to FieldValue.serverTimestamp())), OperationType.UPDATE, ref.path)
     }
 
     override suspend fun updateTaskQuadrant(userId: String, taskId: String, quadrant: Long) {

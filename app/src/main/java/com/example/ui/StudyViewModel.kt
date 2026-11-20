@@ -688,7 +688,8 @@ class StudyViewModel(
         startDateIso: String = "",
         projectId: String = "",
         focusProfileId: String = "",
-        focusProfileTitle: String = ""
+        focusProfileTitle: String = "",
+        subtasks: List<String> = emptyList()
     ) {
         viewModelScope.launch {
             try {
@@ -708,7 +709,8 @@ class StudyViewModel(
                     startDateIso = startDateIso,
                     projectId = projectId,
                     focusProfileId = focusProfileId,
-                    focusProfileTitle = focusProfileTitle
+                    focusProfileTitle = focusProfileTitle,
+                    subtasks = subtasks
                 )
                 _bannerMessage.value = when {
                     isLocalMode -> "Tâche enregistrée sur l'appareil."
@@ -963,6 +965,21 @@ class StudyViewModel(
         }
     }
 
+    fun moveTask(task: StudyTask, newStart: LocalDate) {
+        val previousDue = runCatching { LocalDate.parse(task.dueDateIso) }.getOrNull() ?: return
+        val previousStart = runCatching { LocalDate.parse(task.startDateIso) }.getOrNull()?.coerceAtMost(previousDue) ?: previousDue
+        val duration = java.time.temporal.ChronoUnit.DAYS.between(previousStart, previousDue)
+        viewModelScope.launch {
+            try {
+                repository.moveTask(currentUserId, task.id, newStart.toString(), newStart.plusDays(duration).toString())
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _bannerMessage.value = "Impossible de déplacer cette tâche."
+            }
+        }
+    }
+
     fun generateAiStudyPlan(
         goalPrompt: String,
         targetDateIso: String,
@@ -977,12 +994,21 @@ class StudyViewModel(
             _aiPlanState.value = AiPlanUiState.Loading
             val persona = (profileState.value as? UiState.Success)?.data.adaptation().aiPersonaInstruction
             try {
+                val active = appSettings.value
+                val remoteCompletion: (suspend (String) -> String)? = if (active.agentProvider == AgentProvider.FIREBASE.id) null else {
+                    val key = themePreferencesStore.readAgentApiKey(active.agentProvider)
+                    require(!key.isNullOrBlank()) { "Ajoutez la clé API du fournisseur actif dans les réglages de Light Agent." }
+                    val completion: suspend (String) -> String = { prompt -> aiAgentRepository.completePlannerPrompt(prompt, active, key) }
+                    completion
+                }
                 val result = aiPlannerRepository.generateSmartStudyPlan(
                     goalPrompt = goalPrompt,
                     targetDateIso = targetDateIso,
                     dailyMinutesAvailable = dailyMinutesAvailable,
                     courses = courses,
-                    personaInstruction = persona
+                    personaInstruction = persona,
+                    modelName = active.agentModel,
+                    externalCompletion = remoteCompletion
                 )
                 _aiPlanState.value = AiPlanUiState.Success(result)
             } catch (e: CancellationException) {

@@ -51,33 +51,28 @@ class AiPlannerRepository {
         )
     )
 
-    private val plannerModel by lazy {
-        Firebase.ai.generativeModel(
-            modelName = "gemini-2.5-flash",
-            generationConfig = generationConfig {
-                responseMimeType = "application/json"
-                responseSchema = studyPlanSchema
-            }
-        )
-    }
-
     suspend fun generateSmartStudyPlan(
         goalPrompt: String,
         targetDateIso: String,
         dailyMinutesAvailable: Int,
         courses: List<Course>,
-        personaInstruction: String = ""
+        personaInstruction: String = "",
+        modelName: String,
+        externalCompletion: (suspend (String) -> String)? = null
     ): AiStudyPlanResult {
+        require(modelName.isNotBlank()) { "Sélectionnez d’abord un modèle dans les réglages de Light Agent." }
         val today = LocalDate.now().toString()
+        val deadline = runCatching { LocalDate.parse(targetDateIso) }.getOrNull()
+        require(deadline != null && !deadline.isBefore(LocalDate.parse(today))) { "Choisissez une échéance à partir d’aujourd’hui." }
         val courseListText = if (courses.isEmpty()) {
-            "GL-301 Architecture Logicielle, GL-302 Systèmes Distribués, GL-303 Bases de Données, GL-304 Algorithmique"
+            "Aucun cours enregistré"
         } else {
             courses.joinToString(", ") { "${it.code} (${it.title})" }
         }
         val profileLine = if (personaInstruction.isNotBlank()) {
             "Profil de l'utilisateur : $personaInstruction"
         } else {
-            "Profil de l'utilisateur : Étudiante en 3ᵉ année d'ingénierie Génie Logiciel."
+            ""
         }
 
         val fullPrompt = """
@@ -90,31 +85,40 @@ class AiPlannerRepository {
             Objectif exprimé : "$goalPrompt"
 
             Génère un plan intelligent, équilibré, progressif et réaliste en français (accordé au genre de l'utilisateur et adapté à son âge et sa profession), découpé en 3 à 6 blocs actionnables.
+            Réponds uniquement par un objet JSON avec summary, strategyTip et tasks. Chaque tâche contient title,
+            notes, courseCode, dueDateIso, scheduledTime (HH:mm), priority (high, medium, low), category et estimatedMinutes.
             Assure-toi que chaque dueDateIso soit au format YYYY-MM-DD compris entre $today et $targetDateIso.
         """.trimIndent()
 
         return try {
             val response = withTimeout(60_000L) {
-                plannerModel.generateContent(fullPrompt)
-            }
-            val jsonText = response.text
-                ?: throw IllegalStateException("Le modèle IA a renvoyé une réponse vide.")
-
+                if (externalCompletion != null) externalCompletion(fullPrompt)
+                else Firebase.ai.generativeModel(
+                    modelName = modelName.trim(),
+                    generationConfig = generationConfig {
+                        responseMimeType = "application/json"
+                        responseSchema = studyPlanSchema
+                    }
+                ).generateContent(fullPrompt).text ?: error("Le modèle IA a renvoyé une réponse vide.")
+            }.trim()
+            val jsonText = response.removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
             val root = JSONObject(jsonText)
             val summary = root.optString("summary", "Plan d'étude intelligent généré.")
             val strategyTip = root.optString("strategyTip", "Alternez blocs de 50 minutes de code et 10 minutes de pause.")
             val tasksArray = root.getJSONArray("tasks")
+            require(tasksArray.length() in 1..6) { "Le modèle actif doit renvoyer entre une et six tâches." }
             val parsedTasks = (0 until tasksArray.length()).map { idx ->
                 val obj = tasksArray.getJSONObject(idx)
                 val rawDate = obj.optString("dueDateIso", today)
-                val safeDate = if (Regex("""^\d{4}-\d{2}-\d{2}$""").matches(rawDate)) rawDate else today
+                val parsedDate = runCatching { LocalDate.parse(rawDate) }.getOrNull()
+                val safeDate = (parsedDate ?: LocalDate.parse(today)).coerceIn(LocalDate.parse(today), deadline).toString()
                 val rawPriority = obj.optString("priority", "medium")
                 val safePriority = if (rawPriority in listOf("high", "medium", "low")) rawPriority else "medium"
                 val safeCategory = TaskCategory.sanitizeKey(obj.optString("category", TaskCategory.REVISION.key))
                 AiPlannedTask(
                     title = obj.optString("title", "Session d'étude").take(140),
                     notes = obj.optString("notes", "").take(500),
-                    courseCode = obj.optString("courseCode", courses.firstOrNull()?.code ?: "GL-301"),
+                    courseCode = obj.optString("courseCode", courses.firstOrNull()?.code.orEmpty()),
                     dueDateIso = safeDate,
                     scheduledTime = obj.optString("scheduledTime", "10:00").take(10),
                     priority = safePriority,

@@ -325,8 +325,9 @@ class FocusProfilesTest {
                     projects = emptyList(),
                     focusProfiles = profiles,
                     initialDateIso = "2026-11-20",
+                    initialFocusProfileId = "fp_ai",
                     onCancel = {},
-                    onCreateTask = { _, _, _, _, _, _, _, _, _, _, _, focusProfileId, focusProfileTitle ->
+                    onCreateTask = { _, _, _, _, _, _, _, _, _, _, _, focusProfileId, focusProfileTitle, _ ->
                         capturedProfileId = focusProfileId
                         capturedProfileTitle = focusProfileTitle
                     }
@@ -336,7 +337,6 @@ class FocusProfilesTest {
 
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("new_task_title_input").performTextInput("Coder un ResNet")
-        composeRule.onNodeWithTag("task_focus_profile_fp_ai").performScrollTo().performClick()
         composeRule.onNodeWithTag("save_new_task_button").performClick()
         composeRule.waitForIdle()
 

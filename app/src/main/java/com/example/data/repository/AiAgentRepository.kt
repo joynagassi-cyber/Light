@@ -4,12 +4,9 @@ import android.util.Log
 import com.google.firebase.Firebase
 import com.google.firebase.ai.Chat
 import com.google.firebase.ai.ai
-import com.google.firebase.ai.type.FunctionDeclaration
 import com.google.firebase.ai.type.FunctionResponsePart
-import com.google.firebase.ai.type.Schema
 import com.google.firebase.ai.type.Tool
 import com.google.firebase.ai.type.content
-import com.example.data.model.AgentCapabilities
 import com.example.data.model.AgentProvider
 import com.example.data.model.TaskCategory
 import com.example.data.model.HabitCategory
@@ -44,7 +41,6 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.flow.onEach
 
 private const val TAG = "AiAgentRepo"
-private val AGENT_GRADIENT_IDS = listOf("aurore_lavande", "lagon_boreal", "menthe_emeraude", "peche_solaire", "rose_quartz", "nebuleuse_douce", "matcha_azur", "sakura_velours")
 
 data class AgentActionLog(
     val toolName: String,
@@ -129,146 +125,6 @@ data class AgentTurnResult(
 
 class AiAgentRepository {
 
-    private val toolDeclarations: List<Pair<String, FunctionDeclaration>> = listOf(
-        "list_tasks" to FunctionDeclaration(
-            name = "list_tasks",
-            description = "Lister les tâches d'étude actuelles de l'étudiante, filtrées par statut ou date.",
-            parameters = mapOf(
-                "filter" to Schema.enumeration(
-                    values = listOf("all", "pending", "completed", "high"),
-                    description = "Filtre de statut des tâches."
-                ),
-                "dateIso" to Schema.string(
-                    description = "Date optionnelle au format YYYY-MM-DD (ex: ${LocalDate.now()})."
-                )
-            ),
-            optionalParameters = listOf("dateIso")
-        ),
-        "list_study_data" to FunctionDeclaration(
-            name = "list_study_data",
-            description = "Consulter les matières, projets, habitudes et échéances actuellement enregistrés.",
-            parameters = emptyMap()
-        ),
-        "present_study_plan" to FunctionDeclaration(
-            name = "present_study_plan",
-            description = "Afficher un plan structuré en cartes Compose à partir du schéma fixe Light. Cela n'exécute aucune action et ne crée aucune tâche.",
-            parameters = mapOf(
-                "title" to Schema.string("Titre court du plan."),
-                "summary" to Schema.string("Résumé concis en français."),
-                "items" to Schema.array(
-                    items = Schema.obj(properties = mapOf(
-                        "title" to Schema.string("Titre de l'étape ou session."),
-                        "detail" to Schema.string("Détail bref et concret."),
-                        "dateIso" to Schema.string("Date YYYY-MM-DD, ou chaîne vide si non définie."),
-                        "estimatedMinutes" to Schema.integer("Durée estimée en minutes."),
-                        "priority" to Schema.enumeration(values = listOf("high", "medium", "low"), description = "Priorité suggérée.")
-                    )),
-                    description = "De une à huit étapes de planification."
-                )
-            )
-        ),
-        "create_task" to FunctionDeclaration(
-            name = "create_task",
-            description = "Créer une nouvelle tâche ou session d'étude dans le calendrier de l'étudiante.",
-            parameters = mapOf(
-                "title" to Schema.string("Titre clair de la tâche en français."),
-                "courseCode" to Schema.string("Code ou nom du cours L3 (ex: GL-301, GL-302)."),
-                "category" to Schema.enumeration(
-                    values = listOf("exam", "project", "assignment", "revision", "reading"),
-                    description = "Catégorie : exam (Examen), project (Projet), assignment (TP/Devoir), revision (Révision), reading (Lecture)."
-                ),
-                "priority" to Schema.enumeration(
-                    values = listOf("high", "medium", "low"),
-                    description = "Niveau de priorité."
-                ),
-                "dueDateIso" to Schema.string("Date d'échéance YYYY-MM-DD."),
-                "scheduledTime" to Schema.string("Heure prévue HH:mm (ex: 14:30)."),
-                "estimatedMinutes" to Schema.integer("Durée estimée en minutes (entre 10 et 240)."),
-                "notes" to Schema.string("Notes ou consignes complémentaires.")
-            ),
-            optionalParameters = listOf("scheduledTime", "notes")
-        ),
-        "complete_task" to FunctionDeclaration(
-            name = "complete_task",
-            description = "Marquer une tâche existante comme terminée en cherchant par son titre.",
-            parameters = mapOf(
-                "taskQuery" to Schema.string("Mots-clés ou titre exact de la tâche à valider.")
-            )
-        ),
-        "delete_task" to FunctionDeclaration(
-            name = "delete_task",
-            description = "Supprimer définitivement une tâche uniquement lorsque son titre est désigné sans ambiguïté.",
-            parameters = mapOf(
-                "taskQuery" to Schema.string("Titre exact de la tâche à supprimer.")
-            )
-        ),
-        "add_course" to FunctionDeclaration(
-            name = "add_course",
-            description = "Ajouter une nouvelle matière L3 au programme de l'étudiante.",
-            parameters = mapOf(
-                "code" to Schema.string("Code court du module (ex: GL-307)."),
-                "title" to Schema.string("Nom complet du cours."),
-                "professor" to Schema.string("Nom du professeur ou intervenant."),
-                "targetHours" to Schema.integer("Volume horaire cible (ex: 24).")
-            ),
-            optionalParameters = listOf("professor", "targetHours")
-        ),
-        "create_project" to FunctionDeclaration(
-            name = "create_project",
-            description = "Créer un projet de travail avec des dates de début et d'échéance.",
-            parameters = mapOf(
-                "title" to Schema.string("Titre du projet."),
-                "description" to Schema.string("Description et résultat attendu."),
-                "startDateIso" to Schema.string("Date de début YYYY-MM-DD."),
-                "dueDateIso" to Schema.string("Échéance YYYY-MM-DD.")
-            ),
-            optionalParameters = listOf("description")
-        ),
-        "set_gradient_theme" to FunctionDeclaration(
-            name = "set_gradient_theme",
-            description = "Changer le thème visuel dégradé de l'application Light.",
-            parameters = mapOf(
-                "gradientId" to Schema.enumeration(
-                    values = AGENT_GRADIENT_IDS,
-                    description = "Identifiant exact du dégradé souhaité."
-                )
-            )
-        ),
-        "start_focus_timer" to FunctionDeclaration(
-            name = "start_focus_timer",
-            description = "Démarrer immédiatement le minuteur Focus (Pomodoro, Deep Code, Pause ou Chronomètre).",
-            parameters = mapOf(
-                "mode" to Schema.enumeration(
-                    values = listOf("pomodoro", "deep_code", "short_break", "stopwatch"),
-                    description = "Mode du minuteur ou stopwatch pour le chronomètre libre."
-                ),
-                "taskTitle" to Schema.string("Intitulé de la session à afficher pendant le minuteur.")
-            ),
-            optionalParameters = listOf("taskTitle")
-        ),
-        "create_habit" to FunctionDeclaration(
-            name = "create_habit",
-            description = "Ajouter une habitude quotidienne sans modifier ni supprimer les habitudes existantes.",
-            parameters = mapOf(
-                "title" to Schema.string("Nom court de l'habitude."),
-                "subtitle" to Schema.string("Description ou objectif."),
-                "category" to Schema.enumeration(values = listOf("study", "life", "health", "sports", "mindset"), description = "Catégorie de l'habitude.")
-            ),
-            optionalParameters = listOf("subtitle", "category")
-        ),
-        "create_countdown" to FunctionDeclaration(
-            name = "create_countdown",
-            description = "Ajouter un examen, un projet ou une échéance sans modifier ni supprimer les événements existants.",
-            parameters = mapOf(
-                "title" to Schema.string("Nom de l'échéance."),
-                "notes" to Schema.string("Détails facultatifs."),
-                "targetDateIso" to Schema.string("Date cible au format YYYY-MM-DD."),
-                "category" to Schema.enumeration(values = listOf("exam", "project", "milestone", "personal"), description = "Type d'événement.")
-            ),
-            optionalParameters = listOf("notes", "category")
-        )
-    )
-
     private fun systemPrompt(today: String, settings: StudyAppSettings, contextSnapshot: String): String {
         val reflection = when (settings.agentReflection) {
             "quick" -> "Réponds vite et directement, avec une réponse courte et une action utile."
@@ -284,22 +140,6 @@ Réponds en français, avec clarté et précision, en t'adaptant au profil et au
 Utilise uniquement les outils activés. Pour présenter un plan d'étude ou une proposition structurée, utilise present_study_plan, qui ne modifie aucune donnée. Toute modification exige ensuite l'accord explicite de l'utilisateur dans sa carte de validation; ne contourne jamais un refus et ne répète pas une action refusée sans nouvelle demande claire. Avant une action destructive, vérifie que la demande la désigne sans ambiguïté. Après l'accord, confirme exactement ce qui a été réalisé. Ne prétends jamais avoir effectué une action qui a échoué.
 Compétences personnalisées activées : ${skills.ifBlank { "aucune" }}
 Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
-    }
-
-    private fun capabilityForTool(name: String): String? = when (name) {
-        "list_tasks" -> AgentCapabilities.READ_TASKS
-        "list_study_data" -> AgentCapabilities.READ_STUDY_DATA
-        "present_study_plan" -> AgentCapabilities.SHOW_STUDY_PLAN
-        "create_task" -> AgentCapabilities.CREATE_TASKS
-        "complete_task" -> AgentCapabilities.COMPLETE_TASKS
-        "delete_task" -> AgentCapabilities.DELETE_TASKS
-        "add_course" -> AgentCapabilities.MANAGE_COURSES
-        "create_project" -> AgentCapabilities.MANAGE_PROJECTS
-        "set_gradient_theme" -> AgentCapabilities.CHANGE_THEME
-        "start_focus_timer" -> AgentCapabilities.START_FOCUS
-        "create_habit" -> AgentCapabilities.MANAGE_HABITS
-        "create_countdown" -> AgentCapabilities.MANAGE_COUNTDOWNS
-        else -> null
     }
 
     private var chatSession: Chat? = null
@@ -370,9 +210,9 @@ Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
         onTextUpdate: suspend (String) -> Unit
     ): AgentTurnResult {
         val today = LocalDate.now().toString()
-        val declarations = toolDeclarations.filter { capabilityForTool(it.first) in settings.agentCapabilities }.map { it.second }
+        val declarations = AgentToolContract.enabled(settings.agentCapabilities).map { it.firebaseDeclaration() }
         val model = Firebase.ai.generativeModel(
-            modelName = settings.agentModel.ifBlank { "gemini-2.5-flash" },
+            modelName = settings.agentModel.trim().also { require(it.isNotEmpty()) { "Sélectionnez le modèle actif dans Paramètres." } },
             tools = if (declarations.isEmpty()) emptyList() else listOf(Tool.functionDeclarations(declarations)),
             systemInstruction = content { text(systemPrompt(today, settings, contextSnapshot)) }
         )
@@ -429,15 +269,7 @@ Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
     ): AgentTurnResult {
         require(!apiKey.isNullOrBlank()) { "Ajoutez une clé API dans les réglages de Light Agent pour utiliser ce fournisseur." }
         require(settings.agentModel.isNotBlank()) { "Indiquez le nom du modèle à utiliser." }
-        val root = settings.agentBaseUrl.trim().trimEnd('/')
-        require(root.startsWith("https://", ignoreCase = true)) { "L'URL du fournisseur doit commencer par https:// pour protéger votre clé API." }
-        val endpoint = when {
-            root.endsWith("/chat/completions", ignoreCase = true) -> root
-            root.endsWith("/v1", ignoreCase = true) -> "$root/chat/completions"
-            else -> "$root/v1/chat/completions"
-        }
-        val endpointUrl = URL(endpoint)
-        require(endpointUrl.host.isNotBlank() && endpointUrl.userInfo == null) { "L'URL du fournisseur n'est pas valide." }
+        val endpoint = compatibleEndpoint(settings.agentBaseUrl)
         if (openAiHistory.isEmpty()) {
             openAiHistory += buildJsonObject {
                 put("role", "system")
@@ -454,7 +286,7 @@ Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
             }
         }
         openAiHistory += buildJsonObject { put("role", "user"); put("content", userPrompt) }
-        val tools = openAiToolDefinitions(settings.agentCapabilities)
+        val tools = AgentToolContract.enabled(settings.agentCapabilities).map { it.httpDeclaration() }
         var safetyHops = 0
         var totalInputTokens = 0L
         var totalOutputTokens = 0L
@@ -470,7 +302,7 @@ Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
                     put("tool_choice", "auto")
                 }
             }
-            val response = postChatCompletion(endpoint, apiKey, request, settings.agentProvider)
+            val response = postProviderJson(endpoint, apiKey, request, settings.agentProvider)
             val usage = response["usage"]?.jsonObject
             val promptCount = usage?.get("prompt_tokens")?.jsonPrimitive?.longOrNull
                 ?: usage?.get("input_tokens")?.jsonPrimitive?.longOrNull
@@ -508,10 +340,11 @@ Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
                 val args = runCatching {
                     when (val arguments = function["arguments"]) {
                         is JsonObject -> arguments.toMap()
-                        is JsonPrimitive -> Json.parseToJsonElement(arguments.content).jsonObject.toMap()
-                        else -> emptyMap()
+                        is JsonPrimitive -> (arguments.takeIf { it.isString && it.content.length <= 32_768 }
+                            ?.let { Json.parseToJsonElement(it.content) } as? JsonObject)?.toMap()
+                        else -> null
                     }
-                }.getOrElse { emptyMap() }
+                }.getOrNull()
                 val (result, label) = executeTool(name, args, executor, settings.agentCapabilities)
                 executedActions += AgentActionLog(name, label, succeeded = agentToolResultSucceeded(result))
                 openAiHistory += buildJsonObject {
@@ -524,7 +357,28 @@ Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
         return AgentTurnResult("J'ai arrêté la séquence après plusieurs appels d'outils. Vérifiez le résultat dans l'application.", executedActions)
     }
 
-    private suspend fun postChatCompletion(endpoint: String, apiKey: String, payload: JsonObject, providerId: String): JsonObject =
+    private fun compatibleEndpoint(baseUrl: String): String {
+        val root = baseUrl.trim().trimEnd('/')
+        require(root.startsWith("https://", ignoreCase = true)) { "L'URL du fournisseur doit commencer par https:// pour protéger votre clé API." }
+        val endpoint = when {
+            root.endsWith("/chat/completions", ignoreCase = true) -> root
+            root.endsWith("/v1", ignoreCase = true) -> "$root/chat/completions"
+            else -> "$root/v1/chat/completions"
+        }
+        val endpointUrl = URL(endpoint)
+        require(endpointUrl.host.isNotBlank() && endpointUrl.userInfo == null) { "L'URL du fournisseur n'est pas valide." }
+        return endpoint
+    }
+
+    /** A stateless completion: planning never inherits chat history, skills or tools. */
+    internal suspend fun completePlannerPrompt(prompt: String, settings: StudyAppSettings, apiKey: String?): String {
+        require(!apiKey.isNullOrBlank()) { "Ajoutez la clé API du fournisseur actif dans les réglages de Light Agent." }
+        val request = buildPlannerProviderRequest(prompt, settings)
+        val response = postProviderJson(request.endpoint, apiKey, request.payload, request.providerId)
+        return plannerProviderText(response, request.providerId)
+    }
+
+    private suspend fun postProviderJson(endpoint: String, apiKey: String, payload: JsonObject, providerId: String): JsonObject =
         withContext(Dispatchers.IO) {
             val connection = URL(endpoint).openConnection() as HttpURLConnection
             try {
@@ -560,66 +414,12 @@ Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
             }
         }
 
-    private fun openAiToolDefinitions(capabilities: Set<String>): List<JsonElement> {
-        fun schema(type: String, description: String, values: List<String>? = null): JsonObject = buildJsonObject {
-            put("type", type); put("description", description)
-            if (values != null) put("enum", JsonArray(values.map { JsonPrimitive(it) }))
-        }
-        fun definition(name: String, description: String, properties: Map<String, JsonElement>, required: List<String>): JsonElement = buildJsonObject {
-            put("type", "function")
-            put("function", buildJsonObject {
-                put("name", name); put("description", description)
-                put("parameters", buildJsonObject {
-                    put("type", "object")
-                    put("properties", JsonObject(properties))
-                    put("required", JsonArray(required.map { JsonPrimitive(it) }))
-                    put("additionalProperties", false)
-                })
-            })
-        }
-        val planItemSchema = buildJsonObject {
-            put("type", "object")
-            put("properties", JsonObject(mapOf(
-                "title" to schema("string", "Titre de l'étape"),
-                "detail" to schema("string", "Détail bref"),
-                "dateIso" to schema("string", "Date YYYY-MM-DD ou chaîne vide"),
-                "estimatedMinutes" to schema("integer", "Durée estimée"),
-                "priority" to schema("string", "Priorité", listOf("high", "medium", "low"))
-            )))
-            put("required", JsonArray(listOf("title", "detail", "dateIso", "estimatedMinutes", "priority").map { JsonPrimitive(it) }))
-            put("additionalProperties", false)
-        }
-        val defs = listOf(
-            AgentCapabilities.READ_TASKS to definition("list_tasks", "Consulter les tâches d'étude.", mapOf("filter" to schema("string", "Statut", listOf("all", "pending", "completed", "high")), "dateIso" to schema("string", "Date YYYY-MM-DD")), listOf("filter")),
-            AgentCapabilities.READ_STUDY_DATA to definition("list_study_data", "Consulter les matières, projets, habitudes et échéances.", emptyMap(), emptyList()),
-            AgentCapabilities.SHOW_STUDY_PLAN to definition("present_study_plan", "Afficher un plan en cartes selon le schéma fixe Light; ne crée rien.", mapOf(
-                "title" to schema("string", "Titre du plan"),
-                "summary" to schema("string", "Résumé"),
-                "items" to buildJsonObject {
-                    put("type", "array")
-                    put("description", "De une à huit étapes structurées.")
-                    put("items", planItemSchema)
-                }
-            ), listOf("title", "summary", "items")),
-            AgentCapabilities.CREATE_TASKS to definition("create_task", "Créer une tâche d'étude.", mapOf("title" to schema("string", "Titre"), "courseCode" to schema("string", "Code ou nom de matière"), "category" to schema("string", "Catégorie", listOf("exam", "project", "assignment", "revision", "reading")), "priority" to schema("string", "Priorité", listOf("high", "medium", "low")), "dueDateIso" to schema("string", "Date YYYY-MM-DD"), "scheduledTime" to schema("string", "Heure HH:mm"), "estimatedMinutes" to schema("integer", "Durée en minutes"), "notes" to schema("string", "Notes")), listOf("title", "courseCode", "category", "priority", "dueDateIso", "estimatedMinutes")),
-            AgentCapabilities.COMPLETE_TASKS to definition("complete_task", "Marquer une tâche comme terminée.", mapOf("taskQuery" to schema("string", "Mots-clés du titre")), listOf("taskQuery")),
-            AgentCapabilities.DELETE_TASKS to definition("delete_task", "Supprimer une tâche après identification explicite et exacte.", mapOf("taskQuery" to schema("string", "Titre exact")), listOf("taskQuery")),
-            AgentCapabilities.MANAGE_COURSES to definition("add_course", "Ajouter une matière.", mapOf("code" to schema("string", "Code"), "title" to schema("string", "Nom de matière"), "professor" to schema("string", "Enseignant"), "targetHours" to schema("integer", "Heures cibles")), listOf("code", "title")),
-            AgentCapabilities.MANAGE_PROJECTS to definition("create_project", "Créer un projet dans le planning.", mapOf("title" to schema("string", "Titre du projet"), "description" to schema("string", "Description"), "startDateIso" to schema("string", "Date de début YYYY-MM-DD"), "dueDateIso" to schema("string", "Échéance YYYY-MM-DD")), listOf("title", "startDateIso", "dueDateIso")),
-            AgentCapabilities.CHANGE_THEME to definition("set_gradient_theme", "Choisir un thème de couleur.", mapOf("gradientId" to schema("string", "Identifiant du thème", AGENT_GRADIENT_IDS),), listOf("gradientId")),
-            AgentCapabilities.START_FOCUS to definition("start_focus_timer", "Démarrer un mode Focus.", mapOf("mode" to schema("string", "Mode", listOf("pomodoro", "deep_code", "short_break", "stopwatch")), "taskTitle" to schema("string", "Sujet de la session")), listOf("mode")),
-            AgentCapabilities.MANAGE_HABITS to definition("create_habit", "Ajouter une habitude.", mapOf("title" to schema("string", "Nom"), "subtitle" to schema("string", "Description"), "category" to schema("string", "Catégorie", listOf("study", "life", "health", "sports", "mindset"))), listOf("title")),
-            AgentCapabilities.MANAGE_COUNTDOWNS to definition("create_countdown", "Ajouter une échéance.", mapOf("title" to schema("string", "Nom"), "notes" to schema("string", "Détails"), "targetDateIso" to schema("string", "Date YYYY-MM-DD"), "category" to schema("string", "Catégorie", listOf("exam", "project", "milestone", "personal"))), listOf("title", "targetDateIso"))
-        )
-        return defs.filter { it.first in capabilities }.map { it.second }
-    }
-
     private fun approvalForTool(name: String, args: Map<String, JsonElement>, today: LocalDate): AgentActionApproval? {
         fun details(vararg values: Pair<String, String>) = values.filter { it.second.isNotBlank() }
         return when (name) {
             "create_task" -> AgentActionApproval(toolName = name, title = "Créer une tâche", details = details(
                 "Titre" to args.str("title", "Session d'étude").trim().take(140),
-                "Matière" to args.str("courseCode", "GL-301").trim(),
+                "Matière" to args.str("courseCode", "").trim(),
                 "Échéance" to args.str("dueDateIso", today.toString()).trim(),
                 "Heure" to args.str("scheduledTime", "14:00").trim().take(20),
                 "Durée" to "${args.int("estimatedMinutes", 45).coerceIn(5, 480)} minutes",
@@ -665,35 +465,26 @@ Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
         return if (answer.endsWith(summary)) answer else "$answer\n\n$summary"
     }
 
-    private suspend fun executeTool(
+    internal suspend fun executeTool(
         name: String,
-        args: Map<String, JsonElement>,
+        arguments: Map<String, JsonElement>?,
         executor: StudyAgentToolExecutor,
         enabledCapabilities: Set<String>
     ): Pair<JsonObject, String> {
+        fun blocked(message: String, label: String) = buildJsonObject { put("success", false); put("error", message) } to label
+        val spec = AgentToolContract[name]
+        if (spec == null || spec.capability !in enabledCapabilities) {
+            return blocked("Cette capacité est désactivée ou indisponible.", "Action bloquée : capacité indisponible")
+        }
+        val args = arguments ?: return blocked("Les arguments doivent former un objet JSON.", "Action bloquée : arguments invalides")
+        val invalid = spec.invalidArguments(args)
+        if (invalid != null) {
+            return blocked("Arguments invalides : $invalid.", "Action bloquée : arguments invalides")
+        }
         val today = LocalDate.now()
-        val requiredCapability = capabilityForTool(name)
-        if (requiredCapability == null || requiredCapability !in enabledCapabilities) {
-            return JsonObject(mapOf("success" to JsonPrimitive(false), "error" to JsonPrimitive("Cette capacité est désactivée dans les réglages."))) to "Action bloquée : capacité désactivée"
-        }
-        if (name == "create_task") {
-            val dueDate = args.str("dueDateIso", today.toString()).trim()
-            if (runCatching { LocalDate.parse(dueDate) }.isFailure) {
-                val error = JsonObject(mapOf("success" to JsonPrimitive(false), "error" to JsonPrimitive("La date de la tâche doit être une date valide au format AAAA-MM-JJ.")))
-                return error to "Tâche non créée : date invalide"
-            }
-        }
-        if (name == "set_gradient_theme") {
-            val gradientId = args.str("gradientId", "aurore_lavande")
-            if (gradientId !in AGENT_GRADIENT_IDS) {
-                val error = JsonObject(mapOf("success" to JsonPrimitive(false), "error" to JsonPrimitive("Le thème demandé n'existe pas.")))
-                return error to "Thème non appliqué : thème inconnu"
-            }
-        }
-        val approval = approvalForTool(name, args, today)
-        val isReadOnly = name == "list_tasks" || name == "list_study_data" || name == "present_study_plan"
-        if (!isReadOnly && approval == null) {
-            return JsonObject(mapOf("success" to JsonPrimitive(false), "error" to JsonPrimitive("Cette action n'a pas de procédure de validation et reste bloquée."))) to "Action bloquée : validation indisponible"
+        val approval = if (spec.requiresApproval) approvalForTool(name, args, today) else null
+        if (spec.requiresApproval && approval == null) {
+            return blocked("Cette action n’a pas de procédure de confirmation.", "Action bloquée : validation indisponible")
         }
         if (approval != null) {
             if (!executor.requestApproval(approval)) {
@@ -751,7 +542,7 @@ Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
 
             "create_task" -> {
                 val title = args.str("title", "Session d'étude").trim().take(140)
-                val courseCode = args.str("courseCode", "GL-301").trim()
+                val courseCode = args.str("courseCode", "").trim()
                 val category = TaskCategory.sanitizeKey(args.str("category", "revision"))
                 val priority = args.str("priority", "medium").takeIf { it in setOf("high", "medium", "low") } ?: "medium"
                 val dueDateIso = args.str("dueDateIso", today.toString()).trim()

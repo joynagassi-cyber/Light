@@ -2,6 +2,7 @@ package com.example.ui.screens
 
 import android.Manifest
 import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -42,6 +43,7 @@ import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.AvTimer
 import androidx.compose.material.icons.outlined.Book
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.material.icons.outlined.CloudDone
 import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.ColorLens
@@ -85,7 +87,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -121,6 +122,8 @@ import com.example.ui.components.focusIllustrationTitle
 import com.example.ui.components.focusThemeFor
 import com.example.ui.theme.AppleEmerald
 import com.example.ui.theme.AppleRose
+import com.example.ui.components.LightControl
+import com.example.ui.components.LightPanel
 import com.example.ui.theme.AppearanceMode
 import com.example.ui.theme.JetBrainsMonoFamily
 import com.example.ui.theme.LightColorThemes
@@ -164,6 +167,9 @@ fun SettingsScreen(
     onResumeGoogleSignIn: () -> Unit = {},
     onPauseGoogleSignIn: () -> Unit = {},
     onSignOut: () -> Unit,
+    onOpenNavigationLayout: (() -> Unit)? = null,
+    onOpenCapabilities: (() -> Unit)? = null,
+    onOpenProfile: (() -> Unit)? = null,
     onClose: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -171,7 +177,7 @@ fun SettingsScreen(
     val gradient = LocalLightGradient.current
     val adapt = remember(profile) { profile.adaptation() }
 
-    var showEditProfileSheet by remember { mutableStateOf(false) }
+    var showInlineProfile by rememberSaveable { mutableStateOf(false) }
     var showNotifFreqSheet by remember { mutableStateOf(false) }
     var showCalendarViewSheet by remember { mutableStateOf(false) }
     var showAppearanceSheet by remember { mutableStateOf(false) }
@@ -207,6 +213,12 @@ fun SettingsScreen(
         onUpdateNotifications(granted, if (granted) nextFreq else NotificationFrequency.OFF)
     }
 
+    if (showInlineProfile) {
+        BackHandler { showInlineProfile = false }
+        WorkspaceProfilePage(profile, photoUrl, onUpdateProfile, { showInlineProfile = false }, modifier)
+        return
+    }
+
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
@@ -229,15 +241,9 @@ fun SettingsScreen(
                 horizontalArrangement = Arrangement.spacedBy(LightSpacing.oneAndHalf)
             ) {
                 if (onClose != null) {
-                    Surface(
+                    LightControl(
                         onClick = onClose,
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.surface,
-                        border = BorderStroke(LightSpacing.hairline, MaterialTheme.colorScheme.outlineVariant),
-                        shadowElevation = 1.dp,
-                        modifier = Modifier
-                            .size(LightTouchTarget.minimum)
-                            .testTag("settings_close_button")
+                        modifier = Modifier.testTag("settings_close_button")
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
@@ -262,6 +268,22 @@ fun SettingsScreen(
             }
         }
 
+        if (onOpenNavigationLayout != null || onOpenCapabilities != null) {
+            item {
+                SettingsSectionBlock(title = "Navigation et agent") {
+                    if (onOpenNavigationLayout != null) SettingsNavigationRow(
+                        Icons.Outlined.Dashboard, "Barre de navigation", onClick = onOpenNavigationLayout,
+                        testTag = "open_navigation_settings",
+                    )
+                    if (onOpenNavigationLayout != null && onOpenCapabilities != null) SettingsInsetDivider()
+                    if (onOpenCapabilities != null) SettingsNavigationRow(
+                        Icons.Outlined.Tune, "Capacités de l’agent", onClick = onOpenCapabilities,
+                        testTag = "open_agent_capabilities_settings",
+                    )
+                }
+            }
+        }
+
         // Section 1 : Compte
         item {
             SettingsSectionBlock(title = "Compte") {
@@ -269,7 +291,7 @@ fun SettingsScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { showEditProfileSheet = true }
+                        .clickable { if (onOpenProfile != null) onOpenProfile() else showInlineProfile = true }
                         .padding(horizontal = 16.dp, vertical = 13.dp)
                         .testTag("settings_edit_profile_button"),
                     verticalAlignment = Alignment.CenterVertically,
@@ -1021,150 +1043,6 @@ fun SettingsScreen(
     }
 
     // Bottom Sheet: Edit Profile
-    if (showEditProfileSheet) {
-        val currentYear = remember { LocalDate.now().year }
-        var name by remember { mutableStateOf(profile?.displayName ?: "") }
-        var gender by remember { mutableStateOf(UserGender.fromKey(profile?.gender)) }
-        var birthYearText by remember { mutableStateOf((profile?.birthYear ?: (currentYear - 21L)).toString()) }
-        var ageText by remember { mutableStateOf((profile?.age ?: 21L).toString()) }
-        var profession by remember { mutableStateOf(UserProfession.fromKey(profile?.profession)) }
-        var customProf by remember { mutableStateOf(profile?.customProfession ?: "") }
-        var major by remember { mutableStateOf(profile?.major ?: profession.defaultFocusDomain()) }
-        var goal by remember { mutableStateOf((profile?.dailyGoalTasks ?: 5L).toString()) }
-
-        ModalBottomSheet(onDismissRequest = { showEditProfileSheet = false }) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 580.dp)
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp)
-                    .padding(bottom = 28.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Text(
-                    text = "Modifier le profil",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Prénom / Nom") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Text("Genre", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    UserGender.entries.forEach { g ->
-                        FilterChip(
-                            selected = gender == g,
-                            onClick = { gender = g },
-                            label = { Text(g.label) }
-                        )
-                    }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = ageText,
-                        onValueChange = { raw ->
-                            val d = raw.filter { it.isDigit() }.take(2)
-                            ageText = d
-                            d.toIntOrNull()?.let { a ->
-                                if (a in 6..100) birthYearText = (currentYear - a).toString()
-                            }
-                        },
-                        label = { Text("Âge") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true,
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = birthYearText,
-                        onValueChange = { raw ->
-                            val d = raw.filter { it.isDigit() }.take(4)
-                            birthYearText = d
-                            d.toIntOrNull()?.let { y ->
-                                if (y in 1930..2020) ageText = (currentYear - y).coerceIn(6, 100).toString()
-                            }
-                        },
-                        label = { Text("Année naiss.") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-                Text("Profession", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(
-                    modifier = Modifier.horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    UserProfession.entries.forEach { p ->
-                        FilterChip(
-                            selected = profession == p,
-                            onClick = { profession = p },
-                            label = { Text(if (p == UserProfession.OTHER) "Autre" else p.labelFor(gender)) }
-                        )
-                    }
-                }
-                if (profession == UserProfession.OTHER) {
-                    OutlinedTextField(
-                        value = customProf,
-                        onValueChange = { customProf = it },
-                        label = { Text("Précisez la profession") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-                OutlinedTextField(
-                    value = major,
-                    onValueChange = { major = it },
-                    label = { Text("Filière / Domaine") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = goal,
-                    onValueChange = { goal = it.filter { ch -> ch.isDigit() } },
-                    label = { Text("Objectif tâches / jour") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End)
-                ) {
-                    TextButton(onClick = { showEditProfileSheet = false }) {
-                        Text("Annuler")
-                    }
-                    Button(
-                        onClick = {
-                            val parsedAge = ageText.toLongOrNull()?.coerceIn(6L, 100L) ?: 21L
-                            val parsedYear = birthYearText.toLongOrNull()?.coerceIn(1930L, 2020L) ?: (currentYear - parsedAge)
-                            onUpdateProfile(
-                                name.ifBlank { profession.labelFor(gender, customProf) },
-                                major.ifBlank { profession.defaultFocusDomain() },
-                                goal.toLongOrNull()?.coerceIn(1L, 50L) ?: 5L,
-                                gender.key,
-                                parsedYear,
-                                parsedAge,
-                                profession.key,
-                                customProf
-                            )
-                            showEditProfileSheet = false
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = gradient.accentColor)
-                    ) {
-                        Text("Enregistrer", color = Color.White)
-                    }
-                }
-            }
-        }
-    }
-
     // Bottom Sheet: Add Course
     if (showAddCourseSheet) {
         var code by remember { mutableStateOf("GL-307") }
@@ -1291,23 +1169,6 @@ private fun SettingsSectionBlock(
     title: String,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val surfaceConfig = LocalThemeSurfaceConfig.current
-    val isOled = surfaceConfig.appearanceMode == AppearanceMode.OLED
-    val isGlass = surfaceConfig.glassEnabled
-    val cardBorder = if (isGlass) {
-        BorderStroke(
-            LightSpacing.hairline,
-            Brush.linearGradient(
-                listOf(
-                    Color.White.copy(alpha = if (isOled) 0.18f else 0.78f),
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.28f)
-                )
-            )
-        )
-    } else {
-        BorderStroke(LightSpacing.hairline, MaterialTheme.colorScheme.outlineVariant)
-    }
-
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(LightSpacing.one)
@@ -1319,13 +1180,7 @@ private fun SettingsSectionBlock(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(start = LightSpacing.half)
         )
-        Surface(
-            shape = MaterialTheme.shapes.large,
-            color = MaterialTheme.colorScheme.surface,
-            border = cardBorder,
-            shadowElevation = if (isOled) 0.dp else 2.dp,
-            modifier = Modifier.fillMaxWidth()
-        ) {
+        LightPanel(modifier = Modifier.fillMaxWidth()) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 content = content
@@ -1587,6 +1442,161 @@ private fun DurationStepperRow(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun WorkspaceProfilePage(
+    profile: UserProfile?, photoUrl: String?,
+    onUpdateProfile: (String, String, Long, String?, Long?, Long?, String?, String?) -> Unit,
+    onBack: () -> Unit, modifier: Modifier = Modifier,
+) {
+    val gradient = LocalLightGradient.current
+    val currentYear = remember { LocalDate.now().year }
+    var name by remember { mutableStateOf(profile?.displayName ?: "") }
+    var gender by remember { mutableStateOf(UserGender.fromKey(profile?.gender)) }
+    var birthYearText by remember { mutableStateOf((profile?.birthYear ?: (currentYear - 21L)).toString()) }
+    var ageText by remember { mutableStateOf((profile?.age ?: 21L).toString()) }
+    var profession by remember { mutableStateOf(UserProfession.fromKey(profile?.profession)) }
+    var customProf by remember { mutableStateOf(profile?.customProfession ?: "") }
+    var major by remember { mutableStateOf(profile?.major ?: profession.defaultFocusDomain()) }
+    var goal by remember { mutableStateOf((profile?.dailyGoalTasks ?: 5L).toString()) }
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .testTag("workspace_profile_page")
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp)
+            .padding(bottom = 28.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        SettingsPageHeader("Profil", onBack)
+        val cover = remember(profile?.userId) {
+            val covers = LightGradients.all
+            covers[Math.floorMod(profile?.userId.orEmpty().hashCode(), covers.size)]
+        }
+        Column(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.large).background(cover.appBrush()).padding(LightSpacing.three),
+            verticalArrangement = Arrangement.spacedBy(LightSpacing.one)) {
+            if (!photoUrl.isNullOrBlank()) AsyncImage(photoUrl, "Photo de profil", contentScale = ContentScale.Crop,
+                modifier = Modifier.size(LightSpacing.six).clip(CircleShape))
+            Text(profile?.displayName?.takeIf { it.isNotBlank() } ?: "Mon profil",
+                style = MaterialTheme.typography.titleLarge, color = Color.White)
+        }
+        OutlinedTextField(
+            value = name,
+            onValueChange = { name = it },
+            label = { Text("Prénom / Nom") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text("Genre", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            UserGender.entries.forEach { g ->
+                FilterChip(
+                    selected = gender == g,
+                    onClick = { gender = g },
+                    label = { Text(g.label) }
+                )
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(
+                value = ageText,
+                onValueChange = { raw ->
+                    val d = raw.filter { it.isDigit() }.take(2)
+                    ageText = d
+                    d.toIntOrNull()?.let { a ->
+                        if (a in 6..100) birthYearText = (currentYear - a).toString()
+                    }
+                },
+                label = { Text("Âge") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true,
+                modifier = Modifier.weight(1f)
+            )
+            OutlinedTextField(
+                value = birthYearText,
+                onValueChange = { raw ->
+                    val d = raw.filter { it.isDigit() }.take(4)
+                    birthYearText = d
+                    d.toIntOrNull()?.let { y ->
+                        if (y in 1930..2020) ageText = (currentYear - y).coerceIn(6, 100).toString()
+                    }
+                },
+                label = { Text("Année naiss.") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true,
+                modifier = Modifier.weight(1f)
+            )
+        }
+        Text("Profession", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            UserProfession.entries.forEach { p ->
+                FilterChip(
+                    selected = profession == p,
+                    onClick = { profession = p },
+                    label = { Text(if (p == UserProfession.OTHER) "Autre" else p.labelFor(gender)) }
+                )
+            }
+        }
+        if (profession == UserProfession.OTHER) {
+            OutlinedTextField(
+                value = customProf,
+                onValueChange = { customProf = it },
+                label = { Text("Précisez la profession") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        OutlinedTextField(
+            value = major,
+            onValueChange = { major = it },
+            label = { Text("Filière / Domaine") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+        OutlinedTextField(
+            value = goal,
+            onValueChange = { goal = it.filter { ch -> ch.isDigit() } },
+            label = { Text("Objectif tâches / jour") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End)
+        ) {
+            TextButton(onClick = { onBack() }) {
+                Text("Annuler")
+            }
+            Button(
+                onClick = {
+                    val parsedAge = ageText.toLongOrNull()?.coerceIn(6L, 100L) ?: 21L
+                    val parsedYear = birthYearText.toLongOrNull()?.coerceIn(1930L, 2020L) ?: (currentYear - parsedAge)
+                    onUpdateProfile(
+                        name.ifBlank { profession.labelFor(gender, customProf) },
+                        major.ifBlank { profession.defaultFocusDomain() },
+                        goal.toLongOrNull()?.coerceIn(1L, 50L) ?: 5L,
+                        gender.key,
+                        parsedYear,
+                        parsedAge,
+                        profession.key,
+                        customProf
+                    )
+                    onBack()
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = gradient.accentColor)
+            ) {
+                Text("Enregistrer", color = Color.White)
             }
         }
     }

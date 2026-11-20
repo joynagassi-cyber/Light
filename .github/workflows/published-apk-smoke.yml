@@ -1,0 +1,58 @@
+name: Published APK install smoke
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/published-apk-smoke.yml
+      - ci/smoke_published_apk.sh
+      - ci/android_install.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    name: Install published v1.0.0 (API ${{ matrix.api }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [26, 35]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Verify the exact published asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/apk-evidence"
+          gh release download v1.0.0 --repo joynagassi-cyber/Light \
+            --pattern Light-release.apk --pattern SHA256SUMS.txt --dir "$RUNNER_TEMP/apk-evidence"
+          bash ci/setup-android-sdk.sh
+          bash ci/smoke_published_apk.sh verify "$RUNNER_TEMP/apk-evidence"
+      - name: Enable KVM access for the runner
+        run: sudo chown "$(id -u):$(id -g)" /dev/kvm
+      - name: Fresh install and start the launcher activity
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
+        with:
+          api-level: ${{ matrix.api }}
+          target: google_apis
+          arch: x86_64
+          disable-linux-hw-accel: false
+          script: bash ci/smoke_published_apk.sh install "$RUNNER_TEMP/apk-evidence" ${{ matrix.api }}
+      - name: Attach installation evidence (not the APK)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: apk-install-evidence-api-${{ matrix.api }}
+          path: ${{ runner.temp }}/apk-evidence/*.txt.log
+          if-no-files-found: warn
+          retention-days: 30

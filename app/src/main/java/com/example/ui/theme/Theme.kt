@@ -58,9 +58,7 @@ fun LightTheme(
         palette.background
     }
     val surface = when {
-        appearanceMode == AppearanceMode.OLED && glassEnabled -> Color(0xD91B1C20)
         appearanceMode == AppearanceMode.OLED -> Color(0xFF08090B)
-        glassEnabled -> Color.White.copy(alpha = 0.78f)
         selectedThemeId == LightColorThemes.GRADIENT_ID -> AppleCardSurface
         else -> palette.surface
     }
@@ -102,10 +100,10 @@ fun LightTheme(
             onBackground = AppleTextPrimary,
             surface = surface,
             onSurface = AppleTextPrimary,
-            surfaceVariant = if (glassEnabled) Color.White.copy(alpha = 0.52f) else animatedGradient.softContainer,
+            surfaceVariant = animatedGradient.softContainer,
             onSurfaceVariant = AppleTextSecondary,
             outline = AppleControlOutline,
-            outlineVariant = if (glassEnabled) accent.copy(alpha = 0.24f) else AppleDivider,
+            outlineVariant = AppleDivider,
             error = AppleRose,
             onError = Color.White
         )

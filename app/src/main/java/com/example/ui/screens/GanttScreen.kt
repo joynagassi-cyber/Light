@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -22,6 +23,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -36,6 +38,7 @@ import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Today
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -54,6 +57,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -62,16 +67,25 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.data.model.Course
+import com.example.data.model.MAX_TASK_PREDECESSORS
+import com.example.data.model.wouldCreateTaskCycle
 import com.example.data.model.StudyProject
 import com.example.data.model.StudyTask
 import com.example.ui.components.AppleCard
 import com.example.ui.theme.LocalLightGradient
+import com.example.ui.theme.AppleAmber
+import com.example.ui.theme.AppleEmerald
+import com.example.ui.theme.LightSpacing
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneOffset
@@ -94,6 +108,8 @@ fun GanttScreen(
     onCreateTask: (String) -> Unit,
     onToggleTask: (StudyTask) -> Unit,
     onDeleteTask: (String) -> Unit,
+    onMoveTask: ((StudyTask, LocalDate, String?) -> Unit)? = null,
+    onSetPredecessors: ((StudyTask, List<String>) -> Unit)? = null,
     externalCreateTrigger: Int = 0,
     modifier: Modifier = Modifier
 ) {
@@ -108,6 +124,8 @@ fun GanttScreen(
     var showProjectDialog by remember { mutableStateOf(false) }
     var projectBeingEdited by remember { mutableStateOf<StudyProject?>(null) }
     var projectPendingDeletion by remember { mutableStateOf<StudyProject?>(null) }
+    val tasksById = remember(tasks) { tasks.associateBy { it.id } }
+    var dependencyTargetId by rememberSaveable { mutableStateOf<String?>(null) }
     var taskPendingDeletion by remember { mutableStateOf<StudyTask?>(null) }
     LaunchedEffect(externalCreateTrigger) {
         if (externalCreateTrigger > 0) showCreateChooser = true
@@ -115,7 +133,13 @@ fun GanttScreen(
     val scale = GanttScale.fromKey(scaleKey)
     val anchor = remember(anchorIso) { runCatching { LocalDate.parse(anchorIso) }.getOrElse { LocalDate.now() } }
     val window = remember(anchor, scale) { ganttWindow(anchor, scale) }
-    val validTasks = remember(tasks) { tasks.filter { it.ganttSpan() != null } }
+    val validTasks = remember(tasks, projects) {
+        val projectIds = projects.mapTo(mutableSetOf()) { it.id }
+        tasks.filter { it.ganttSpan() != null }.map { task ->
+            // A deleted/unavailable project must not hide its task from the timeline.
+            if (task.projectId.isNotBlank() && task.projectId !in projectIds) task.copy(projectId = "") else task
+        }
+    }
     val visibleProjects = remember(projects, validTasks, window, selectedProjectId) {
         projects.filter { project ->
             val span = project.ganttSpan()
@@ -125,7 +149,6 @@ fun GanttScreen(
         }
     }
     val visibleTasks = remember(validTasks, window, statusFilter, selectedCourseId, selectedProjectId, projects) {
-        val validProjectIds = projects.mapTo(mutableSetOf()) { it.id }
         validTasks.filter { task ->
             val statusMatches = when (statusFilter) {
                 GanttStatusFilter.ALL -> true
@@ -134,8 +157,7 @@ fun GanttScreen(
             }
             val courseMatches = selectedCourseId == "all" || task.courseId == selectedCourseId
             val projectMatches = selectedProjectId == "all" || task.projectId == selectedProjectId
-            val projectReferenceValid = task.projectId.isBlank() || task.projectId in validProjectIds
-            statusMatches && courseMatches && projectMatches && projectReferenceValid && window.contains(task)
+            statusMatches && courseMatches && projectMatches && window.contains(task)
         }.sortedWith(compareBy<StudyTask> { it.dueDateIso }.thenBy { it.scheduledTime }.thenBy { it.title })
     }
     val overdueCount = validTasks.count { !it.completed && it.dueDateIso < LocalDate.now().toString() }
@@ -307,7 +329,9 @@ fun GanttScreen(
                             }
                             val projectTasks = visibleTasks.filter { it.projectId == project.id }
                             items(projectTasks, key = { "gantt_${it.id}" }) { task ->
-                                GanttTaskRow(task, window, scale, leftWidth, columnWidth, timelineScroll, onToggleTask) { taskPendingDeletion = task }
+                                GanttTaskRow(task, window, scale, leftWidth, columnWidth, timelineScroll, onToggleTask, onMoveTask,
+                                    tasksById, onSetPredecessors?.let { { dependencyTargetId = task.id } }
+                                ) { taskPendingDeletion = task }
                             }
                         }
                         unassignedGroups.forEach { (groupKey, groupTasks) ->
@@ -330,12 +354,22 @@ fun GanttScreen(
                                 }
                             }
                             items(groupTasks, key = { "gantt_${it.id}" }) { task ->
-                                GanttTaskRow(task, window, scale, leftWidth, columnWidth, timelineScroll, onToggleTask) { taskPendingDeletion = task }
+                                GanttTaskRow(task, window, scale, leftWidth, columnWidth, timelineScroll, onToggleTask, onMoveTask,
+                                    tasksById, onSetPredecessors?.let { { dependencyTargetId = task.id } }
+                                ) { taskPendingDeletion = task }
                             }
                         }
                     }
                 }
             }
+        }
+    }
+
+    val dependencyTarget = dependencyTargetId?.let(tasksById::get)
+    if (dependencyTarget != null && onSetPredecessors != null) {
+        GanttDependenciesDialog(dependencyTarget, tasksById, onDismiss = { dependencyTargetId = null }) { ids ->
+            onSetPredecessors(dependencyTarget, ids)
+            dependencyTargetId = null
         }
     }
 
@@ -615,15 +649,25 @@ private fun GanttTaskRow(
     columnWidth: Dp,
     timelineScroll: ScrollState,
     onToggleTask: (StudyTask) -> Unit,
+    onMoveTask: ((StudyTask, LocalDate, String?) -> Unit)?,
+    tasksById: Map<String, StudyTask>,
+    onEditDependencies: (() -> Unit)?,
     onDeleteTask: (String) -> Unit
 ) {
     val span = task.ganttSpan() ?: return
     val gradient = LocalLightGradient.current
     var menuExpanded by remember(task.id) { mutableStateOf(false) }
-    val rowHeight = 62.dp
+    var showMovePicker by remember(task.id) { mutableStateOf(false) }
+    val rowHeight = LightSpacing.six + LightSpacing.two
     val chartWidth = columnWidth * window.columnCount
     val textColor = if (task.completed) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
-    val barColor = if (task.completed) Color(0xFF69A98A) else if (task.priority == "high") Color(0xFFD45F70) else gradient.accentColor
+    val issue = predecessorIssue(task, tasksById)
+    val barColor = when {
+        task.completed -> AppleEmerald
+        issue != null -> MaterialTheme.colorScheme.error
+        span.isMilestone -> AppleAmber
+        else -> gradient.accentColor
+    }
 
     Row(
         modifier = Modifier.fillMaxWidth().height(rowHeight).background(MaterialTheme.colorScheme.surface).testTag("gantt_task_${task.id}"),
@@ -636,6 +680,12 @@ private fun GanttTaskRow(
             Column(modifier = Modifier.weight(1f)) {
                 Text(task.title, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = textColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text("${span.start.format(DateTimeFormatter.ofPattern("d MMM", Locale.FRENCH))} → ${span.endInclusive.format(DateTimeFormatter.ofPattern("d MMM", Locale.FRENCH))}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (task.predecessorIds.isNotEmpty()) {
+                    val status = issue ?: "${task.predecessorIds.size} dépendance(s)"
+                    Text(status, style = MaterialTheme.typography.labelSmall, maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = if (issue == null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error)
+                }
             }
             Box {
                 IconButton(onClick = { menuExpanded = true }, modifier = Modifier.size(32.dp)) {
@@ -643,6 +693,8 @@ private fun GanttTaskRow(
                 }
                 DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
                     DropdownMenuItem(text = { Text(if (task.completed) "Réouvrir" else "Marquer terminée") }, leadingIcon = { Icon(Icons.Rounded.CheckCircle, null) }, onClick = { onToggleTask(task); menuExpanded = false })
+                    if (onEditDependencies != null) DropdownMenuItem(text = { Text("Dépendances…") }, onClick = { menuExpanded = false; onEditDependencies() })
+                    if (onMoveTask != null) DropdownMenuItem(text = { Text("Déplacer…") }, onClick = { menuExpanded = false; showMovePicker = true })
                     DropdownMenuItem(text = { Text("Supprimer") }, leadingIcon = { Icon(Icons.Rounded.DeleteOutline, null) }, onClick = { onDeleteTask(task.id); menuExpanded = false })
                 }
             }
@@ -667,44 +719,128 @@ private fun GanttTaskRow(
                     }
                 }
             }
-            val barPosition = barPosition(task, span, window, scale)
-            if (barPosition != null) {
-                val (startFraction, endFraction) = barPosition
-                if (span.isMilestone) {
-                    Box(
-                        modifier = Modifier.offset(x = columnWidth * (startFraction + endFraction) / 2f - 7.dp)
-                            .size(14.dp).align(Alignment.CenterStart).rotate(45f)
-                            .background(Color(0xFFC18A25), RoundedCornerShape(3.dp)).testTag("gantt_milestone_${task.id}")
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier.offset(x = columnWidth * startFraction + 3.dp)
-                            .width((columnWidth * (endFraction - startFraction) - 6.dp).coerceAtLeast(9.dp))
-                            .height(18.dp).align(Alignment.CenterStart)
-                            .clip(CircleShape).background(barColor)
-                            .testTag("gantt_bar_${task.id}")
-                    )
-                }
+            window.ganttBarRange(task, scale)?.let { (startFraction, endFraction) ->
+                GanttTaskBar(task, span, scale, columnWidth, startFraction, endFraction, barColor, onMoveTask)
             }
           }
         }
     }
+    if (showMovePicker && onMoveTask != null) {
+        GanttMoveDatePicker(span.start, onDismiss = { showMovePicker = false }) { date ->
+            onMoveTask(task, date, null)
+            showMovePicker = false
+        }
+    }
+
 }
 
-private fun barPosition(task: StudyTask, span: GanttTaskSpan, window: GanttWindow, scale: GanttScale): Pair<Float, Float>? {
-    if (scale == GanttScale.DAY) {
-        return window.taskTimeColumnRange(task)
+@Composable
+internal fun GanttTaskBar(
+    task: StudyTask,
+    span: GanttTaskSpan,
+    scale: GanttScale,
+    columnWidth: Dp,
+    first: Float,
+    last: Float,
+    color: Color,
+    onMoveTask: ((StudyTask, LocalDate, String?) -> Unit)?,
+) {
+    val dragEnabled = onMoveTask != null && (scale != GanttScale.DAY || span.start == span.endInclusive || span.isMilestone)
+    val moveCallback by rememberUpdatedState(onMoveTask)
+    val currentTask by rememberUpdatedState(task)
+    var draggedColumns by remember(task.id, scale, span) { mutableFloatStateOf(0f) }
+    val preview = ganttDragMove(span, scale, draggedColumns)?.visualColumns ?: 0f
+    val barWidth = (columnWidth * (last - first)).coerceAtLeast(LightSpacing.one)
+    val markerSize = LightSpacing.two
+    val width = if (span.isMilestone) markerSize else barWidth
+    val left = if (span.isMilestone) columnWidth * ((first + last) / 2f) - width / 2 else columnWidth * first
+    val gesture = if (!dragEnabled) Modifier else Modifier.pointerInput(task.id, scale, span, columnWidth, first, last) {
+        detectDragGesturesAfterLongPress(
+            onDragEnd = {
+                val move = ganttDragMove(span, scale, draggedColumns)
+                draggedColumns = 0f
+                if (move != null) moveCallback?.invoke(currentTask, move.start, move.time)
+            },
+            onDragCancel = { draggedColumns = 0f },
+            onDrag = { change, delta ->
+                change.consume()
+                draggedColumns += delta.x / columnWidth.toPx()
+            },
+        )
     }
-    if (span.isMilestone) {
-        val dueColumn = window.dateColumn(span.endInclusive) ?: return null
-        return dueColumn.toFloat() to (dueColumn + 1f).coerceAtMost(window.columnCount.toFloat())
+    Box(
+        modifier = Modifier.offset(x = left + columnWidth * preview).width(width)
+            .height(LightSpacing.six).then(gesture).testTag(if (span.isMilestone) "gantt_milestone_${task.id}" else "gantt_bar_${task.id}")
+            .semantics { contentDescription = if (dragEnabled) "${task.title}, maintenir puis glisser pour déplacer" else task.title },
+        contentAlignment = Alignment.Center,
+    ) {
+        if (span.isMilestone) {
+            Box(Modifier.size(markerSize).rotate(45f).background(color, RoundedCornerShape(LightSpacing.half)))
+        } else {
+            Box(Modifier.fillMaxWidth().height(LightSpacing.two).clip(CircleShape).background(color))
+        }
     }
-    val unit = if (window.columnCount == 13) 7f else 1f
-    val days = java.time.temporal.ChronoUnit.DAYS.between(window.start, span.start).toFloat()
-    val startColumn = (days / unit).coerceIn(0f, window.columnCount.toFloat())
-    val endDayExclusive = java.time.temporal.ChronoUnit.DAYS.between(window.start, span.endInclusive.plusDays(1)).toFloat()
-    val endColumn = (endDayExclusive / unit).coerceIn(startColumn + 0.08f, window.columnCount.toFloat())
-    return startColumn to endColumn
+}
+
+private fun predecessorIssue(task: StudyTask, tasksById: Map<String, StudyTask>): String? {
+    val span = task.ganttSpan() ?: return null
+    val starts = if (span.isMilestone) span.endInclusive else span.start
+    val predecessors = task.predecessorIds.map { tasksById[it] }
+    return when {
+        predecessors.any { it == null } -> "Lien introuvable"
+        predecessors.filterNotNull().any { it.ganttSpan()?.endInclusive?.isAfter(starts) == true } -> "Dates en conflit"
+        predecessors.filterNotNull().any { !it.completed } -> "Prédécesseur ouvert"
+        else -> null
+    }
+}
+
+@Composable
+private fun GanttDependenciesDialog(
+    task: StudyTask,
+    tasksById: Map<String, StudyTask>,
+    onDismiss: () -> Unit,
+    onSave: (List<String>) -> Unit,
+) {
+    var selected by remember(task.id) { mutableStateOf(task.predecessorIds.toSet()) }
+    val candidates = remember(task.id, tasksById) {
+        tasksById.values.filter { it.id != task.id }.sortedBy { it.title.lowercase(Locale.ROOT) }
+            .map { it to wouldCreateTaskCycle(task.id, it.id, tasksById) }
+    }
+    val missing = selected.filterNot(tasksById::containsKey)
+    val cyclic = candidates.any { (candidate, cycle) -> cycle && candidate.id in selected }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Dépendances") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(LightSpacing.one)) {
+                Text("Sélectionnez jusqu’à $MAX_TASK_PREDECESSORS tâches à réaliser avant « ${task.title} ».")
+                if (missing.isNotEmpty()) TextButton(onClick = { selected = selected - missing.toSet() }) { Text("Retirer les liens introuvables") }
+                if (candidates.isEmpty()) Text("Aucune autre tâche disponible.")
+                LazyColumn(Modifier.heightIn(max = LightSpacing.six * 5)) {
+                    items(candidates, key = { it.first.id }) { (candidate, cycle) ->
+                        val checked = candidate.id in selected
+                        val enabled = checked || (!cycle && selected.size < MAX_TASK_PREDECESSORS)
+                        Row(Modifier.fillMaxWidth().toggleable(
+                            value = checked, enabled = enabled, role = Role.Checkbox,
+                            onValueChange = { select -> selected = if (select) selected + candidate.id else selected - candidate.id },
+                        ), verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked, onCheckedChange = null, enabled = enabled, modifier = Modifier.size(LightSpacing.six))
+                            Column(Modifier.weight(1f)) {
+                                Text(candidate.title)
+                                Text(when {
+                                    cycle -> "Créerait une boucle"
+                                    candidate.completed -> "Terminée · ${candidate.dueDateIso}"
+                                    else -> "Ouverte · ${candidate.dueDateIso}"
+                                }, style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { onSave(selected.toList()) }, enabled = !cyclic && missing.isEmpty()) { Text("Enregistrer") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } },
+    )
 }
 
 private fun timelineLabels(window: GanttWindow, scale: GanttScale): List<String> = when (scale) {
@@ -731,3 +867,17 @@ private fun stepAnchor(anchor: LocalDate, scale: GanttScale, direction: Long): L
 private fun shortGanttDate(iso: String): String = runCatching {
     LocalDate.parse(iso).format(DateTimeFormatter.ofPattern("d MMM", Locale.FRENCH))
 }.getOrDefault(iso)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun GanttMoveDatePicker(start: LocalDate, onDismiss: () -> Unit, onMove: (LocalDate) -> Unit) {
+    val state = rememberDatePickerState(initialSelectedDateMillis = start.atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli())
+    DatePickerDialog(onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = {
+                state.selectedDateMillis?.let { onMove(Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()) }
+            }) { Text("Déplacer") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } }
+    ) { DatePicker(state) }
+}

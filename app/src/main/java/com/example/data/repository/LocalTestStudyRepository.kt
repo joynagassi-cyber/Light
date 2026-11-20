@@ -13,6 +13,8 @@ import com.example.data.model.StudyCountdown
 import com.example.data.model.StudyHabit
 import com.example.data.model.StudyProject
 import com.example.data.model.StudyTask
+import com.example.data.model.NavigationLayout
+import com.example.data.model.normalizeSubtasks
 import com.example.data.model.TaskCategory
 import com.example.data.model.UserGender
 import com.example.data.model.UserProfession
@@ -57,6 +59,7 @@ class LocalTestStudyRepository(
         storageFile = File(context.applicationContext.filesDir, "light_local_workspace.json")
     )
 
+    private val navigationLayout = MutableStateFlow(NavigationLayout())
     private val profileFlow = MutableStateFlow<UserProfile?>(null)
     private val coursesFlow = MutableStateFlow<List<Course>>(emptyList())
     private val tasksFlow = MutableStateFlow<List<StudyTask>>(emptyList())
@@ -73,6 +76,13 @@ class LocalTestStudyRepository(
 
     init {
         loadFromDisk()
+    }
+
+    override fun observeNavigationLayout(userId: String): Flow<NavigationLayout> = navigationLayout.asStateFlow()
+
+    override suspend fun saveNavigationLayout(userId: String, layout: NavigationLayout) {
+        navigationLayout.value = layout.normalized()
+        markModifiedAndPersist()
     }
 
     override fun observeUserProfile(userId: String): Flow<UserProfile?> = profileFlow.asStateFlow()
@@ -482,7 +492,8 @@ class LocalTestStudyRepository(
         startDateIso: String,
         projectId: String,
         focusProfileId: String,
-        focusProfileTitle: String
+        focusProfileTitle: String,
+        subtasks: List<String>
     ): String {
         val project = projectsFlow.value.firstOrNull { it.id == projectId }
         require(projectId.isBlank() || project != null) { "Le projet sélectionné n'existe plus." }
@@ -496,6 +507,7 @@ class LocalTestStudyRepository(
             courseTitle = courseTitle.take(100),
             title = title.trim().take(140),
             notes = notes.trim().take(500),
+            subtasks = normalizeSubtasks(subtasks),
             dueDateIso = dueDateIso.trim().take(20),
             startDateIso = startDateIso.trim().take(20).ifBlank { dueDateIso.trim().take(20) },
             projectId = projectId,
@@ -536,6 +548,19 @@ class LocalTestStudyRepository(
         tasksFlow.update { list ->
             list.map { item -> if (item.id == task.id) item.copy(completed = !item.completed) else item }
         }
+        markModifiedAndPersist()
+    }
+
+    override suspend fun moveTask(userId: String, taskId: String, start: String, due: String, scheduledTime: String?) {
+        tasksFlow.update { tasks ->
+            tasks.map { if (it.id == taskId && it.userId == userId) it.copy(startDateIso = start, dueDateIso = due,
+                scheduledTime = scheduledTime ?: it.scheduledTime) else it }
+        }
+        markModifiedAndPersist()
+    }
+
+    override suspend fun setTaskPredecessors(userId: String, taskId: String, predecessorIds: List<String>) {
+        tasksFlow.update { tasks -> tasks.map { if (it.id == taskId && it.userId == userId) it.copy(predecessorIds = predecessorIds) else it } }
         markModifiedAndPersist()
     }
 
@@ -907,7 +932,8 @@ class LocalTestStudyRepository(
                     startDateIso = localTask.startDateIso,
                     projectId = mappedProjectId,
                     focusProfileId = mappedFocusProfileId,
-                    focusProfileTitle = localTask.focusProfileTitle
+                    focusProfileTitle = localTask.focusProfileTitle,
+                    subtasks = localTask.subtasks
                 )
                 if (localTask.completed) {
                     cloudRepo.toggleTaskCompleted(cloudUserId, localTask.copy(id = createdId, completed = false))
@@ -1020,6 +1046,13 @@ class LocalTestStudyRepository(
                 root["syncedCloudUserIds"]?.jsonArray?.forEach { elem ->
                     elem.jsonPrimitive.contentOrNull?.takeIf { it.isNotBlank() }?.let { syncedCloudUserIds += it }
                 }
+                (root["navigation"] as? JsonObject)?.let { nav ->
+                    fun strings(key: String) = (nav[key] as? JsonArray).orEmpty().mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
+                    navigationLayout.value = NavigationLayout(strings("order"), strings("hidden"),
+                        (nav["icons"] as? JsonObject).orEmpty().mapNotNull { (route, icon) ->
+                            (icon as? JsonPrimitive)?.contentOrNull?.let { route to it }
+                        }.toMap()).normalized()
+                }
                 profileFlow.value = root["profile"]?.let { elem ->
                     (elem as? JsonObject)?.let(::decodeProfile)
                 }
@@ -1055,6 +1088,12 @@ class LocalTestStudyRepository(
         put("hasUserModifications", hasUserModifications)
         put("syncedCloudUserIds", buildJsonArray {
             syncedCloudUserIds.forEach { add(JsonPrimitive(it)) }
+        })
+        val nav = navigationLayout.value
+        put("navigation", buildJsonObject {
+            put("order", JsonArray(nav.order.map { JsonPrimitive(it) }))
+            put("hidden", JsonArray(nav.hidden.map { JsonPrimitive(it) }))
+            put("icons", JsonObject(nav.icons.mapValues { JsonPrimitive(it.value) }))
         })
         profileFlow.value?.let { put("profile", encodeProfile(it)) }
         put("courses", buildJsonArray { coursesFlow.value.forEach { add(encodeCourse(it)) } })
@@ -1158,6 +1197,8 @@ class LocalTestStudyRepository(
         put("courseTitle", t.courseTitle)
         put("title", t.title)
         put("notes", t.notes)
+        put("subtasks", buildJsonArray { t.subtasks.forEach { add(JsonPrimitive(it)) } })
+        put("predecessorIds", buildJsonArray { t.predecessorIds.forEach { add(JsonPrimitive(it)) } })
         put("dueDateIso", t.dueDateIso)
         put("scheduledTime", t.scheduledTime)
         put("priority", t.priority)
@@ -1179,6 +1220,8 @@ class LocalTestStudyRepository(
         courseTitle = obj["courseTitle"]?.jsonPrimitive?.contentOrNull.orEmpty(),
         title = obj["title"]?.jsonPrimitive?.contentOrNull.orEmpty(),
         notes = obj["notes"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+        predecessorIds = (obj["predecessorIds"] as? JsonArray).orEmpty().mapNotNull { (it as? JsonPrimitive)?.contentOrNull },
+        subtasks = normalizeSubtasks((obj["subtasks"] as? JsonArray).orEmpty().mapNotNull { (it as? JsonPrimitive)?.contentOrNull }),
         dueDateIso = obj["dueDateIso"]?.jsonPrimitive?.contentOrNull.orEmpty(),
         scheduledTime = obj["scheduledTime"]?.jsonPrimitive?.contentOrNull.orEmpty(),
         priority = obj["priority"]?.jsonPrimitive?.contentOrNull ?: "medium",

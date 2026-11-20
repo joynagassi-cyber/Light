@@ -24,6 +24,9 @@ import com.example.data.model.StudyCountdown
 import com.example.data.model.StudyHabit
 import com.example.data.model.StudyProject
 import com.example.data.model.StudyTask
+import com.example.data.model.NavigationLayout
+import com.example.data.model.MAX_TASK_PREDECESSORS
+import com.example.data.model.wouldCreateTaskCycle
 import com.example.data.model.TaskCategory
 import com.example.data.model.UiState
 import com.example.data.model.UserGender
@@ -48,6 +51,7 @@ import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -126,6 +130,7 @@ class StudyViewModel(
 
     private var timerJob: Job? = null
     private var agentRequestJob: Job? = null
+    private var plannerRequestJob: Job? = null
     private var persistThreadsJob: Job? = null
 
     val hasPendingCloudWrites: StateFlow<Boolean> = repository.observeHasPendingWrites(currentUserId)
@@ -137,6 +142,25 @@ class StudyViewModel(
 
     val appSettings: StateFlow<StudyAppSettings> = themePreferencesStore.appSettings
         .stateIn(viewModelScope, SharingStarted.Eagerly, StudyAppSettings())
+
+    val navigationLayout: StateFlow<NavigationLayout> = repository.observeNavigationLayout(currentUserId)
+        .catch { error ->
+            if (error is CancellationException) throw error
+            Log.w(TAG, "Navigation preferences unavailable", error)
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), NavigationLayout())
+
+    fun saveNavigationLayout(layout: NavigationLayout) {
+        viewModelScope.launch {
+            try {
+                repository.saveNavigationLayout(currentUserId, layout)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                _bannerMessage.value = "Impossible d’enregistrer la barre de navigation."
+            }
+        }
+    }
 
     val profileState: StateFlow<UiState<UserProfile?>> = repository.observeUserProfile(currentUserId)
         .map<UserProfile?, UiState<UserProfile?>> { UiState.Success(it) }
@@ -688,7 +712,8 @@ class StudyViewModel(
         startDateIso: String = "",
         projectId: String = "",
         focusProfileId: String = "",
-        focusProfileTitle: String = ""
+        focusProfileTitle: String = "",
+        subtasks: List<String> = emptyList()
     ) {
         viewModelScope.launch {
             try {
@@ -708,7 +733,8 @@ class StudyViewModel(
                     startDateIso = startDateIso,
                     projectId = projectId,
                     focusProfileId = focusProfileId,
-                    focusProfileTitle = focusProfileTitle
+                    focusProfileTitle = focusProfileTitle,
+                    subtasks = subtasks
                 )
                 _bannerMessage.value = when {
                     isLocalMode -> "Tâche enregistrée sur l'appareil."
@@ -963,31 +989,76 @@ class StudyViewModel(
         }
     }
 
+    fun moveTask(task: StudyTask, newStart: LocalDate, scheduledTime: String?) {
+        val previousDue = runCatching { LocalDate.parse(task.dueDateIso) }.getOrNull() ?: return
+        val previousStart = runCatching { LocalDate.parse(task.startDateIso) }.getOrNull()?.coerceAtMost(previousDue) ?: previousDue
+        val duration = java.time.temporal.ChronoUnit.DAYS.between(previousStart, previousDue)
+        viewModelScope.launch {
+            try {
+                repository.moveTask(currentUserId, task.id, newStart.toString(), newStart.plusDays(duration).toString(), scheduledTime)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _bannerMessage.value = "Impossible de déplacer cette tâche."
+            }
+        }
+    }
+
+    fun setTaskPredecessors(task: StudyTask, ids: List<String>) {
+        val tasks = (tasksState.value as? UiState.Success)?.data.orEmpty().associateBy { it.id }
+        if (task.id !in tasks || ids.distinct().size != ids.size || ids.size > MAX_TASK_PREDECESSORS ||
+            ids.any { it !in tasks || wouldCreateTaskCycle(task.id, it, tasks) }) {
+            _bannerMessage.value = "Dépendances invalides : une tâche est introuvable ou la sélection crée une boucle."
+            return
+        }
+        viewModelScope.launch {
+            try {
+                repository.setTaskPredecessors(currentUserId, task.id, ids)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                _bannerMessage.value = "Impossible d’enregistrer les dépendances."
+            }
+        }
+    }
+
     fun generateAiStudyPlan(
         goalPrompt: String,
         targetDateIso: String,
         dailyMinutesAvailable: Int,
         courses: List<Course>
     ) {
+        plannerRequestJob?.cancel()
         if (goalPrompt.isBlank()) {
             _aiPlanState.value = AiPlanUiState.Error("Décrivez d'abord votre objectif d'étude.")
             return
         }
-        viewModelScope.launch {
+        val active = appSettings.value
+        plannerRequestJob = viewModelScope.launch {
             _aiPlanState.value = AiPlanUiState.Loading
             val persona = (profileState.value as? UiState.Success)?.data.adaptation().aiPersonaInstruction
             try {
+                val remoteCompletion: (suspend (String) -> String)? = if (active.agentProvider == AgentProvider.FIREBASE.id) null else {
+                    val key = themePreferencesStore.readAgentApiKey(active.agentProvider)
+                    require(!key.isNullOrBlank()) { "Ajoutez la clé API du fournisseur actif dans les réglages de Light Agent." }
+                    val completion: suspend (String) -> String = { prompt -> aiAgentRepository.completePlannerPrompt(prompt, active, key) }
+                    completion
+                }
                 val result = aiPlannerRepository.generateSmartStudyPlan(
                     goalPrompt = goalPrompt,
                     targetDateIso = targetDateIso,
                     dailyMinutesAvailable = dailyMinutesAvailable,
                     courses = courses,
-                    personaInstruction = persona
+                    personaInstruction = persona,
+                    modelName = active.agentModel,
+                    externalCompletion = remoteCompletion
                 )
+                coroutineContext.ensureActive()
                 _aiPlanState.value = AiPlanUiState.Success(result)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                coroutineContext.ensureActive()
                 _aiPlanState.value = AiPlanUiState.Error(
                     e.localizedMessage ?: "La génération du plan intelligent a échoué."
                 )
@@ -999,9 +1070,8 @@ class StudyViewModel(
         viewModelScope.launch {
             try {
                 val tasks = plan.tasks.map { aiTask ->
-                    val matchedCourse = courses.firstOrNull {
-                        it.code.equals(aiTask.courseCode, ignoreCase = true) ||
-                            it.title.contains(aiTask.courseCode, ignoreCase = true)
+                    val matchedCourse = aiTask.courseCode.takeIf(String::isNotBlank)?.let { code ->
+                        courses.firstOrNull { it.code.equals(code, ignoreCase = true) }
                     }
                     StudyTask(
                         userId = currentUserId,
@@ -1030,6 +1100,8 @@ class StudyViewModel(
     }
 
     fun resetAiPlan() {
+        plannerRequestJob?.cancel()
+        plannerRequestJob = null
         _aiPlanState.value = AiPlanUiState.Idle
     }
 
@@ -1835,7 +1907,7 @@ class StudyViewModel(
 
     private fun welcomeAgentMessage() = AgentChatMessage(
         isUser = false,
-        text = "Bonjour ! Je suis Light, votre assistant de travail. Selon les capacités autorisées, je peux consulter vos données d'étude, créer des tâches, matières, projets, habitudes et échéances, valider une tâche, changer le thème ou lancer Focus. Avant chaque action, je vous présente les détails et j'attends votre accord. Vous gérez mes accès dans le menu ⋮ → Capacités de l'agent."
+        text = "Bonjour ! Je suis Light, votre assistant de travail. Selon les capacités autorisées, je peux consulter vos données d'étude, créer des tâches, matières, projets, habitudes et échéances, valider une tâche, changer le thème ou lancer Focus. Avant chaque action, je vous présente les détails et j'attends votre accord. Vous gérez mes accès dans Paramètres → Capacités de l’agent."
     )
 
     private fun unwrapFirestoreError(error: Throwable): FirebaseFirestoreException? =

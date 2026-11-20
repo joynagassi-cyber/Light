@@ -30,6 +30,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -130,12 +132,18 @@ import com.example.ui.components.OfflineBanner
 import com.example.ui.theme.GradientScreenSurface
 import com.example.ui.screens.AgentChatScreen
 import com.example.ui.screens.AgentCapabilitiesScreen
+import com.example.ui.screens.NavigationSettingsScreen
+import com.example.ui.screens.SettingsPageHeader
+import com.example.ui.screens.WorkspaceProfilePage
+import com.example.ui.screens.navigationIcon
+import com.example.ui.theme.LightSpacing
 import com.example.ui.screens.AuthScreen
 import com.example.ui.screens.CountdownScreen
 import com.example.ui.screens.EisenhowerScreen
 import com.example.ui.screens.FocusAnalyticsScreen
 import com.example.ui.screens.FocusProfilesScreen
 import com.example.ui.screens.FocusScreen
+import com.example.ui.screens.ImmersiveFocusSession
 import com.example.ui.screens.GanttScreen
 import com.example.ui.screens.HabitsScreen
 import com.example.ui.screens.HomeDashboardScreen
@@ -168,8 +176,10 @@ private enum class LightTab(
     PLANNER("planner", R.string.nav_planner, Icons.Rounded.CalendarMonth, Icons.Outlined.CalendarMonth),
     FOCUS("focus", R.string.nav_focus, Icons.Rounded.Timer, Icons.Outlined.Timer),
     MATRIX("matrix", R.string.nav_matrix, Icons.Rounded.GridView, Icons.Outlined.GridView),
-    MORE("more", R.string.nav_more, Icons.Rounded.MoreVert, Icons.Outlined.MoreVert)
+    MORE("more", R.string.nav_more, Icons.Rounded.Explore, Icons.Rounded.Explore)
 }
+
+private enum class SettingsPage { NAVIGATION, CAPABILITIES, PROFILE }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -389,6 +399,10 @@ private fun AuthenticatedStudyShell(
     val selectedDateIso by viewModel.selectedDateIso.collectAsStateWithLifecycle()
     val focusState by viewModel.focusState.collectAsStateWithLifecycle()
     val audioState by viewModel.audioState.collectAsStateWithLifecycle()
+    val navigationLayout by viewModel.navigationLayout.collectAsStateWithLifecycle()
+    val featureTabs = LightTab.entries.filterNot { it == LightTab.MORE }
+    val navTabByRoute = featureTabs.associateBy { it.route }
+    val navTabs = navigationLayout.visible.mapNotNull(navTabByRoute::get) + LightTab.MORE
     val aiPlanState by viewModel.aiPlanState.collectAsStateWithLifecycle()
     val agentMessages by viewModel.agentMessages.collectAsStateWithLifecycle()
     val agentThreads by viewModel.agentThreads.collectAsStateWithLifecycle()
@@ -428,6 +442,13 @@ private fun AuthenticatedStudyShell(
     var showGradientSheet by remember { mutableStateOf(false) }
     var showTaskCreation by rememberSaveable { mutableStateOf(false) }
     var showSettingsOverlay by rememberSaveable { mutableStateOf(false) }
+    var settingsPage by rememberSaveable { mutableStateOf<SettingsPage?>(null) }
+    var profileOpenedFromAvatar by rememberSaveable { mutableStateOf(false) }
+    val backFromSettingsPage: () -> Unit = {
+        if (settingsPage == SettingsPage.PROFILE && profileOpenedFromAvatar) showSettingsOverlay = false
+        profileOpenedFromAvatar = false
+        settingsPage = null
+    }
     var showOnboardingOverlay by rememberSaveable { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -461,18 +482,26 @@ private fun AuthenticatedStudyShell(
 
     val isLoadingInitialProfile = profileState is UiState.Loading
     val needsOnboarding = (profile != null && !profile.onboardingCompleted) || showOnboardingOverlay
+    var immersiveDismissed by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(focusState.isRunning) {
+        if (!focusState.isRunning) immersiveDismissed = false
+    }
+    val showImmersiveFocus = currentTab == LightTab.FOCUS && focusState.isRunning && !immersiveDismissed &&
+        !showSettingsOverlay && !showTaskCreation && !needsOnboarding && !isLoadingInitialProfile
     val isOnAgentChat = !needsOnboarding && !isLoadingInitialProfile &&
         currentTab == LightTab.MORE && activeMorePage == MoreSubPage.AGENT &&
         !showSettingsOverlay && !showTaskCreation
 
     if (!needsOnboarding && !isLoadingInitialProfile) {
-        if (isOnAgentChat && agentDrawerState.isOpen) {
+        if (showImmersiveFocus) {
+            BackHandler { immersiveDismissed = true }
+        } else if (isOnAgentChat && agentDrawerState.isOpen) {
             BackHandler {
                 scope.launch { agentDrawerState.close() }
             }
         } else if (showSettingsOverlay && !showTaskCreation) {
             BackHandler {
-                showSettingsOverlay = false
+                if (settingsPage != null) backFromSettingsPage() else showSettingsOverlay = false
             }
         } else if (currentTab == LightTab.MORE && activeMorePage != null && !showTaskCreation) {
             BackHandler {
@@ -533,13 +562,14 @@ private fun AuthenticatedStudyShell(
                 },
                 onSkip = { showOnboardingOverlay = false }
             )
+        } else if (showImmersiveFocus) {
+            ImmersiveFocusSession(focusState, onExit = { immersiveDismissed = true })
         } else {
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val useRail = maxWidth >= 700.dp
 
             val overflowPages = listOf(
                 MoreSubPage.AGENT to Icons.Rounded.AutoAwesome,
-                MoreSubPage.AGENT_CAPABILITIES to Icons.Rounded.Tune,
                 MoreSubPage.FOCUS_PROFILES to Icons.Rounded.School,
                 MoreSubPage.FOCUS_ANALYTICS to Icons.Rounded.Insights,
                 MoreSubPage.PROGRESS to Icons.Rounded.BarChart,
@@ -570,6 +600,14 @@ private fun AuthenticatedStudyShell(
                     onDismissRequest = onDismiss,
                     modifier = Modifier.testTag("more_overflow_menu")
                 ) {
+                    featureTabs.filter { it.route in navigationLayout.hidden }.forEach { tab ->
+                        DropdownMenuItem(
+                            text = { Text(stringResource(tab.labelRes)) },
+                            leadingIcon = { Icon(navigationIcon(navigationLayout.icons[tab.route]) ?: tab.unselectedIcon, null) },
+                            onClick = { onDismiss(); currentTab = tab },
+                            modifier = Modifier.testTag("more_hidden_${tab.route}"),
+                        )
+                    }
                     overflowPages.forEach { (page, icon) ->
                         val badgeText = when (page) {
                             MoreSubPage.AGENT -> "IA"
@@ -617,15 +655,7 @@ private fun AuthenticatedStudyShell(
                         },
                         modifier = Modifier.testTag("more_menu_explorer")
                     )
-                    DropdownMenuItem(
-                        text = { Text("Paramètres", fontWeight = FontWeight.SemiBold) },
-                        leadingIcon = { Icon(Icons.Rounded.Settings, contentDescription = null, tint = gradient.accentColor) },
-                        onClick = {
-                            onDismiss()
-                            showSettingsOverlay = true
-                        },
-                        modifier = Modifier.testTag("more_menu_settings")
-                    )
+
                 }
             }
 
@@ -729,7 +759,7 @@ private fun AuthenticatedStudyShell(
                                 windowInsets = WindowInsets.navigationBars,
                                 tonalElevation = 0.dp
                             ) {
-                                LightTab.entries.forEach { tab ->
+                                navTabs.forEach { tab ->
                                     val selected = currentTab == tab
                                     NavigationBarItem(
                                         selected = selected,
@@ -743,7 +773,7 @@ private fun AuthenticatedStudyShell(
                                         icon = {
                                             Box {
                                                 Icon(
-                                                    imageVector = if (selected) tab.selectedIcon else tab.unselectedIcon,
+                                                    imageVector = navigationIcon(navigationLayout.icons[tab.route]) ?: if (selected) tab.selectedIcon else tab.unselectedIcon,
                                                     contentDescription = stringResource(tab.labelRes),
                                                     modifier = Modifier.size(22.dp)
                                                 )
@@ -789,7 +819,7 @@ private fun AuthenticatedStudyShell(
                                 .fillMaxHeight()
                                 .then(if (isOnAgentChat) Modifier else Modifier.statusBarsPadding())
                         ) {
-                            LightTab.entries.forEach { tab ->
+                            navTabs.forEach { tab ->
                                 val selected = currentTab == tab
                                 NavigationRailItem(
                                     selected = selected,
@@ -803,7 +833,7 @@ private fun AuthenticatedStudyShell(
                                     icon = {
                                         Box {
                                             Icon(
-                                                imageVector = if (selected) tab.selectedIcon else tab.unselectedIcon,
+                                                imageVector = navigationIcon(navigationLayout.icons[tab.route]) ?: if (selected) tab.selectedIcon else tab.unselectedIcon,
                                                 contentDescription = stringResource(tab.labelRes)
                                             )
                                             if (tab == LightTab.MORE) {
@@ -876,6 +906,11 @@ private fun AuthenticatedStudyShell(
                                         currentTab = LightTab.FOCUS
                                     },
                                     onOpenSettings = openSettingsAction,
+                                    onOpenProfile = {
+                                        profileOpenedFromAvatar = true
+                                        settingsPage = SettingsPage.PROFILE
+                                        showSettingsOverlay = true
+                                    },
                                     onOpenGradientPicker = { showGradientSheet = true },
                                     onOpenCreateTask = {
                                         pendingTaskQuadrant = null
@@ -986,14 +1021,8 @@ private fun AuthenticatedStudyShell(
                                                 pendingTasksCount = tasks.count { !it.completed },
                                                 focusProfilesCount = focusProfiles.size,
                                                 onOpenPage = { page ->
-                                                    if (page == MoreSubPage.SETTINGS) {
-                                                        showSettingsOverlay = true
-                                                    } else {
-                                                        if (page != MoreSubPage.FOCUS_PROFILES) {
-                                                            initialFocusProfileDetailId = ""
-                                                        }
-                                                        activeMorePage = page
-                                                    }
+                                                    if (page != MoreSubPage.FOCUS_PROFILES) initialFocusProfileDetailId = ""
+                                                    activeMorePage = page
                                                 },
                                                 onOpenGradientPicker = { showGradientSheet = true }
                                             )
@@ -1032,7 +1061,7 @@ private fun AuthenticatedStudyShell(
                                         } else {
                                             Column(modifier = Modifier.fillMaxSize()) {
                                                 // Clean iOS sub-page back bar to return to indexed directory
-                                                if (subPage != MoreSubPage.SETTINGS) {
+                                                run {
                                                     Row(
                                                         modifier = Modifier
                                                             .fillMaxWidth()
@@ -1080,11 +1109,6 @@ private fun AuthenticatedStudyShell(
                                                 Box(modifier = Modifier.weight(1f)) {
                                                     when (subPage) {
                                                         MoreSubPage.AGENT -> Unit
-
-                                                        MoreSubPage.AGENT_CAPABILITIES -> AgentCapabilitiesScreen(
-                                                            enabledCapabilities = appSettings.agentCapabilities,
-                                                            onCapabilitiesChanged = viewModel::updateAgentCapabilities
-                                                        )
 
                                                         MoreSubPage.FOCUS_PROFILES -> FocusProfilesScreen(
                                                             profiles = focusProfiles,
@@ -1169,50 +1193,12 @@ private fun AuthenticatedStudyShell(
                                                             },
                                                             onToggleTask = viewModel::toggleTaskCompleted,
                                                             onDeleteTask = viewModel::deleteTask,
+                                                            onMoveTask = viewModel::moveTask,
+                                                            onSetPredecessors = viewModel::setTaskPredecessors,
                                                             externalCreateTrigger = ganttCreateTrigger
                                                         )
 
-                                                        MoreSubPage.SETTINGS -> SettingsScreen(
-                                                            profile = profile,
-                                                            photoUrl = photoUrl,
-                                                            selectedGradientId = selectedGradientId,
-                                                            appSettings = appSettings,
-                                                            courses = courses,
-                                                            onSelectGradient = viewModel::selectGradient,
-                                                            onUpdateProfile = viewModel::updateProfile,
-                                                            onUpdateNotifications = { enabled, freq ->
-                                                                viewModel.updateNotificationSettings(context, enabled, freq)
-                                                            },
-                                                            onReopenOnboarding = {
-                                                                showOnboardingOverlay = true
-                                                            },
-                                                            onUpdateTimerDurations = viewModel::updateTimerDurations,
-                                                            onUpdateDefaultCalendarView = viewModel::updateDefaultCalendarView,
-                                                            onUpdateHapticsEnabled = viewModel::updateHapticsEnabled,
-                                                            onUpdateAutoLogStopwatch = viewModel::updateAutoLogStopwatch,
-                                                            onUpdateAutoPlayAudioWithFocus = viewModel::setAutoPlayAudioWithFocus,
-                                                            audioState = audioState,
-                                                            onSelectAudioTrack = handleSelectAudioTrack,
-                                                            onToggleAudioPlayPause = viewModel::toggleAudioPlayback,
-                                                            onAudioVolumeChange = viewModel::setAudioVolume,
-                                                            onSelectFocusIllustration = viewModel::selectFocusIllustration,
-                                                            onSelectFocusTheme = viewModel::selectFocusTheme,
-                                                            onSelectTheme = viewModel::selectTheme,
-                                                            onSelectAppearanceMode = viewModel::selectAppearanceMode,
-                                                            onSetGlassEnabled = viewModel::setGlassEnabled,
-                                                            onCreateCourse = viewModel::createCourse,
-                                                            onDeleteCourse = viewModel::deleteCourse,
-                                                            isGoogleAuthPaused = isGoogleAuthPaused,
-                                                            onResumeGoogleSignIn = { onTogglePauseGoogleAuth(false) },
-                                                            onPauseGoogleSignIn = { onTogglePauseGoogleAuth(true) },
-                                                            onSignOut = {
-                                                                scope.launch {
-                                                                    themeStore.updateGoogleAuthPausedForTesting(true)
-                                                                    signOut(credentialManager = credentialManager, scope = scope)
-                                                                }
-                                                            },
-                                                            onClose = { activeMorePage = null }
-                                                        )
+
                                                     }
                                                 }
                                             }
@@ -1251,74 +1237,87 @@ private fun AuthenticatedStudyShell(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .statusBarsPadding(),
+                        .statusBarsPadding()
+                        .navigationBarsPadding()
+                        .imePadding(),
                     contentAlignment = Alignment.TopCenter
                 ) {
-                    SettingsScreen(
-                        profile = profile,
-                        photoUrl = photoUrl,
-                        selectedGradientId = selectedGradientId,
-                        appSettings = appSettings,
-                        courses = courses,
-                        onSelectGradient = viewModel::selectGradient,
-                        onUpdateProfile = viewModel::updateProfile,
-                        onUpdateNotifications = { enabled, freq ->
-                            viewModel.updateNotificationSettings(context, enabled, freq)
-                        },
-                        onReopenOnboarding = {
-                            showSettingsOverlay = false
-                            showOnboardingOverlay = true
-                        },
-                        onUpdateTimerDurations = viewModel::updateTimerDurations,
-                        onUpdateDefaultCalendarView = viewModel::updateDefaultCalendarView,
-                        onUpdateHapticsEnabled = viewModel::updateHapticsEnabled,
-                        onUpdateAutoLogStopwatch = viewModel::updateAutoLogStopwatch,
-                        onUpdateAutoPlayAudioWithFocus = viewModel::setAutoPlayAudioWithFocus,
-                        audioState = audioState,
-                        onSelectAudioTrack = handleSelectAudioTrack,
-                        onToggleAudioPlayPause = viewModel::toggleAudioPlayback,
-                        onAudioVolumeChange = viewModel::setAudioVolume,
-                        onSelectFocusIllustration = viewModel::selectFocusIllustration,
-                        onSelectFocusTheme = viewModel::selectFocusTheme,
-                        onSelectTheme = viewModel::selectTheme,
-                        onSelectAppearanceMode = viewModel::selectAppearanceMode,
-                        onSetGlassEnabled = viewModel::setGlassEnabled,
-                        onCreateCourse = viewModel::createCourse,
-                        onDeleteCourse = viewModel::deleteCourse,
-                        isGoogleAuthPaused = isGoogleAuthPaused,
-                        onResumeGoogleSignIn = {
-                            showSettingsOverlay = false
-                            onTogglePauseGoogleAuth(false)
-                        },
-                        onPauseGoogleSignIn = {
-                            showSettingsOverlay = false
-                            onTogglePauseGoogleAuth(true)
-                        },
-                        onSignOut = {
-                            showSettingsOverlay = false
-                            scope.launch {
-                                themeStore.updateGoogleAuthPausedForTesting(true)
-                                signOut(credentialManager = credentialManager, scope = scope)
-                            }
-                        },
-                        onClose = { showSettingsOverlay = false },
-                        modifier = Modifier
-                            .widthIn(max = 760.dp)
-                            .fillMaxSize()
-                    )
+                    val pageModifier = Modifier.widthIn(max = 760.dp).fillMaxSize()
+                    when (settingsPage) {
+                        SettingsPage.NAVIGATION -> NavigationSettingsScreen(
+                            layout = navigationLayout,
+                            labels = featureTabs.associate { it.route to stringResource(it.labelRes) },
+                            defaultIcons = featureTabs.associate { it.route to it.selectedIcon },
+                            onSave = { viewModel.saveNavigationLayout(it); backFromSettingsPage() },
+                            onBack = backFromSettingsPage,
+                            modifier = pageModifier,
+                        )
+                        SettingsPage.CAPABILITIES -> Column(pageModifier.padding(LightSpacing.two)) {
+                            SettingsPageHeader("Capacités de l’agent", backFromSettingsPage)
+                            AgentCapabilitiesScreen(appSettings.agentCapabilities, viewModel::updateAgentCapabilities, Modifier.weight(1f))
+                        }
+                        SettingsPage.PROFILE -> WorkspaceProfilePage(profile, photoUrl, viewModel::updateProfile, backFromSettingsPage, pageModifier)
+                        null -> SettingsScreen(
+                            profile = profile,
+                            photoUrl = photoUrl,
+                            selectedGradientId = selectedGradientId,
+                            appSettings = appSettings,
+                            courses = courses,
+                            onSelectGradient = viewModel::selectGradient,
+                            onUpdateProfile = viewModel::updateProfile,
+                            onUpdateNotifications = { enabled, freq ->
+                                viewModel.updateNotificationSettings(context, enabled, freq)
+                            },
+                            onReopenOnboarding = {
+                                showSettingsOverlay = false
+                                showOnboardingOverlay = true
+                            },
+                            onUpdateTimerDurations = viewModel::updateTimerDurations,
+                            onUpdateDefaultCalendarView = viewModel::updateDefaultCalendarView,
+                            onUpdateHapticsEnabled = viewModel::updateHapticsEnabled,
+                            onUpdateAutoLogStopwatch = viewModel::updateAutoLogStopwatch,
+                            onUpdateAutoPlayAudioWithFocus = viewModel::setAutoPlayAudioWithFocus,
+                            audioState = audioState,
+                            onSelectAudioTrack = handleSelectAudioTrack,
+                            onToggleAudioPlayPause = viewModel::toggleAudioPlayback,
+                            onAudioVolumeChange = viewModel::setAudioVolume,
+                            onSelectFocusIllustration = viewModel::selectFocusIllustration,
+                            onSelectFocusTheme = viewModel::selectFocusTheme,
+                            onSelectTheme = viewModel::selectTheme,
+                            onSelectAppearanceMode = viewModel::selectAppearanceMode,
+                            onSetGlassEnabled = viewModel::setGlassEnabled,
+                            onCreateCourse = viewModel::createCourse,
+                            onDeleteCourse = viewModel::deleteCourse,
+                            isGoogleAuthPaused = isGoogleAuthPaused,
+                            onResumeGoogleSignIn = {
+                                showSettingsOverlay = false
+                                onTogglePauseGoogleAuth(false)
+                            },
+                            onPauseGoogleSignIn = {
+                                showSettingsOverlay = false
+                                onTogglePauseGoogleAuth(true)
+                            },
+                            onSignOut = {
+                                showSettingsOverlay = false
+                                scope.launch {
+                                    themeStore.updateGoogleAuthPausedForTesting(true)
+                                    signOut(credentialManager = credentialManager, scope = scope)
+                                }
+                            },
+                            onOpenNavigationLayout = { settingsPage = SettingsPage.NAVIGATION },
+                            onOpenCapabilities = { settingsPage = SettingsPage.CAPABILITIES },
+                            onOpenProfile = { settingsPage = SettingsPage.PROFILE },
+                            onClose = { showSettingsOverlay = false },
+                            modifier = Modifier
+                                .widthIn(max = 760.dp)
+                                .fillMaxSize()
+                        )
+                    }
                 }
             }
         }
 
-        AnimatedVisibility(
-            visible = showTaskCreation,
-            enter = slideInVertically(
-                animationSpec = tween(280, easing = FastOutSlowInEasing)
-            ) { fullHeight -> fullHeight } + fadeIn(tween(220)),
-            exit = slideOutVertically(
-                animationSpec = tween(240, easing = FastOutSlowInEasing)
-            ) { fullHeight -> fullHeight } + fadeOut(tween(180))
-        ) {
+        if (showTaskCreation) {
             TaskCreationScreen(
                 courses = courses,
                 projects = projects,
@@ -1327,14 +1326,13 @@ private fun AuthenticatedStudyShell(
                 initialQuadrant = pendingTaskQuadrant,
                 initialProjectId = pendingProjectId,
                 initialFocusProfileId = pendingFocusProfileId,
-                profile = profile,
                 onCancel = {
                     pendingTaskQuadrant = null
                     pendingProjectId = ""
                     pendingFocusProfileId = ""
                     showTaskCreation = false
                 },
-                onCreateTask = { course, title, notes, startDateIso, dueDateIso, scheduledTime, priority, category, estimatedMinutes, quadrant, projectId, focusProfileId, focusProfileTitle ->
+                onCreateTask = { course, title, notes, startDateIso, dueDateIso, scheduledTime, priority, category, estimatedMinutes, quadrant, projectId, focusProfileId, focusProfileTitle, subtasks ->
                     viewModel.createTask(
                         course = course,
                         title = title,
@@ -1348,7 +1346,8 @@ private fun AuthenticatedStudyShell(
                         quadrant = quadrant,
                         projectId = projectId,
                         focusProfileId = focusProfileId,
-                        focusProfileTitle = focusProfileTitle
+                        focusProfileTitle = focusProfileTitle,
+                        subtasks = subtasks
                     )
                     viewModel.selectDate(dueDateIso)
                     pendingTaskQuadrant = null

@@ -4,6 +4,7 @@
     <string name="sign_in_google">Continuer avec Google</string>
     <string name="sign_in_subtitle">Synchronisez vos cours, votre planning IA et vos sessions Focus dans le cloud.</string>
     <string name="sign_out">Se déconnecter</string>
+    <string name="home_offline">Hors ligne. Les données déjà enregistrées sur cet appareil restent disponibles.</string>
     <string name="nav_home">Accueil</string>
     <string name="nav_planner">Calendrier</string>
     <string name="nav_focus">Focus</string>

@@ -398,3 +398,34 @@ test("Owners can manage projects and only link tasks to existing projects", asyn
   await assertFails(projectRef.update({ dueDateIso: "2026-10-01", updatedAt: pastDate() }));
   await assertFails(projectRef.update({ startDateIso: "2026-13-01", updatedAt: pastDate() }));
 });
+
+function awaitTaskOnClient(db, id, title, timeoutMs = 8000) {
+  const ref = db.collection("users").doc(ALICE_UID).collection("tasks").doc(id);
+  return new Promise((resolve, reject) => {
+    const stop = () => {
+      clearTimeout(timeout);
+      unsubscribe();
+    };
+    const timeout = setTimeout(() => { stop(); reject(new Error(`Task not observed: ${id}`)); }, timeoutMs);
+    const unsubscribe = ref.onSnapshot({ includeMetadataChanges: true }, (snapshot) => {
+      if (!snapshot.metadata.fromCache && snapshot.data()?.title === title) { stop(); resolve(); }
+    }, (error) => { stop(); reject(error); });
+  });
+}
+
+test("Same-account devices observe committed task creation in both directions; other account is denied", async () => {
+  const clients = [testEnv.authenticatedContext(ALICE_UID).firestore(), testEnv.authenticatedContext(ALICE_UID).firestore()];
+  const otherUser = testEnv.authenticatedContext(BOB_UID).firestore();
+  const taskRef = (db, id) => db.collection("users").doc(ALICE_UID).collection("tasks").doc(id);
+  for (const [writer, reader, id] of [[clients[0], clients[1], "sync-a"], [clients[1], clients[0], "sync-b"]]) {
+    const title = `Created on ${id}`;
+    await Promise.all([
+      awaitTaskOnClient(reader, id, title),
+      assertSucceeds(taskRef(writer, id).set({
+        userId: ALICE_UID, title, dueDateIso: "2026-11-19", priority: "medium",
+        estimatedMinutes: 25, completed: false, aiGenerated: false, createdAt: pastDate(), updatedAt: pastDate(),
+      })),
+    ]);
+    await assertFails(taskRef(otherUser, id).get());
+  }
+});

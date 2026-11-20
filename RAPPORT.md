@@ -37,7 +37,7 @@ Le tag `FirestoreError` fournit désormais `code`, `operationType` et un chemin 
 ## 0.4 — Synchronisation
 
 - **Fait :** suppression du badge de synchro visuel de l’accueil et des paramètres ; la synchronisation et le cache Firestore ne sont pas retirés.
-- **Test prévu :** le test Firestore ajouté ouvre deux clients indépendants avec le même UID, attend une observation serveur d’une tâche créée dans chaque direction, puis vérifie qu’un autre UID ne peut pas les lire. Ce test émulateur, même vert, ne remplace pas deux téléphones ni la configuration de production.
+- **Test écrit :** le test Firestore ajouté ouvre deux clients indépendants avec le même UID, attend une observation serveur d’une tâche créée dans chaque direction, puis vérifie qu’un autre UID ne peut pas les lire. Ce test émulateur, même vert, ne remplace pas deux téléphones ni la configuration de production. `npm ci` a réussi, mais le lancement local a échoué avant les tests : téléchargement du JAR `cloud-firestore-emulator-v1.19.8.jar` bloqué. Le workflow [Firestore rules and sync](.github/workflows/firestore.yml) exécute cette suite sur GitHub avec un projet `demo-no-project`, sans accès à la production.
 - **Gate sur appareils :** connecter le même compte de test sur A et B avec l’APK de cette PR. Sur A, créer `SYNC-A-<heure>` ; vérifier son apparition sur B sans recréer la donnée. Inverser pour `SYNC-B-<heure>`. Noter le build, le sens, la durée et les résultats ; nettoyer les tâches du compte de test après mesure. Capturer l’accueil connecté, puis en mode avion avec Wi-Fi réellement coupé, puis après reconnexion, en clair et en OLED. Refaire une création de profil avec un compte de test neuf et relever les codes de refus s’il y en a.
 
 ## Décisions et risques

@@ -2,6 +2,12 @@
 
 **Gate 0 : non validé sur appareils.** Aucune phase 1–4 n’a été commencée dans cette PR. Light est une application **Android native (Kotlin + Jetpack Compose)**, avec Firebase Auth, Firestore et Firebase AI Logic ; elle n’utilise ni Ionic, ni Capacitor, ni Supabase. Cette PR de diagnostic n’inclut pas les travaux antérieurs non publiés sur la connexion et l’accueil initial.
 
+## Preuves automatisées
+
+- [CI Android #44653223038](https://github.com/joynagassi-cyber/Light/actions/runs/44653223038) : compilation APK, suite JVM (dont le test du bandeau clair/OLED) et signature de l’APK debug — **passées**.
+- [Firestore Emulator #44653223407](https://github.com/joynagassi-cyber/Light/actions/runs/44653223407) : suite des règles, dont la création de profil propriétaire, les refus hors propriétaire et la synchro A → B puis B → A entre deux clients indépendants — **passée**.
+- Les deux exécutions portent sur `f814007`. Leurs résultats ne valident ni une installation physique, ni Firestore en production, ni Firebase App Check.
+
 ## 0.1 — Installation Android
 
 - **Fait, preuve :** `gh release view v1.0.0` confirme `Light-release.apk` (83 761 102 octets) et `SHA256SUMS.txt`. Le [job de publication signé](https://github.com/joynagassi-cyber/Light/actions/runs/44623906805) a réussi. `minSdk = 26` dans `app/build.gradle.kts`. Cela ne prouve pas une installation sur le téléphone.
@@ -20,7 +26,7 @@ Si plusieurs appareils sont connectés, ajouter `--serial <identifiant indiqué 
 
 - **Cause du faux message, démontrée par le code d’origine :** `MainActivity` agrégeait `UiState.Error` des huit flux Firestore (profil, matières, tâches, projets, sessions Focus, profils Focus, habitudes et échéances), puis affichait « Vérifiez votre connexion » sans consulter `isOnline`. Un refus Firestore ou un autre échec de données pouvait donc déclencher le bandeau avec Internet. **Le flux précis ayant déclenché le symptôme signalé reste inconnu** sans trace du téléphone.
 - **Changement :** le bandeau `home_offline_banner` dépend exclusivement du réseau par défaut validé par Android (`INTERNET` et `VALIDATED`), pas des exceptions du backend. Le mode avion avec le Wi-Fi encore utilisable ne signifie pas nécessairement *hors ligne*. Le bandeau utilise les tokens existants et le cache comme explication, pas comme promesse de téléchargement. Les erreurs Firestore restent diagnostiquables séparément.
-- **Validation prévue :** test Compose en clair et en OLED (connecté → hors ligne → connecté), puis même parcours en conditions réelles, avec un défaut backend reproduit séparément pour vérifier qu’il n’est pas confondu avec le réseau.
+- **Validation :** test Compose en clair et en OLED (connecté → hors ligne → connecté) passé en CI. Reste le même parcours en conditions réelles, avec un défaut backend reproduit séparément pour vérifier qu’il n’est pas confondu avec le réseau.
 
 ## 0.3 — Refus de permission : périmètre et preuves manquantes
 

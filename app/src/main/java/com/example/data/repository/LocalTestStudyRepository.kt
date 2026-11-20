@@ -498,7 +498,7 @@ class LocalTestStudyRepository(
             courseTitle = courseTitle.take(100),
             title = title.trim().take(140),
             notes = notes.trim().take(500),
-        subtasks = normalizeSubtasks(subtasks),
+            subtasks = normalizeSubtasks(subtasks),
             dueDateIso = dueDateIso.trim().take(20),
             startDateIso = startDateIso.trim().take(20).ifBlank { dueDateIso.trim().take(20) },
             projectId = projectId,

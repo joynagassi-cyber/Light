@@ -72,7 +72,6 @@ import com.example.ui.components.CatalogIcon
 import com.example.ui.components.catalogIconColor
 import com.example.ui.components.GradientHeroCard
 import com.example.ui.components.EmptyStateCard
-import com.example.ui.components.SyncStatusPill
 import com.example.ui.components.TaskCategoryPill
 import com.example.ui.components.accentColor
 import com.example.ui.theme.AppleAmber
@@ -101,9 +100,6 @@ fun HomeDashboardScreen(
     onOpenSettings: () -> Unit,
     onOpenGradientPicker: () -> Unit,
     onOpenCreateTask: () -> Unit,
-    isOnline: Boolean = true,
-    hasPendingWrites: Boolean = false,
-    isLocalMode: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val gradient = LocalLightGradient.current
@@ -231,14 +227,6 @@ fun HomeDashboardScreen(
                         }
                     }
                 }
-            }
-            if (!isLocalMode && (!isOnline || hasPendingWrites)) {
-                Spacer(modifier = Modifier.height(10.dp))
-                SyncStatusPill(
-                    isOnline = isOnline,
-                    hasPendingWrites = hasPendingWrites,
-                    isLocalMode = false
-                )
             }
         }
 

@@ -1,10 +1,7 @@
 package com.example.data.firebase
 
 import android.util.Log
-import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestoreException
-import kotlinx.coroutines.CancellationException
-import org.json.JSONArray
 import org.json.JSONObject
 
 enum class OperationType(val value: String) {
@@ -16,45 +13,22 @@ enum class OperationType(val value: String) {
     WRITE("write"),
 }
 
-fun handleFirestoreError(
-    exception: Throwable,
-    operationType: OperationType,
-    path: String?
-): String {
-    val causes = generateSequence(exception) { it.cause }
-    val rootError = causes.firstOrNull { it is FirebaseFirestoreException }
-        ?: causes.firstOrNull { it !is CancellationException }
-        ?: exception
+private val knownCollections = setOf("users", "courses", "tasks", "projects", "focusProfiles", "focusSessions", "habits", "countdowns")
 
-    val currentUser = try {
-        FirebaseAuth.getInstance().currentUser
-    } catch (_: Exception) {
-        null
-    }
+internal fun firestoreDiagnosticPath(path: String?): String? = path?.substringBefore('?')?.trim('/')
+    ?.split('/')?.mapIndexed { index, part ->
+        if (index % 2 != 0) "{id}" else part.takeIf { it in knownCollections } ?: "{collection}"
+    }?.joinToString("/")
 
-    val providerInfoList = currentUser?.providerData?.map { provider ->
-        JSONObject().apply {
-            put("providerId", provider.providerId)
-            put("email", provider.email)
-        }
-    } ?: emptyList()
-
-    val authInfoJson = JSONObject().apply {
-        put("userId", currentUser?.uid)
-        put("email", currentUser?.email)
-        put("emailVerified", currentUser?.isEmailVerified)
-        put("tenantId", currentUser?.tenantId)
-        put("providerInfo", JSONArray(providerInfoList))
-    }
-
-    val errorInfoJson = JSONObject().apply {
-        put("error", rootError.message ?: rootError.toString())
+fun handleFirestoreError(exception: Throwable, operationType: OperationType, path: String?): String {
+    val code = generateSequence(exception) { it.cause }
+        .filterIsInstance<FirebaseFirestoreException>().firstOrNull()?.code?.name ?: "UNKNOWN"
+    // Identifies the request and status without logging account IDs, emails, payloads or raw errors.
+    val diagnostic = JSONObject().apply {
+        put("code", code)
         put("operationType", operationType.value)
-        put("path", path)
-        put("authInfo", authInfoJson)
-    }
-
-    val jsonString = errorInfoJson.toString()
-    Log.e("FirestoreError", "Firestore Error: $jsonString")
-    return jsonString
+        put("path", firestoreDiagnosticPath(path))
+    }.toString()
+    Log.e("FirestoreError", diagnostic)
+    return diagnostic
 }

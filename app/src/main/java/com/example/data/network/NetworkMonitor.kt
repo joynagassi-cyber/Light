@@ -8,35 +8,25 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-/**
- * Observes device network connectivity via Android ConnectivityManager without requiring extra permissions
- * beyond ACCESS_NETWORK_STATE.
- */
+/** Observes Android's default Internet path independently of application backend errors. */
 class NetworkMonitor(context: Context) {
-    private val appContext = context.applicationContext
     private val connectivityManager =
-        appContext.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+        context.applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
 
     private val _isOnline = MutableStateFlow(computeCurrentOnline())
     val isOnline: StateFlow<Boolean> = _isOnline.asStateFlow()
 
     private val callback = object : ConnectivityManager.NetworkCallback() {
-        override fun onAvailable(network: Network) {
-            _isOnline.value = true
-        }
-
         override fun onLost(network: Network) {
-            _isOnline.value = computeCurrentOnline()
+            // The default-network callback may report a loss during a handoff.
+            _isOnline.value = computeCurrentOnline(excluding = network)
         }
 
         override fun onCapabilitiesChanged(network: Network, networkCapabilities: NetworkCapabilities) {
-            val hasInternet = networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-            val validated = networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
-            _isOnline.value = hasInternet && validated
+            _isOnline.value = networkCapabilities.hasValidatedInternet()
         }
     }
 
-    @Volatile
     private var registered = false
 
     fun start() {
@@ -50,20 +40,21 @@ class NetworkMonitor(context: Context) {
     }
 
     fun stop() {
-        val cm = connectivityManager ?: return
         if (!registered) return
-        runCatching {
-            cm.unregisterNetworkCallback(callback)
-        }
+        runCatching { connectivityManager?.unregisterNetworkCallback(callback) }
         registered = false
     }
 
-    private fun computeCurrentOnline(): Boolean {
-        val cm = connectivityManager ?: return true
+    private fun computeCurrentOnline(excluding: Network? = null): Boolean {
+        val cm = connectivityManager ?: return true // Unknown is not proof of being offline.
         return runCatching {
             val active = cm.activeNetwork ?: return false
-            val caps = cm.getNetworkCapabilities(active) ?: return false
-            caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            if (active == excluding) return false
+            cm.getNetworkCapabilities(active)?.hasValidatedInternet() ?: true
         }.getOrDefault(true)
     }
 }
+
+private fun NetworkCapabilities.hasValidatedInternet(): Boolean =
+    hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+        hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)

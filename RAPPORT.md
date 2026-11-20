@@ -1,0 +1,47 @@
+# Light — Phase 0 : diagnostic Android et Firebase
+
+**Gate 0 : non validé sur appareils.** Aucune phase 1–4 n’a été commencée dans cette PR. Light est une application **Android native (Kotlin + Jetpack Compose)**, avec Firebase Auth, Firestore et Firebase AI Logic ; elle n’utilise ni Ionic, ni Capacitor, ni Supabase. Cette PR de diagnostic n’inclut pas les travaux antérieurs non publiés sur la connexion et l’accueil initial.
+
+## 0.1 — Installation Android
+
+- **Fait, preuve :** `gh release view v1.0.0` confirme `Light-release.apk` (83 761 102 octets) et `SHA256SUMS.txt`. Le [job de publication signé](https://github.com/joynagassi-cyber/Light/actions/runs/44623906805) a réussi. `minSdk = 26` dans `app/build.gradle.kts`. Cela ne prouve pas une installation sur le téléphone.
+- **Reproduction bloquée :** aucun `adb` ni appareil accessible dans ce workspace ; le [fichier officiel](https://github.com/joynagassi-cyber/Light/releases/tag/v1.0.0) n’a pas pu être rapatrié ici (EOF après redirection vers l’hébergeur des assets). Le seul symptôme communiqué est « package incorrect » lors d’une première installation. Aucun code `INSTALL_FAILED_*` réel n’a été reçu. Cause racine et correctif APK non établis. Ne pas réémettre ni incrémenter la release sur une hypothèse.
+- **Reproductibilité :** `ci/android_install.py` contrôle extension, archive, manifeste et SHA-256, sélectionne un appareil autorisé et restitue le code Android natif. Aucun désinstallateur ni effacement ; `--replace` est explicite. Les quatre cas du harnais sont passés avec `python3 -m unittest ci.test_android_install` (ADB simulé, pas un appareil).
+
+PowerShell, depuis la racine du dépôt, avec Python 3.10+, Android Platform-Tools dans le `PATH` et le débogage USB autorisé :
+
+```powershell
+npm run android:install -- "$HOME\Downloads\Light-release.apk" --checksums "$HOME\Downloads\SHA256SUMS.txt"
+```
+
+Si plusieurs appareils sont connectés, ajouter `--serial <identifiant indiqué par adb devices>`. Conserver la ligne `Failure [INSTALL_FAILED_…]`, le modèle, la version Android et le SHA-256 ; ne pas transmettre le numéro de série.
+
+## 0.2 — Faux bandeau hors ligne
+
+- **Cause du faux message, démontrée par le code d’origine :** `MainActivity` agrégeait `UiState.Error` des huit flux Firestore (profil, matières, tâches, projets, sessions Focus, profils Focus, habitudes et échéances), puis affichait « Vérifiez votre connexion » sans consulter `isOnline`. Un refus Firestore ou un autre échec de données pouvait donc déclencher le bandeau avec Internet. **Le flux précis ayant déclenché le symptôme signalé reste inconnu** sans trace du téléphone.
+- **Changement :** le bandeau `home_offline_banner` dépend exclusivement du réseau par défaut validé par Android (`INTERNET` et `VALIDATED`), pas des exceptions du backend. Le mode avion avec le Wi-Fi encore utilisable ne signifie pas nécessairement *hors ligne*. Le bandeau utilise les tokens existants et le cache comme explication, pas comme promesse de téléchargement. Les erreurs Firestore restent diagnostiquables séparément.
+- **Validation prévue :** test Compose en clair et en OLED (connecté → hors ligne → connecté), puis même parcours en conditions réelles, avec un défaut backend reproduit séparément pour vérifier qu’il n’est pas confondu avec le réseau.
+
+## 0.3 — Refus de permission : périmètre et preuves manquantes
+
+| Origine à distinguer | Constat / preuve à récupérer |
+| --- | --- |
+| Création ou lecture de profil Firestore | Le profil dépend du `uid` authentifié, des champs et bornes de `firestore.rules` ainsi que des règles *effectivement déployées* sur la base nommée dans `firebase.json`. Les règles testées localement ne prouvent pas la configuration de production. Relever le code et l’opération `create`/`get` sur `users/{id}`. |
+| Firebase App Check / agent Gemini | Le code configure Play Integrity en release. Si la protection est imposée, un refus d’alignement entre certificat, canal et projet est une hypothèse à confirmer dans Firebase, pas une raison de désactiver le contrôle. Confirmer aussi que Firebase AI Logic est activé. |
+| Fournisseur IA HTTP externe | `401` identifie un rejet d’authentification ; `403`, un refus d’accès côté fournisseur. Le client restitue ces codes avec des messages distincts sans afficher le corps d’erreur distant. Un défaut de droits précis ou de clé demeure à constater auprès du fournisseur. |
+| Outil de l’agent | Les capacités du chat et les validations humaines sont des gardes applicatives distinctes d’un refus Android ou Firestore. Relever le nom de l’outil et distinguer refus de capacité, refus humain et échec de l’écriture. Ne pas élargir les capacités ou les règles par défaut. |
+| Permissions Android | `INTERNET` et `ACCESS_NETWORK_STATE` sont déclarées dans le manifeste ; l’autorisation interactive `POST_NOTIFICATIONS` ne donne pas accès à Firestore ni aux fournisseurs IA. Aucun refus Android lié à ces parcours n’est reproduit ici. |
+
+Le tag `FirestoreError` fournit désormais `code`, `operationType` et un chemin masqué, par exemple `users/{id}/tasks`. Cette journalisation ne contient ni UID, ni e-mail, ni valeur de clé. Sur le téléphone avec un APK de cette PR : `adb logcat -s FirestoreError:E`, puis reproduire l’opération concernée. Aucun secret ni contenu de chat à copier dans le rapport. Aucun changement des règles déployées ni d’App Check.
+
+## 0.4 — Synchronisation
+
+- **Fait :** suppression du badge de synchro visuel de l’accueil et des paramètres ; la synchronisation et le cache Firestore ne sont pas retirés.
+- **Test prévu :** le test Firestore ajouté ouvre deux clients indépendants avec le même UID, attend une observation serveur d’une tâche créée dans chaque direction, puis vérifie qu’un autre UID ne peut pas les lire. Ce test émulateur, même vert, ne remplace pas deux téléphones ni la configuration de production.
+- **Gate sur appareils :** connecter le même compte de test sur A et B avec l’APK de cette PR. Sur A, créer `SYNC-A-<heure>` ; vérifier son apparition sur B sans recréer la donnée. Inverser pour `SYNC-B-<heure>`. Noter le build, le sens, la durée et les résultats ; nettoyer les tâches du compte de test après mesure. Capturer l’accueil connecté, puis en mode avion avec Wi-Fi réellement coupé, puis après reconnexion, en clair et en OLED. Refaire une création de profil avec un compte de test neuf et relever les codes de refus s’il y en a.
+
+## Décisions et risques
+
+- Ne pas faire passer un test simulé pour un résultat d’installation. Ne pas masquer un refus de permission en le présentant comme un problème réseau.
+- Pas de nouvelle fonctionnalité, pas de nouvelle valeur de style arbitraire ni de secret client introduit. La migration des paramètres en pages et le choix de bibliothèque de flou pour **Compose**, plutôt que WebView, restent en dehors de ce Gate.
+- **Non fait :** installation réelle, identification de la requête production fautive, création de profil réelle, validation agent/App Check et synchronisation sur deux appareils. Tant que ces preuves manquent, la PR reste en brouillon et le Gate 0 reste fermé.

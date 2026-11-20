@@ -2,13 +2,8 @@ package com.example.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
@@ -39,14 +34,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Assignment
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.CloudDone
-import androidx.compose.material.icons.rounded.CloudOff
-import androidx.compose.material.icons.rounded.CloudQueue
 import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.Event
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Psychology
-import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.School
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -166,76 +157,6 @@ fun GradientHeroCard(
             modifier = Modifier.padding(contentPadding),
             content = content
         )
-    }
-}
-
-@Composable
-fun SyncStatusPill(
-    isOnline: Boolean = true,
-    hasPendingWrites: Boolean = false,
-    isLocalMode: Boolean = false,
-    modifier: Modifier = Modifier
-) {
-    val infiniteTransition = rememberInfiniteTransition(label = "syncPulse")
-    val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 0.85f,
-        targetValue = 1.25f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1400, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulseScale"
-    )
-    val dotColor = when {
-        isLocalMode -> AppleSky
-        !isOnline || hasPendingWrites -> AppleAmber
-        else -> AppleEmerald
-    }
-    val statusIcon = when {
-        isLocalMode -> Icons.Rounded.Save
-        !isOnline -> Icons.Rounded.CloudOff
-        hasPendingWrites -> Icons.Rounded.CloudQueue
-        else -> Icons.Rounded.CloudDone
-    }
-    val statusLabel = when {
-        isLocalMode -> "Local · Sauvegardé"
-        !isOnline && hasPendingWrites -> "Hors ligne · En attente"
-        !isOnline -> "Hors ligne · Cache"
-        hasPendingWrites -> "Sync en cours…"
-        else -> "Cloud Sync"
-    }
-    Surface(
-        modifier = modifier.testTag("sync_status_pill"),
-        shape = CircleShape,
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
-        shadowElevation = 1.dp
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(7.dp)
-                    .scale(if (!isLocalMode && (isOnline || hasPendingWrites)) pulseScale else 1f)
-                    .clip(CircleShape)
-                    .background(dotColor)
-            )
-            Icon(
-                imageVector = statusIcon,
-                contentDescription = statusLabel,
-                tint = dotColor,
-                modifier = Modifier.size(14.dp)
-            )
-            Text(
-                text = statusLabel,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1
-            )
-        }
     }
 }
 

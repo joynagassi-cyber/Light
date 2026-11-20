@@ -45,7 +45,6 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.CalendarMonth
-import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.DateRange
 import androidx.compose.material.icons.rounded.Event
 import androidx.compose.material.icons.rounded.Explore
@@ -61,8 +60,6 @@ import androidx.compose.material.icons.rounded.SelfImprovement
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.DropdownMenu
@@ -129,6 +126,7 @@ import com.example.ui.StudyViewModel
 import com.example.ui.components.AgentChatTopBar
 import com.example.ui.components.AgentThreadsDrawerSheet
 import com.example.ui.components.GradientPickerSheet
+import com.example.ui.components.OfflineBanner
 import com.example.ui.theme.GradientScreenSurface
 import com.example.ui.screens.AgentChatScreen
 import com.example.ui.screens.AgentCapabilitiesScreen
@@ -404,7 +402,6 @@ private fun AuthenticatedStudyShell(
     val agentUsage by viewModel.agentUsage.collectAsStateWithLifecycle()
     val bannerMessage by viewModel.bannerMessage.collectAsStateWithLifecycle()
     val isOnline by viewModel.isOnline.collectAsStateWithLifecycle()
-    val hasPendingWrites by viewModel.hasPendingCloudWrites.collectAsStateWithLifecycle()
 
     val profile = (profileState as? UiState.Success)?.data
     val courses = (coursesState as? UiState.Success)?.data.orEmpty()
@@ -414,9 +411,6 @@ private fun AuthenticatedStudyShell(
     val focusProfiles = (focusProfilesState as? UiState.Success)?.data.orEmpty()
     val habits = (habitsState as? UiState.Success)?.data.orEmpty()
     val countdowns = (countdownsState as? UiState.Success)?.data.orEmpty()
-    val hasRepositoryError = listOf(
-        profileState, coursesState, tasksState, projectsState, sessionsState, focusProfilesState, habitsState, countdownsState
-    ).any { it is UiState.Error }
 
     var currentTab by rememberSaveable { mutableStateOf(LightTab.HOME) }
     var activeMorePage by rememberSaveable { mutableStateOf<MoreSubPage?>(null) }
@@ -859,33 +853,7 @@ private fun AuthenticatedStudyShell(
 
                             when (tab) {
                                 LightTab.HOME -> Column(modifier = Modifier.fillMaxSize()) {
-                                    if (hasRepositoryError) {
-                                        Card(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(horizontal = 16.dp, vertical = 8.dp),
-                                            colors = CardDefaults.cardColors(
-                                                containerColor = MaterialTheme.colorScheme.errorContainer
-                                            )
-                                        ) {
-                                            Row(
-                                                modifier = Modifier.padding(16.dp),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Rounded.CloudOff,
-                                                    contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.onErrorContainer
-                                                )
-                                                Text(
-                                                    text = "Certaines données n'ont pas pu être chargées. Vérifiez votre connexion.",
-                                                    style = MaterialTheme.typography.bodyMedium,
-                                                    color = MaterialTheme.colorScheme.onErrorContainer
-                                                )
-                                            }
-                                        }
-                                    }
+                                    OfflineBanner(isOnline = isOnline || isGoogleAuthPaused)
                                     HomeDashboardScreen(
                                     profile = profile,
                                     photoUrl = photoUrl,
@@ -914,10 +882,7 @@ private fun AuthenticatedStudyShell(
                                         pendingProjectId = ""
                                         pendingFocusProfileId = ""
                                         showTaskCreation = true
-                                    },
-                                    isOnline = isOnline,
-                                    hasPendingWrites = hasPendingWrites,
-                                    isLocalMode = isGoogleAuthPaused
+                                    }
                                     )
                                 }
 
@@ -1238,8 +1203,6 @@ private fun AuthenticatedStudyShell(
                                                             onCreateCourse = viewModel::createCourse,
                                                             onDeleteCourse = viewModel::deleteCourse,
                                                             isGoogleAuthPaused = isGoogleAuthPaused,
-                                                            isOnline = isOnline,
-                                                            hasPendingWrites = hasPendingWrites,
                                                             onResumeGoogleSignIn = { onTogglePauseGoogleAuth(false) },
                                                             onPauseGoogleSignIn = { onTogglePauseGoogleAuth(true) },
                                                             onSignOut = {
@@ -1323,8 +1286,6 @@ private fun AuthenticatedStudyShell(
                         onCreateCourse = viewModel::createCourse,
                         onDeleteCourse = viewModel::deleteCourse,
                         isGoogleAuthPaused = isGoogleAuthPaused,
-                        isOnline = isOnline,
-                        hasPendingWrites = hasPendingWrites,
                         onResumeGoogleSignIn = {
                             showSettingsOverlay = false
                             onTogglePauseGoogleAuth(false)

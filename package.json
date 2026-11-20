@@ -4,6 +4,7 @@
   "private": true,
   "description": "Firestore security rules unit tests for Light",
   "scripts": {
+    "android:install": "python ci/android_install.py",
     "test:rules": "firebase emulators:exec --only firestore 'node --test firestore.test.js'",
     "test": "node --test firestore.test.js"
   },

@@ -543,14 +543,17 @@ Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
                 connection.setRequestProperty("Accept", "application/json")
                 connection.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }
                 val code = connection.responseCode
-                val stream = if (code in 200..299) connection.inputStream else connection.errorStream
-                val body = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
                 if (code !in 200..299) {
-                    val detail = runCatching {
-                        Json.parseToJsonElement(body).jsonObject["error"]?.jsonObject?.get("message")?.jsonPrimitive?.contentOrNull
-                    }.getOrNull()
-                    throw IllegalStateException(detail ?: "Le fournisseur IA a répondu avec le code HTTP $code.")
+                    val message = when (code) {
+                        401 -> "Le fournisseur IA a rejeté l’authentification (HTTP 401). Vérifiez la clé de ce fournisseur."
+                        403 -> "Le fournisseur IA refuse l’accès (HTTP 403). Vérifiez les droits de la clé et l’accès au modèle."
+                        else -> "Le fournisseur IA a répondu avec le code HTTP $code."
+                    }
+                    // Un fournisseur peut inclure des identifiants ou une partie de la clé dans son erreur.
+                    connection.errorStream?.close()
+                    throw IllegalStateException(message)
                 }
+                val body = connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
                 Json.parseToJsonElement(body).jsonObject
             } finally {
                 connection.disconnect()

@@ -115,7 +115,6 @@ import com.example.ui.components.CatalogIconPickerSheet
 import com.example.ui.components.FocusAudioCard
 import com.example.ui.components.FocusVisualCustomizationPicker
 import com.example.ui.components.GradientSwatchCard
-import com.example.ui.components.SyncStatusPill
 import com.example.ui.components.catalogIconColor
 import com.example.ui.components.focusIllustrationResource
 import com.example.ui.components.focusIllustrationTitle
@@ -162,8 +161,6 @@ fun SettingsScreen(
     onCreateCourse: (String, String, String, Long, Int, Double, String) -> Unit,
     onDeleteCourse: (String) -> Unit,
     isGoogleAuthPaused: Boolean = false,
-    isOnline: Boolean = true,
-    hasPendingWrites: Boolean = false,
     onResumeGoogleSignIn: () -> Unit = {},
     onPauseGoogleSignIn: () -> Unit = {},
     onSignOut: () -> Unit,
@@ -222,7 +219,7 @@ fun SettingsScreen(
         ),
         verticalArrangement = Arrangement.spacedBy(LightSpacing.two)
     ) {
-        // Design-system aligned top bar (48dp back button + clear title + right SyncStatusPill without overlap)
+        // Design-system aligned top bar (48dp back button + clear title)
         item {
             Row(
                 modifier = Modifier
@@ -261,12 +258,6 @@ fun SettingsScreen(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f)
-                )
-
-                SyncStatusPill(
-                    isOnline = isOnline,
-                    hasPendingWrites = hasPendingWrites,
-                    isLocalMode = isGoogleAuthPaused
                 )
             }
         }

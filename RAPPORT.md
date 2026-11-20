@@ -1,6 +1,6 @@
 # Light — Phase 0 : diagnostic Android et Firebase
 
-**Gate 0 : non validé sur appareils.** Aucune phase 1–4 n’a été commencée dans cette PR. Light est une application **Android native (Kotlin + Jetpack Compose)**, avec Firebase Auth, Firestore et Firebase AI Logic ; elle n’utilise ni Ionic, ni Capacitor, ni Supabase. Cette PR de diagnostic n’inclut pas les travaux antérieurs non publiés sur la connexion et l’accueil initial.
+**Gate 0 : non validé sur appareils.** Aucune phase 1–4 n’a été commencée. Les premiers changements de diagnostic ont été intégrés via la [PR #16](https://github.com/joynagassi-cyber/Light/pull/16). Light est une application **Android native (Kotlin + Jetpack Compose)**, avec Firebase Auth, Firestore et Firebase AI Logic ; elle n’utilise ni Ionic, ni Capacitor, ni Supabase. Cette PR de diagnostic n’inclut pas les travaux antérieurs non publiés sur la connexion et l’accueil initial.
 
 ## Preuves automatisées
 
@@ -12,6 +12,7 @@
 
 - **Fait, preuve :** `gh release view v1.0.0` confirme `Light-release.apk` (83 761 102 octets) et `SHA256SUMS.txt`. Le [job de publication signé](https://github.com/joynagassi-cyber/Light/actions/runs/44623906805) a réussi. `minSdk = 26` dans `app/build.gradle.kts`. Cela ne prouve pas une installation sur le téléphone.
 - **Reproduction bloquée :** aucun `adb` ni appareil accessible dans ce workspace ; le [fichier officiel](https://github.com/joynagassi-cyber/Light/releases/tag/v1.0.0) n’a pas pu être rapatrié ici (EOF après redirection vers l’hébergeur des assets). Le seul symptôme communiqué est « package incorrect » lors d’une première installation. Aucun code `INSTALL_FAILED_*` réel n’a été reçu. Cause racine et correctif APK non établis. Ne pas réémettre ni incrémenter la release sur une hypothèse.
+- **Test supplémentaire sur émulateur :** [workflow de vérification de l’APK publié](.github/workflows/published-apk-smoke.yml). Il teste l’APK public exact (SHA-256, certificat attendu, package et minSdk), puis l’installe sans `-r` sur un émulateur neuf et lance son activité principale. Deux cibles x86_64 : API 26 (minimum) et API 35 (cible de la build). La vérification ne reconstruit et ne publie rien, et ne valide pas la politique d’installation, l’architecture ou la version du téléphone de l’utilisateur.
 - **Reproductibilité :** `ci/android_install.py` contrôle extension, archive, manifeste et SHA-256, sélectionne un appareil autorisé et restitue le code Android natif. Aucun désinstallateur ni effacement ; `--replace` est explicite. Les quatre cas du harnais sont passés avec `python3 -m unittest ci.test_android_install` (ADB simulé, pas un appareil).
 
 PowerShell, depuis la racine du dépôt, avec Python 3.10+, Android Platform-Tools dans le `PATH` et le débogage USB autorisé :
@@ -50,4 +51,4 @@ Le tag `FirestoreError` fournit désormais `code`, `operationType` et un chemin 
 
 - Ne pas faire passer un test simulé pour un résultat d’installation. Ne pas masquer un refus de permission en le présentant comme un problème réseau.
 - Pas de nouvelle fonctionnalité, pas de nouvelle valeur de style arbitraire ni de secret client introduit. La migration des paramètres en pages et le choix de bibliothèque de flou pour **Compose**, plutôt que WebView, restent en dehors de ce Gate.
-- **Non fait :** installation réelle, identification de la requête production fautive, création de profil réelle, validation agent/App Check et synchronisation sur deux appareils. Tant que ces preuves manquent, la PR reste en brouillon et le Gate 0 reste fermé.
+- **Non fait :** installation réelle, identification de la requête production fautive, création de profil réelle, validation agent/App Check et synchronisation sur deux appareils. La fusion du diagnostic ne valide pas le Gate 0. Aucune release supplémentaire n’a été publiée.

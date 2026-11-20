@@ -158,7 +158,8 @@ data class StudyTask(
     val projectId: String = "",
     val focusProfileId: String = "",
     val focusProfileTitle: String = "",
-    val subtasks: List<String> = emptyList()
+    val subtasks: List<String> = emptyList(),
+    val predecessorIds: List<String> = emptyList()
 )
 
 const val MAX_TASK_SUBTASKS = 8

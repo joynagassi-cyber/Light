@@ -24,6 +24,8 @@ import com.example.data.model.StudyCountdown
 import com.example.data.model.StudyHabit
 import com.example.data.model.StudyProject
 import com.example.data.model.StudyTask
+import com.example.data.model.MAX_TASK_PREDECESSORS
+import com.example.data.model.wouldCreateTaskCycle
 import com.example.data.model.TaskCategory
 import com.example.data.model.UiState
 import com.example.data.model.UserGender
@@ -965,17 +967,35 @@ class StudyViewModel(
         }
     }
 
-    fun moveTask(task: StudyTask, newStart: LocalDate) {
+    fun moveTask(task: StudyTask, newStart: LocalDate, scheduledTime: String?) {
         val previousDue = runCatching { LocalDate.parse(task.dueDateIso) }.getOrNull() ?: return
         val previousStart = runCatching { LocalDate.parse(task.startDateIso) }.getOrNull()?.coerceAtMost(previousDue) ?: previousDue
         val duration = java.time.temporal.ChronoUnit.DAYS.between(previousStart, previousDue)
         viewModelScope.launch {
             try {
-                repository.moveTask(currentUserId, task.id, newStart.toString(), newStart.plusDays(duration).toString())
+                repository.moveTask(currentUserId, task.id, newStart.toString(), newStart.plusDays(duration).toString(), scheduledTime)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 _bannerMessage.value = "Impossible de déplacer cette tâche."
+            }
+        }
+    }
+
+    fun setTaskPredecessors(task: StudyTask, ids: List<String>) {
+        val tasks = (tasksState.value as? UiState.Success)?.data.orEmpty().associateBy { it.id }
+        if (task.id !in tasks || ids.distinct().size != ids.size || ids.size > MAX_TASK_PREDECESSORS ||
+            ids.any { it !in tasks || wouldCreateTaskCycle(task.id, it, tasks) }) {
+            _bannerMessage.value = "Dépendances invalides : une tâche est introuvable ou la sélection crée une boucle."
+            return
+        }
+        viewModelScope.launch {
+            try {
+                repository.setTaskPredecessors(currentUserId, task.id, ids)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                _bannerMessage.value = "Impossible d’enregistrer les dépendances."
             }
         }
     }

@@ -498,7 +498,8 @@ class LocalTestStudyRepository(
             courseTitle = courseTitle.take(100),
             title = title.trim().take(140),
             notes = notes.trim().take(500),
-            subtasks = normalizeSubtasks(subtasks),
+            predecessorIds = (obj["predecessorIds"] as? JsonArray).orEmpty().mapNotNull { (it as? JsonPrimitive)?.contentOrNull },
+        subtasks = normalizeSubtasks(subtasks),
             dueDateIso = dueDateIso.trim().take(20),
             startDateIso = startDateIso.trim().take(20).ifBlank { dueDateIso.trim().take(20) },
             projectId = projectId,
@@ -542,8 +543,16 @@ class LocalTestStudyRepository(
         markModifiedAndPersist()
     }
 
-    override suspend fun moveTask(userId: String, taskId: String, start: String, due: String) {
-        tasksFlow.update { tasks -> tasks.map { if (it.id == taskId && it.userId == userId) it.copy(startDateIso = start, dueDateIso = due) else it } }
+    override suspend fun moveTask(userId: String, taskId: String, start: String, due: String, scheduledTime: String?) {
+        tasksFlow.update { tasks ->
+            tasks.map { if (it.id == taskId && it.userId == userId) it.copy(startDateIso = start, dueDateIso = due,
+                scheduledTime = scheduledTime ?: it.scheduledTime) else it }
+        }
+        markModifiedAndPersist()
+    }
+
+    override suspend fun setTaskPredecessors(userId: String, taskId: String, predecessorIds: List<String>) {
+        tasksFlow.update { tasks -> tasks.map { if (it.id == taskId && it.userId == userId) it.copy(predecessorIds = predecessorIds) else it } }
         markModifiedAndPersist()
     }
 
@@ -1168,6 +1177,7 @@ class LocalTestStudyRepository(
         put("title", t.title)
         put("notes", t.notes)
         put("subtasks", buildJsonArray { t.subtasks.forEach { add(JsonPrimitive(it)) } })
+        put("predecessorIds", buildJsonArray { t.predecessorIds.forEach { add(JsonPrimitive(it)) } })
         put("dueDateIso", t.dueDateIso)
         put("scheduledTime", t.scheduledTime)
         put("priority", t.priority)

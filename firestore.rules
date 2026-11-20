@@ -90,6 +90,19 @@ service cloud.firestore {
              isValidSubtaskAt(items, 6) && isValidSubtaskAt(items, 7);
     }
 
+    function isValidPredecessorAt(items, index, userId, taskId) {
+      return items.size() <= index ||
+        (isValidId(items[index]) && items[index] != taskId &&
+         exists(/databases/$(database)/documents/users/$(userId)/tasks/$(items[index])));
+    }
+
+    function isValidPredecessors(data, userId, taskId) {
+      let items = data.get('predecessorIds', []);
+      return items is list && items.size() <= 4 && items.toSet().size() == items.size() &&
+        isValidPredecessorAt(items, 0, userId, taskId) && isValidPredecessorAt(items, 1, userId, taskId) &&
+        isValidPredecessorAt(items, 2, userId, taskId) && isValidPredecessorAt(items, 3, userId, taskId);
+    }
+
     function isValidStudyTask(data, userId) {
       return data.userId is string && data.userId == userId &&
              (!('courseId' in data) || (data.courseId is string && data.courseId.size() <= 128)) &&
@@ -218,14 +231,17 @@ service cloud.firestore {
         allow create: if isOwner(userId) &&
                          isValidId(taskId) &&
                          incoming().keys().hasAll(['userId', 'title', 'dueDateIso', 'priority', 'estimatedMinutes', 'completed', 'aiGenerated', 'createdAt', 'updatedAt']) &&
-                         incoming().keys().hasOnly(['userId', 'courseId', 'courseTitle', 'projectId', 'focusProfileId', 'focusProfileTitle', 'title', 'notes', 'subtasks', 'dueDateIso', 'startDateIso', 'scheduledTime', 'priority', 'category', 'estimatedMinutes', 'quadrant', 'completed', 'aiGenerated', 'createdAt', 'updatedAt']) &&
-                         isValidStudyTask(incoming(), userId);
+                         incoming().keys().hasOnly(['userId', 'courseId', 'courseTitle', 'projectId', 'focusProfileId', 'focusProfileTitle', 'title', 'notes', 'subtasks', 'predecessorIds', 'dueDateIso', 'startDateIso', 'scheduledTime', 'priority', 'category', 'estimatedMinutes', 'quadrant', 'completed', 'aiGenerated', 'createdAt', 'updatedAt']) &&
+                         isValidStudyTask(incoming(), userId) &&
+                         isValidPredecessors(incoming(), userId, taskId);
         allow update: if isOwner(userId) &&
                          isValidId(taskId) &&
                          incoming().userId == existing().userId &&
                          incoming().createdAt == existing().createdAt &&
                          isValidStudyTask(incoming(), userId) &&
-                         incoming().diff(existing()).affectedKeys().hasOnly(['courseId', 'courseTitle', 'projectId', 'focusProfileId', 'focusProfileTitle', 'title', 'notes', 'subtasks', 'dueDateIso', 'startDateIso', 'scheduledTime', 'priority', 'category', 'estimatedMinutes', 'quadrant', 'completed', 'aiGenerated', 'updatedAt']);
+                         (!incoming().diff(existing()).affectedKeys().hasAny(['predecessorIds']) ||
+                           isValidPredecessors(incoming(), userId, taskId)) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['courseId', 'courseTitle', 'projectId', 'focusProfileId', 'focusProfileTitle', 'title', 'notes', 'subtasks', 'predecessorIds', 'dueDateIso', 'startDateIso', 'scheduledTime', 'priority', 'category', 'estimatedMinutes', 'quadrant', 'completed', 'aiGenerated', 'updatedAt']);
       }
 
       match /focusProfiles/{profileId} {

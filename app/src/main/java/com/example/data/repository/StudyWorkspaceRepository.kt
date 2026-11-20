@@ -111,7 +111,8 @@ interface StudyWorkspaceRepository {
 
     suspend fun createTasksBatch(userId: String, tasks: List<StudyTask>)
     suspend fun toggleTaskCompleted(userId: String, task: StudyTask)
-    suspend fun moveTask(userId: String, taskId: String, start: String, due: String)
+    suspend fun moveTask(userId: String, taskId: String, start: String, due: String, scheduledTime: String? = null)
+    suspend fun setTaskPredecessors(userId: String, taskId: String, predecessorIds: List<String>)
     suspend fun updateTaskQuadrant(userId: String, taskId: String, quadrant: Long)
     suspend fun assignTaskToFocusProfile(
         userId: String,

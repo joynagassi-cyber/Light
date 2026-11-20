@@ -1181,6 +1181,7 @@ private fun AuthenticatedStudyShell(
                                                             onToggleTask = viewModel::toggleTaskCompleted,
                                                             onDeleteTask = viewModel::deleteTask,
                                                             onMoveTask = viewModel::moveTask,
+                                                            onSetPredecessors = viewModel::setTaskPredecessors,
                                                             externalCreateTrigger = ganttCreateTrigger
                                                         )
 

@@ -1059,10 +1059,22 @@ class StudyRepository(
         }
     }
 
-    override suspend fun moveTask(userId: String, taskId: String, start: String, due: String) {
+    override suspend fun moveTask(userId: String, taskId: String, start: String, due: String, scheduledTime: String?) {
         require(requireSignedInUid() == userId) { "Utilisateur non autorisé." }
         val ref = tasksCol(userId).document(taskId)
-        awaitOptimisticWrite(ref.update(mapOf("startDateIso" to start, "dueDateIso" to due,
+        val changes = buildMap<String, Any> {
+            put("startDateIso", start)
+            put("dueDateIso", due)
+            scheduledTime?.let { put("scheduledTime", it) }
+            put("updatedAt", FieldValue.serverTimestamp())
+        }
+        awaitOptimisticWrite(ref.update(changes), OperationType.UPDATE, ref.path)
+    }
+
+    override suspend fun setTaskPredecessors(userId: String, taskId: String, predecessorIds: List<String>) {
+        require(requireSignedInUid() == userId) { "Utilisateur non autorisé." }
+        val ref = tasksCol(userId).document(taskId)
+        awaitOptimisticWrite(ref.update(mapOf("predecessorIds" to predecessorIds,
             "updatedAt" to FieldValue.serverTimestamp())), OperationType.UPDATE, ref.path)
     }
 

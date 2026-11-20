@@ -445,3 +445,24 @@ test("Task subtasks preserve order and reject invalid items; moving both dates i
   await assertFails(task.update({ startDateIso: "2026-11-21", updatedAt: pastDate() }));
   await assertSucceeds(task.update({ startDateIso: "2026-11-21", dueDateIso: "2026-11-22", updatedAt: pastDate() }));
 });
+
+test("Gantt dependencies accept existing owner tasks and reject invalid references", async () => {
+  const alice = testEnv.authenticatedContext(ALICE_UID).firestore();
+  const bob = testEnv.authenticatedContext(BOB_UID).firestore();
+  const tasks = alice.collection("users").doc(ALICE_UID).collection("tasks");
+  const payload = userId => ({ userId, title: "Étape", dueDateIso: "2026-11-19", priority: "medium",
+    estimatedMinutes: 30, completed: false, aiGenerated: false, createdAt: pastDate(), updatedAt: pastDate() });
+  const parent = tasks.doc("parent");
+  const child = tasks.doc("child");
+  await assertSucceeds(parent.set(payload(ALICE_UID)));
+  await assertSucceeds(child.set(payload(ALICE_UID)));
+  await assertSucceeds(bob.collection("users").doc(BOB_UID).collection("tasks").doc("bobs-task").set(payload(BOB_UID)));
+  for (const predecessorIds of [["child"], ["bobs-task"], ["parent", "parent"], [42], ["../parent"], Array(5).fill("parent")]) {
+    await assertFails(child.update({ predecessorIds, updatedAt: pastDate() }));
+  }
+  await assertSucceeds(child.update({ predecessorIds: ["parent"], updatedAt: pastDate() }));
+  await assertFails(bob.collection("users").doc(ALICE_UID).collection("tasks").doc("child").update({ predecessorIds: [] }));
+  await assertSucceeds(parent.delete());
+  await assertSucceeds(child.update({ completed: true, updatedAt: pastDate() }));
+  await assertSucceeds(child.update({ predecessorIds: [], updatedAt: pastDate() }));
+});

@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.StudyTask
 import com.example.data.model.TaskCategory
+import com.example.ui.theme.LightSurfaceTokens
 import com.example.ui.theme.LocalLightGradient
 import com.example.ui.theme.appBrush
 import com.example.ui.theme.appVerticalBrush
@@ -575,8 +576,7 @@ private fun ThreeDayColumnsView(
                         val catColor = TaskCategory.fromKey(task.category).accentColor()
                         Surface(
                             shape = RoundedCornerShape(10.dp),
-                            color = catColor.copy(alpha = 0.14f),
-                            border = BorderStroke(0.6.dp, catColor.copy(alpha = 0.25f)),
+                            color = catColor.copy(alpha = LightSurfaceTokens.categoryFill),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Column(modifier = Modifier.padding(horizontal = 6.dp, vertical = 5.dp)) {
@@ -779,10 +779,9 @@ private fun QuarterMonthsCalendarView(
             Surface(
                 shape = RoundedCornerShape(18.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.48f),
-                border = BorderStroke(
-                    width = if (ym == YearMonth.from(selectedDate)) 1.2.dp else 0.7.dp,
-                    color = if (ym == YearMonth.from(selectedDate)) gradient.accentColor else MaterialTheme.colorScheme.outlineVariant
-                ),
+                border = if (ym == YearMonth.from(selectedDate)) {
+                    BorderStroke(LightSurfaceTokens.selectionStroke, gradient.accentColor)
+                } else null,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
@@ -859,10 +858,9 @@ private fun YearOverviewCalendarView(
                             isCurrent -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
                             else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.38f)
                         },
-                        border = BorderStroke(
-                            width = if (isSelectedMonth || isCurrent) 1.2.dp else 0.7.dp,
-                            color = if (isSelectedMonth) gradient.accentColor else MaterialTheme.colorScheme.outlineVariant
-                        ),
+                        border = if (isSelectedMonth) {
+                            BorderStroke(LightSurfaceTokens.selectionStroke, gradient.accentColor)
+                        } else null,
                         modifier = Modifier.weight(1f)
                     ) {
                         Column(Modifier.padding(horizontal = 9.dp, vertical = 8.dp)) {

@@ -53,3 +53,26 @@ Le tag `FirestoreError` fournit désormais `code`, `operationType` et un chemin 
 - Ne pas faire passer un test simulé pour un résultat d’installation. Ne pas masquer un refus de permission en le présentant comme un problème réseau.
 - Pas de nouvelle fonctionnalité, pas de nouvelle valeur de style arbitraire ni de secret client introduit. La migration des paramètres en pages et le choix de bibliothèque de flou pour **Compose**, plutôt que WebView, restent en dehors de ce Gate.
 - **Non fait :** reproduction sur le téléphone concerné, identification de la requête production fautive, création de profil réelle, validation agent/App Check et synchronisation sur deux appareils. La fusion du diagnostic ne valide pas le Gate 0. Aucune release supplémentaire n’a été publiée.
+
+# Phase 1 — Surfaces et mode verre
+
+**Gate 1 : non validé sur appareil réel.** Périmètre demandé par la suite : commencer par la phase 1, sans déclarer le Gate 0 validé. Pas de changement de formulaire, d’agent, de synchronisation ou de règles cloud ; phases 2 à 4 non commencées.
+
+## Fait et cause identifiée
+
+- `AppleCard` cumulait un fond translucide, un trait et une ombre, y compris pour les lignes de tâches. Le badge de catégorie et certaines cartes du calendrier ajoutaient un deuxième contour décoratif. Les sections de Paramètres imposaient à nouveau trait et ombre, avec un trait plus clair et plus coloré en mode verre. Enfin, le thème transformait globalement `surface`, `surfaceVariant` et `outlineVariant`, ce qui étendait cet effet aux composants qui n’avaient pas demandé de verre. La combinaison est visible dans le parent du commit de phase 1 ; son rendu physique n’a pas été capturé ici.
+- `LightPanel`, `LightControl` et `LightSurfaceTokens` séparent désormais les cartes pleines, les contrôles sans bordure et les panneaux en verre. Le calendrier garde un contour quand il exprime une **sélection**, mais pas pour une carte inactive ou un simple badge de catégorie. Le réglage verre ne modifie plus les couleurs Material globales. Les contrôles de sélection de vue (pastille active et menu) utilisent le minimum partagé de **48 dp sur les deux axes**.
+- La toile décorative (dégradé, halos, ruban) est la seule source échantillonnée. Le contraste et la saturation de cette source sont indépendants de ceux du texte. Un panneau de premier niveau applique un flou natif, un voile translucide et un seul reflet interne. Ses descendants ne ré-échantillonnent pas l’arrière-plan. Hors prise en charge (API < 31, rendu logiciel ou profil Android faible mémoire), le panneau conserve un fond plein, sans flou ni ombre. Si un appareil compatible reste trop lent, le réglage peut être désactivé ; aucune mesure de fluidité physique n’a encore été réalisée.
+
+## Choix technique et alternatives
+
+| Approche | Décision |
+| --- | --- |
+| **Jetpack Compose + Haze 1.1.1** | Retenu. Light est natif et utilise Compose 1.7.x. [La configuration de Haze à ce tag](https://github.com/chrisbanes/haze/blob/1.1.1/gradle/libs.versions.toml) cible Compose 1.7.5 et [son implémentation Android](https://github.com/chrisbanes/haze/blob/1.1.1/haze/src/androidMain/kotlin/dev/chrisbanes/haze/HazeChildNode.android.kt) applique un `RenderEffect` à une couche capturée. Une source décorative par écran ; aucun flou du texte ni de WebView. La saturation est appliquée aux accents du fond capturé, pas au contenu utilisateur. |
+| **WebView avec CSS `backdrop-filter: blur(…) saturate(…)`** | Écarté. Ce filtre ne peut échantillonner que les éléments peints derrière dans le document Web. Il ne flouterait pas les vues Compose natives sous une WebView ; il faudrait répliquer ou migrer ces écrans et gérer un moteur de rendu supplémentaire. |
+| **`Modifier.blur` appliqué à la carte** | Écarté. Ce modifier floute son propre calque, donc potentiellement le texte et les icônes, pas les contenus derrière la carte. Refaire une capture par panneau avec `RenderEffect` maison augmenterait la complexité du clipping, du défilement et du repli. |
+
+## Vérifications et protocole physique restant
+
+- Contrôles JVM ajoutés : état du repli (version Android, mémoire, accélération, préférence) et taille mesurée des deux contrôles du calendrier, avec ouverture du menu en clair et en OLED. Ils ne mesurent pas les pixels du flou ni la fluidité du GPU.
+- **À faire sur appareil** : utiliser le même téléphone, mêmes données et même écran d’accueil/Planning avant et après. Capturer clair/sombre × verre désactivé/activé sur les deux builds (partir d’un jeu de tâches identique). Vérifier contours parasites, lisibilité, effet derrière la carte et absence de ré-application dans une carte imbriquée ; défiler rapidement en mode verre. Contrôler en plus le rendu plein sur un appareil API 30 ou faible mémoire. Joindre modèle, version Android, build et captures au rapport. Ne pas utiliser les émulateurs Phase 0 comme preuve physique du Gate 1.

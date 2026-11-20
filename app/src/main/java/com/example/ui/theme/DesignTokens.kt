@@ -30,3 +30,20 @@ object LightTypeScale {
     val title = 24.sp
     val display = 32.sp
 }
+
+/** Surface hierarchy: neutral controls, opaque cards, and one optical rim on a glass stack. */
+internal object LightSurfaceTokens {
+    val cardCorner = 16.dp
+    val selectionStroke = 1.dp
+    const val categoryFill = 0.14f
+    const val glassChroma = 1.18f
+    val glassBlur = 20.dp
+    val glassRimWidth = LightSpacing.hairline
+    const val glassTintLight = 0.64f
+    const val glassTintDark = 0.72f
+    const val glassHighlightLight = 0.74f
+    const val glassHighlightDark = 0.19f
+    const val glassBackdropLight = 0.24f
+    const val glassBackdropDark = 0.32f
+    const val plainBackdropLight = 0.10f
+}

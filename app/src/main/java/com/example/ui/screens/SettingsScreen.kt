@@ -85,7 +85,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -121,6 +120,8 @@ import com.example.ui.components.focusIllustrationTitle
 import com.example.ui.components.focusThemeFor
 import com.example.ui.theme.AppleEmerald
 import com.example.ui.theme.AppleRose
+import com.example.ui.components.LightControl
+import com.example.ui.components.LightPanel
 import com.example.ui.theme.AppearanceMode
 import com.example.ui.theme.JetBrainsMonoFamily
 import com.example.ui.theme.LightColorThemes
@@ -229,15 +230,9 @@ fun SettingsScreen(
                 horizontalArrangement = Arrangement.spacedBy(LightSpacing.oneAndHalf)
             ) {
                 if (onClose != null) {
-                    Surface(
+                    LightControl(
                         onClick = onClose,
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.surface,
-                        border = BorderStroke(LightSpacing.hairline, MaterialTheme.colorScheme.outlineVariant),
-                        shadowElevation = 1.dp,
-                        modifier = Modifier
-                            .size(LightTouchTarget.minimum)
-                            .testTag("settings_close_button")
+                        modifier = Modifier.testTag("settings_close_button")
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
@@ -1291,23 +1286,6 @@ private fun SettingsSectionBlock(
     title: String,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val surfaceConfig = LocalThemeSurfaceConfig.current
-    val isOled = surfaceConfig.appearanceMode == AppearanceMode.OLED
-    val isGlass = surfaceConfig.glassEnabled
-    val cardBorder = if (isGlass) {
-        BorderStroke(
-            LightSpacing.hairline,
-            Brush.linearGradient(
-                listOf(
-                    Color.White.copy(alpha = if (isOled) 0.18f else 0.78f),
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.28f)
-                )
-            )
-        )
-    } else {
-        BorderStroke(LightSpacing.hairline, MaterialTheme.colorScheme.outlineVariant)
-    }
-
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(LightSpacing.one)
@@ -1319,13 +1297,7 @@ private fun SettingsSectionBlock(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(start = LightSpacing.half)
         )
-        Surface(
-            shape = MaterialTheme.shapes.large,
-            color = MaterialTheme.colorScheme.surface,
-            border = cardBorder,
-            shadowElevation = if (isOled) 0.dp else 2.dp,
-            modifier = Modifier.fillMaxWidth()
-        ) {
+        LightPanel(modifier = Modifier.fillMaxWidth()) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 content = content

@@ -91,6 +91,7 @@ Le tag `FirestoreError` fournit désormais `code`, `operationType` et un chemin 
 
 ### Preuves, limites et décisions
 
+- **CI du commit `eafc82a` réussie** : [Android, builds debug/release et tests JVM](https://github.com/joynagassi-cyber/Light/actions/runs/44683751319), [règles et deux clients sur émulateur Firestore](https://github.com/joynagassi-cyber/Light/actions/runs/44683751495). Ces checks ne remplacent pas les essais physiques ni les appels aux fournisseurs réels.
 - Tests ajoutés pour l’ordre et les limites des sous-tâches, la validation par les règles Firestore et le déplacement atomique. Aucun changement de règles déployé : **les sous-tâches ne sont pas acceptées en production tant que ces règles n’y sont pas déployées**.
 - Position du CTA : il reste visible au-dessus de la liste dans la feuille mi-hauteur, plutôt que fixé au pied du contenu étendu. À vérifier avec le clavier sur petit écran. Le réordonnancement des sous-tâches s’applique au brouillon ; pas d’édition après création dans ce lot.
 - **Non fait** : dépendances entre tâches, déplacement direct sur la frise par glisser-déposer, validation de tous les modes de rendu sur téléphone et essais réels de chaque fournisseur. Le transport externe repris du chat nécessite un endpoint compatible Chat Completions ; la prise en charge native Anthropic n’est pas démontrée. Les tâches aux dates illisibles restent exclues de la frise, sans migration des anciennes données.

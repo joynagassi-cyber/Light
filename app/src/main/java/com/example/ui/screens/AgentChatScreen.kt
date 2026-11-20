@@ -89,7 +89,9 @@ import com.example.data.preferences.StudyAppSettings
 import com.example.data.repository.AgentActionApproval
 import com.example.data.repository.AgentPlanPreview
 import com.example.data.repository.AgentChatMessage
+import com.example.ui.components.AgentMarkdown
 import com.example.ui.components.AgentThreadsDrawerSheet
+import com.example.ui.theme.LightSpacing
 import com.example.ui.theme.AppleEmerald
 import com.example.ui.theme.AppleRose
 import com.example.ui.theme.LocalLightGradient
@@ -584,27 +586,33 @@ fun AgentChatScreen(
                         tint = gradient.accentColor
                     )
                 }
-                OutlinedTextField(
-                    value = inputText,
-                    onValueChange = { inputText = it },
-                    placeholder = {
-                        Text(
-                            text = "Demandez une action à Light Agent...",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    },
-                    maxLines = 3,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color.Transparent,
-                        unfocusedBorderColor = Color.Transparent,
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent
-                    ),
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("agent_chat_input")
-                )
+                Column(Modifier.weight(1f)) {
+                    OutlinedTextField(
+                        value = inputText,
+                        onValueChange = { inputText = it },
+                        placeholder = {
+                            Text(
+                                text = "Demandez une action à Light Agent...",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        maxLines = 3,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color.Transparent,
+                            unfocusedBorderColor = Color.Transparent,
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("agent_chat_input")
+                    )
+                    TextButton(onClick = { showAgentSettings = true }, modifier = Modifier.testTag("agent_active_model")) {
+                        Text(settings.agentModel.ifBlank { "Choisir un modèle" }, style = MaterialTheme.typography.labelMedium,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
 
                 Spacer(modifier = Modifier.width(6.dp))
 
@@ -798,78 +806,50 @@ private fun AgentActionApprovalCard(
 @Composable
 private fun AgentMessageBubble(message: AgentChatMessage) {
     val gradient = LocalLightGradient.current
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = if (message.isUser) Arrangement.End else Arrangement.Start
-    ) {
-        Surface(
-            shape = RoundedCornerShape(
-                topStart = 20.dp,
-                topEnd = 20.dp,
-                bottomStart = if (message.isUser) 20.dp else 6.dp,
-                bottomEnd = if (message.isUser) 6.dp else 20.dp
-            ),
-            color = when {
-                message.isError -> AppleRose.copy(alpha = 0.12f)
-                message.isUser -> gradient.accentColor
-                else -> MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
-            },
-            border = if (message.isUser) null else BorderStroke(
-                0.8.dp,
-                if (message.isError) AppleRose.copy(alpha = 0.4f) else Color.White
-            ),
-            shadowElevation = if (message.isUser) 2.dp else 1.dp,
-            modifier = Modifier.fillMaxWidth(0.86f)
-        ) {
-            Column(
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 11.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                if (message.actions.isNotEmpty()) {
-                    Row(
-                        modifier = Modifier.horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        message.actions.forEach { action ->
-                            val actionColor = if (action.succeeded) AppleEmerald else AppleRose
-                            Surface(
-                                shape = CircleShape,
-                                color = actionColor.copy(alpha = 0.14f)
+    Row(Modifier.fillMaxWidth().padding(vertical = LightSpacing.one), horizontalArrangement = Arrangement.spacedBy(LightSpacing.one),
+        verticalAlignment = Alignment.Top) {
+        Box(Modifier.size(LightSpacing.four), contentAlignment = Alignment.Center) {
+            if (!message.isUser) Icon(Icons.Rounded.AutoAwesome, "Light Agent", tint = gradient.accentColor)
+        }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(LightSpacing.one)) {
+            if (message.actions.isNotEmpty()) {
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    message.actions.forEach { action ->
+                        val actionColor = if (action.succeeded) AppleEmerald else AppleRose
+                        Surface(
+                            shape = CircleShape,
+                            color = actionColor.copy(alpha = 0.14f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = if (action.succeeded) Icons.Rounded.CheckCircle else Icons.Rounded.Close,
-                                        contentDescription = null,
-                                        tint = actionColor,
-                                        modifier = Modifier.size(13.dp)
-                                    )
-                                    Text(
-                                        text = action.label,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = actionColor
-                                    )
-                                }
+                                Icon(
+                                    imageVector = if (action.succeeded) Icons.Rounded.CheckCircle else Icons.Rounded.Close,
+                                    contentDescription = null,
+                                    tint = actionColor,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Text(
+                                    text = action.label,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = actionColor
+                                )
                             }
                         }
                     }
                 }
-
-                Text(
-                    text = message.text,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = when {
-                        message.isError -> AppleRose
-                        message.isUser -> Color.White
-                        else -> MaterialTheme.colorScheme.onSurface
-                    }
-                )
-                message.planPreview?.let { plan -> AgentPlanPreviewCard(plan) }
             }
+
+            if (message.isError) Text(message.text, style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error)
+            else AgentMarkdown(message.text, Modifier.testTag("agent_message_content"))
+            message.planPreview?.let { plan -> AgentPlanPreviewCard(plan) }
         }
     }
 }

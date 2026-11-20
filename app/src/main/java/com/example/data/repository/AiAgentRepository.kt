@@ -462,7 +462,7 @@ Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
                     put("tool_choice", "auto")
                 }
             }
-            val response = postChatCompletion(endpoint, apiKey, request, settings.agentProvider)
+            val response = postProviderJson(endpoint, apiKey, request, settings.agentProvider)
             val usage = response["usage"]?.jsonObject
             val promptCount = usage?.get("prompt_tokens")?.jsonPrimitive?.longOrNull
                 ?: usage?.get("input_tokens")?.jsonPrimitive?.longOrNull
@@ -531,19 +531,13 @@ Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
 
     /** A stateless completion: planning never inherits chat history, skills or tools. */
     internal suspend fun completePlannerPrompt(prompt: String, settings: StudyAppSettings, apiKey: String?): String {
-        require(settings.agentModel.isNotBlank()) { "Sélectionnez d’abord un modèle dans les réglages de Light Agent." }
         require(!apiKey.isNullOrBlank()) { "Ajoutez la clé API du fournisseur actif dans les réglages de Light Agent." }
-        val request = buildJsonObject {
-            put("model", settings.agentModel.trim())
-            put("messages", JsonArray(listOf(buildJsonObject { put("role", "user"); put("content", prompt) })))
-        }
-        val response = postChatCompletion(compatibleEndpoint(settings.agentBaseUrl), apiKey, request, settings.agentProvider)
-        return response["choices"]?.jsonArray?.firstOrNull()?.jsonObject?.get("message")?.jsonObject
-            ?.get("content")?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
-            ?: error("Le modèle actif n’a pas renvoyé de plan exploitable.")
+        val request = buildPlannerProviderRequest(prompt, settings)
+        val response = postProviderJson(request.endpoint, apiKey, request.payload, request.providerId)
+        return plannerProviderText(response, request.providerId)
     }
 
-    private suspend fun postChatCompletion(endpoint: String, apiKey: String, payload: JsonObject, providerId: String): JsonObject =
+    private suspend fun postProviderJson(endpoint: String, apiKey: String, payload: JsonObject, providerId: String): JsonObject =
         withContext(Dispatchers.IO) {
             val connection = URL(endpoint).openConnection() as HttpURLConnection
             try {

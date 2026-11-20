@@ -50,6 +50,7 @@ import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -128,6 +129,7 @@ class StudyViewModel(
 
     private var timerJob: Job? = null
     private var agentRequestJob: Job? = null
+    private var plannerRequestJob: Job? = null
     private var persistThreadsJob: Job? = null
 
     val hasPendingCloudWrites: StateFlow<Boolean> = repository.observeHasPendingWrites(currentUserId)
@@ -1006,15 +1008,16 @@ class StudyViewModel(
         dailyMinutesAvailable: Int,
         courses: List<Course>
     ) {
+        plannerRequestJob?.cancel()
         if (goalPrompt.isBlank()) {
             _aiPlanState.value = AiPlanUiState.Error("Décrivez d'abord votre objectif d'étude.")
             return
         }
-        viewModelScope.launch {
+        val active = appSettings.value
+        plannerRequestJob = viewModelScope.launch {
             _aiPlanState.value = AiPlanUiState.Loading
             val persona = (profileState.value as? UiState.Success)?.data.adaptation().aiPersonaInstruction
             try {
-                val active = appSettings.value
                 val remoteCompletion: (suspend (String) -> String)? = if (active.agentProvider == AgentProvider.FIREBASE.id) null else {
                     val key = themePreferencesStore.readAgentApiKey(active.agentProvider)
                     require(!key.isNullOrBlank()) { "Ajoutez la clé API du fournisseur actif dans les réglages de Light Agent." }
@@ -1030,10 +1033,12 @@ class StudyViewModel(
                     modelName = active.agentModel,
                     externalCompletion = remoteCompletion
                 )
+                coroutineContext.ensureActive()
                 _aiPlanState.value = AiPlanUiState.Success(result)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                coroutineContext.ensureActive()
                 _aiPlanState.value = AiPlanUiState.Error(
                     e.localizedMessage ?: "La génération du plan intelligent a échoué."
                 )
@@ -1075,6 +1080,8 @@ class StudyViewModel(
     }
 
     fun resetAiPlan() {
+        plannerRequestJob?.cancel()
+        plannerRequestJob = null
         _aiPlanState.value = AiPlanUiState.Idle
     }
 

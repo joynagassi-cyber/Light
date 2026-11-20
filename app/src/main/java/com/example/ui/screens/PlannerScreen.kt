@@ -58,6 +58,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -731,9 +732,11 @@ private fun SmartAiPlannerCard(
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
                                 text = "Le modèle actif prépare votre planning…",
+                                modifier = Modifier.weight(1f),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                            TextButton(onClick = onReset, modifier = Modifier.testTag("cancel_ai_plan_button")) { Text("Annuler") }
                         }
                     }
 

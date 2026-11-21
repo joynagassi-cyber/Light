@@ -33,7 +33,7 @@ class AgentReadingUiTest {
             LightThemeProvider {
                 ModalNavigationDrawer(drawerState = rememberDrawerState(DrawerValue.Open), drawerContent = {
                     AgentThreadsDrawerSheet(listOf(old, now), "old", { selection = it }, {}, {}, {})
-                }) {}
+                }, content = {})
             }
         }
         compose.onNodeWithTag("agent_thread_item_old").assertIsDisplayed()
@@ -47,11 +47,11 @@ class AgentReadingUiTest {
 
     @Test fun longMessageOpensPagedRawReaderWithAnExplicitExport() {
         val message = AgentChatMessage(isUser = false, text = "a".repeat(6000) + "<script>inerte</script>")
-        val open = mutableStateOf(false)
+        val readerOpen = mutableStateOf(false)
         compose.setContent {
             LightThemeProvider {
-                AgentMessageBubble(message, null, onOpenDocument = { open.value = true })
-                if (open.value) AgentMessageDocumentReader(message) { open.value = false }
+                AgentMessageBubble(message, null, onOpenDocument = { readerOpen.value = true })
+                if (readerOpen.value) AgentMessageDocumentReader(message) { readerOpen.value = false }
             }
         }
         compose.onNodeWithTag("agent_message_content").assertDoesNotExist()

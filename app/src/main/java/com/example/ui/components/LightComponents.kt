@@ -60,12 +60,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.example.ui.theme.LightSpacing
+import com.example.ui.theme.LightSurfaceTokens
 import com.example.data.model.TaskCategory
 import com.example.ui.theme.AppleAmber
 import com.example.ui.theme.AppleEmerald
@@ -84,25 +85,12 @@ import com.example.ui.theme.appVerticalBrush
 fun AppleCard(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
-    cornerRadius: Dp = 16.dp,
-    contentPadding: PaddingValues = PaddingValues(16.dp),
+    cornerRadius: Dp = LightSurfaceTokens.cardCorner,
+    contentPadding: PaddingValues = PaddingValues(LightSpacing.two),
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val shape = RoundedCornerShape(cornerRadius)
-    Surface(
-        modifier = modifier
-            .clip(shape)
-            .then(if (onClick != null) Modifier.clickable(role = Role.Button, onClick = onClick) else Modifier),
-        shape = shape,
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.90f),
-        tonalElevation = 0.dp,
-        shadowElevation = 2.dp,
-        border = BorderStroke(0.9.dp, MaterialTheme.colorScheme.surface)
-    ) {
-        Column(
-            modifier = Modifier.padding(contentPadding),
-            content = content
-        )
+    LightPanel(modifier = modifier, onClick = onClick, shape = RoundedCornerShape(cornerRadius)) {
+        Column(Modifier.padding(contentPadding), content = content)
     }
 }
 
@@ -469,8 +457,7 @@ fun TaskCategoryPill(
     Surface(
         modifier = modifier,
         shape = CircleShape,
-        color = color.copy(alpha = 0.13f),
-        border = BorderStroke(0.8.dp, color.copy(alpha = 0.28f))
+        color = color.copy(alpha = LightSurfaceTokens.categoryFill)
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),

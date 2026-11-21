@@ -9,6 +9,7 @@ import com.example.data.model.StudyCountdown
 import com.example.data.model.StudyHabit
 import com.example.data.model.StudyProject
 import com.example.data.model.StudyTask
+import com.example.data.model.NavigationLayout
 import com.example.data.model.TaskCategory
 import com.example.data.model.UserGender
 import com.example.data.model.UserProfession
@@ -18,6 +19,9 @@ import kotlinx.coroutines.flow.flowOf
 import java.time.LocalDate
 
 interface StudyWorkspaceRepository {
+    fun observeNavigationLayout(userId: String): Flow<NavigationLayout>
+    suspend fun saveNavigationLayout(userId: String, layout: NavigationLayout)
+
     fun observeUserProfile(userId: String): Flow<UserProfile?>
     fun observeCourses(userId: String): Flow<List<Course>>
     fun observeTasks(userId: String): Flow<List<StudyTask>>
@@ -105,11 +109,14 @@ interface StudyWorkspaceRepository {
         startDateIso: String = "",
         projectId: String = "",
         focusProfileId: String = "",
-        focusProfileTitle: String = ""
+        focusProfileTitle: String = "",
+        subtasks: List<String> = emptyList()
     ): String
 
     suspend fun createTasksBatch(userId: String, tasks: List<StudyTask>)
     suspend fun toggleTaskCompleted(userId: String, task: StudyTask)
+    suspend fun moveTask(userId: String, taskId: String, start: String, due: String, scheduledTime: String? = null)
+    suspend fun setTaskPredecessors(userId: String, taskId: String, predecessorIds: List<String>)
     suspend fun updateTaskQuadrant(userId: String, taskId: String, quadrant: Long)
     suspend fun assignTaskToFocusProfile(
         userId: String,

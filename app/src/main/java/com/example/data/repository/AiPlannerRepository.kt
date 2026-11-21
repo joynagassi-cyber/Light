@@ -12,8 +12,12 @@ import com.google.firebase.ai.type.generationConfig
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
+import org.json.JSONException
 import org.json.JSONObject
 import java.time.LocalDate
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 private const val TAG = "AiPlannerRepo"
 
@@ -51,33 +55,28 @@ class AiPlannerRepository {
         )
     )
 
-    private val plannerModel by lazy {
-        Firebase.ai.generativeModel(
-            modelName = "gemini-2.5-flash",
-            generationConfig = generationConfig {
-                responseMimeType = "application/json"
-                responseSchema = studyPlanSchema
-            }
-        )
-    }
-
     suspend fun generateSmartStudyPlan(
         goalPrompt: String,
         targetDateIso: String,
         dailyMinutesAvailable: Int,
         courses: List<Course>,
-        personaInstruction: String = ""
+        personaInstruction: String = "",
+        modelName: String,
+        externalCompletion: (suspend (String) -> String)? = null
     ): AiStudyPlanResult {
-        val today = LocalDate.now().toString()
+        require(modelName.isNotBlank()) { "Sélectionnez d’abord un modèle dans les réglages de Light Agent." }
+        val today = LocalDate.now()
+        val deadline = runCatching { LocalDate.parse(targetDateIso) }.getOrNull()
+        require(deadline != null && !deadline.isBefore(today)) { "Choisissez une échéance à partir d’aujourd’hui." }
         val courseListText = if (courses.isEmpty()) {
-            "GL-301 Architecture Logicielle, GL-302 Systèmes Distribués, GL-303 Bases de Données, GL-304 Algorithmique"
+            "Aucun cours enregistré"
         } else {
             courses.joinToString(", ") { "${it.code} (${it.title})" }
         }
         val profileLine = if (personaInstruction.isNotBlank()) {
             "Profil de l'utilisateur : $personaInstruction"
         } else {
-            "Profil de l'utilisateur : Étudiante en 3ᵉ année d'ingénierie Génie Logiciel."
+            ""
         }
 
         val fullPrompt = """
@@ -90,43 +89,23 @@ class AiPlannerRepository {
             Objectif exprimé : "$goalPrompt"
 
             Génère un plan intelligent, équilibré, progressif et réaliste en français (accordé au genre de l'utilisateur et adapté à son âge et sa profession), découpé en 3 à 6 blocs actionnables.
+            Réponds uniquement par un objet JSON avec summary, strategyTip et tasks. Chaque tâche contient title,
+            notes, courseCode, dueDateIso, scheduledTime (HH:mm), priority (high, medium, low), category et estimatedMinutes.
             Assure-toi que chaque dueDateIso soit au format YYYY-MM-DD compris entre $today et $targetDateIso.
         """.trimIndent()
 
         return try {
             val response = withTimeout(60_000L) {
-                plannerModel.generateContent(fullPrompt)
-            }
-            val jsonText = response.text
-                ?: throw IllegalStateException("Le modèle IA a renvoyé une réponse vide.")
-
-            val root = JSONObject(jsonText)
-            val summary = root.optString("summary", "Plan d'étude intelligent généré.")
-            val strategyTip = root.optString("strategyTip", "Alternez blocs de 50 minutes de code et 10 minutes de pause.")
-            val tasksArray = root.getJSONArray("tasks")
-            val parsedTasks = (0 until tasksArray.length()).map { idx ->
-                val obj = tasksArray.getJSONObject(idx)
-                val rawDate = obj.optString("dueDateIso", today)
-                val safeDate = if (Regex("""^\d{4}-\d{2}-\d{2}$""").matches(rawDate)) rawDate else today
-                val rawPriority = obj.optString("priority", "medium")
-                val safePriority = if (rawPriority in listOf("high", "medium", "low")) rawPriority else "medium"
-                val safeCategory = TaskCategory.sanitizeKey(obj.optString("category", TaskCategory.REVISION.key))
-                AiPlannedTask(
-                    title = obj.optString("title", "Session d'étude").take(140),
-                    notes = obj.optString("notes", "").take(500),
-                    courseCode = obj.optString("courseCode", courses.firstOrNull()?.code ?: "GL-301"),
-                    dueDateIso = safeDate,
-                    scheduledTime = obj.optString("scheduledTime", "10:00").take(10),
-                    priority = safePriority,
-                    category = safeCategory,
-                    estimatedMinutes = obj.optInt("estimatedMinutes", 45).coerceIn(15, 120)
-                )
-            }
-            AiStudyPlanResult(
-                summary = summary,
-                strategyTip = strategyTip,
-                tasks = parsedTasks
-            )
+                if (externalCompletion != null) externalCompletion(fullPrompt)
+                else Firebase.ai.generativeModel(
+                    modelName = modelName.trim(),
+                    generationConfig = generationConfig {
+                        responseMimeType = "application/json"
+                        responseSchema = studyPlanSchema
+                    }
+                ).generateContent(fullPrompt).text ?: error("Le modèle IA a renvoyé une réponse vide.")
+            }.trim()
+            decodeStudyPlan(response, today, deadline, courses)
         } catch (e: TimeoutCancellationException) {
             Log.e(TAG, "AI study plan generation timed out", e)
             throw IllegalStateException("La génération IA a expiré après 60s. Vérifiez votre connexion et réessayez.")
@@ -145,5 +124,50 @@ class AiPlannerRepository {
             }
             throw e
         }
+    }
+}
+
+private val planTimeFormat = DateTimeFormatter.ofPattern("HH:mm", Locale.ROOT)
+
+/** Validate the response before it becomes a preview or can be persisted. */
+internal fun decodeStudyPlan(
+    response: String, today: LocalDate, deadline: LocalDate, courses: List<Course>,
+): AiStudyPlanResult {
+    val text = response.trim()
+    val json = if (text.startsWith("```") && text.endsWith("```") && '\n' in text) {
+        text.substringAfter('\n').dropLast(3).trim()
+    } else text
+    try {
+        val root = JSONObject(json)
+        val tasks = root.getJSONArray("tasks")
+        require(tasks.length() in 1..6) { "Le modèle actif doit renvoyer entre une et six tâches." }
+        val parsed = (0 until tasks.length()).map { index ->
+            val item = tasks.getJSONObject(index)
+            val date = runCatching { LocalDate.parse(item.optString("dueDateIso")) }.getOrDefault(today)
+            val time = runCatching { LocalTime.parse(item.optString("scheduledTime")) }.getOrNull()
+            val course = item.optString("courseCode", "").trim()
+            val title = (item.opt("title") as? String).orEmpty().trim()
+            require(title.isNotEmpty()) {
+                "Le modèle actif a renvoyé une tâche sans titre. Réessayez."
+            }
+            AiPlannedTask(
+                title = title.take(140),
+                notes = (item.opt("notes") as? String).orEmpty().trim().take(500),
+                courseCode = courses.firstOrNull { it.code.equals(course, ignoreCase = true) }?.code.orEmpty(),
+                dueDateIso = date.coerceIn(today, deadline).toString(),
+                scheduledTime = time?.format(planTimeFormat) ?: "10:00",
+                priority = item.optString("priority").takeIf { it in listOf("high", "medium", "low") } ?: "medium",
+                category = TaskCategory.sanitizeKey(item.optString("category")),
+                estimatedMinutes = item.optInt("estimatedMinutes", 45).coerceIn(15, 120),
+            )
+        }
+        return AiStudyPlanResult(
+            summary = (root.opt("summary") as? String)?.trim()?.takeIf(String::isNotEmpty)?.take(500) ?: "Plan d'étude intelligent généré.",
+            strategyTip = (root.opt("strategyTip") as? String)?.trim()?.takeIf(String::isNotEmpty)?.take(500) ?: "Alternez des séances et de courtes pauses.",
+            tasks = parsed,
+        )
+    } catch (_: JSONException) {
+        // The provider payload may contain private user data; do not expose it in the error or logs.
+        throw IllegalArgumentException("Le modèle actif a renvoyé un plan illisible. Réessayez ou choisissez un autre modèle.")
     }
 }

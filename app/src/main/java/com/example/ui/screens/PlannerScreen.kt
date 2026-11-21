@@ -4,7 +4,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -59,6 +58,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -83,6 +83,7 @@ import com.example.data.model.StudyTask
 import com.example.data.model.TaskCategory
 import com.example.ui.AiPlanUiState
 import com.example.ui.components.AppleCard
+import com.example.ui.components.LightControl
 import com.example.ui.components.EmptyStateCard
 import com.example.ui.components.CalendarShowcaseCard
 import com.example.ui.components.CalendarViewMode
@@ -179,11 +180,9 @@ fun PlannerScreen(
                     )
                     Spacer(modifier = Modifier.height(3.dp))
                     // Tappable active view indicator pill
-                    Surface(
+                    LightControl(
                         onClick = { viewsMenuExpanded = true },
-                        shape = CircleShape,
                         color = gradient.softContainer,
-                        border = BorderStroke(0.8.dp, gradient.accentColor.copy(alpha = 0.25f)),
                         modifier = Modifier.testTag("calendar_active_view_pill")
                     ) {
                         Row(
@@ -218,14 +217,10 @@ fun PlannerScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Surface(
+                    LightControl(
                         onClick = onOpenCreateTask,
-                        shape = CircleShape,
                         color = gradient.accentColor,
-                        shadowElevation = 4.dp,
-                        modifier = Modifier
-                            .size(48.dp)
-                            .testTag("add_task_button")
+                        modifier = Modifier.testTag("add_task_button")
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
@@ -238,15 +233,9 @@ fun PlannerScreen(
                     }
 
                     Box {
-                        Surface(
+                        LightControl(
                             onClick = { viewsMenuExpanded = true },
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.surface,
-                            border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
-                            shadowElevation = 2.dp,
-                            modifier = Modifier
-                                .size(48.dp)
-                                .testTag("calendar_views_menu_button")
+                            modifier = Modifier.testTag("calendar_views_menu_button")
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
@@ -313,7 +302,7 @@ fun PlannerScreen(
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 4.dp))
                             DropdownMenuItem(
                                 text = {
-                                    Text(if (aiExpanded) "Masquer Assistant IA" else "Planificateur IA Gemini")
+                                    Text(if (aiExpanded) "Masquer Assistant IA" else "Planificateur IA")
                                 },
                                 leadingIcon = {
                                     Icon(
@@ -742,10 +731,12 @@ private fun SmartAiPlannerCard(
                             )
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
-                                text = "Gemini structure votre planning...",
+                                text = "Le modèle actif prépare votre planning…",
+                                modifier = Modifier.weight(1f),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                            TextButton(onClick = onReset, modifier = Modifier.testTag("cancel_ai_plan_button")) { Text("Annuler") }
                         }
                     }
 
@@ -933,6 +924,10 @@ private fun PlannerTaskRow(
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
+                }
+                task.subtasks.forEachIndexed { index, subtask ->
+                    Text("${index + 1}. $subtask", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(

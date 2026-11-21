@@ -68,6 +68,7 @@ import com.example.data.model.TaskCategory
 import com.example.data.model.UserProfile
 import com.example.data.model.adaptation
 import com.example.ui.components.AppleCard
+import com.example.ui.components.LightControl
 import com.example.ui.components.CatalogIcon
 import com.example.ui.components.catalogIconColor
 import com.example.ui.components.GradientHeroCard
@@ -79,6 +80,7 @@ import com.example.ui.theme.AppleEmerald
 import com.example.ui.theme.AppleRose
 import com.example.ui.theme.AppleSky
 import com.example.ui.theme.LocalLightGradient
+import com.example.ui.theme.LightTouchTarget
 import com.example.ui.theme.appBrush
 import com.example.ui.theme.appVerticalBrush
 import java.time.LocalDate
@@ -98,6 +100,7 @@ fun HomeDashboardScreen(
     onNavigateToAgent: () -> Unit,
     onOpenStopwatch: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenProfile: (() -> Unit)? = null,
     onOpenGradientPicker: () -> Unit,
     onOpenCreateTask: () -> Unit,
     modifier: Modifier = Modifier
@@ -141,7 +144,8 @@ fun HomeDashboardScreen(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(44.dp)
+                            .then(if (onOpenProfile != null) Modifier.clickable(onClick = onOpenProfile).testTag("home_open_profile") else Modifier)
+                            .size(LightTouchTarget.minimum)
                             .clip(CircleShape)
                             .background(gradient.appBrush())
                             .padding(2.dp)
@@ -188,15 +192,9 @@ fun HomeDashboardScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Surface(
+                    LightControl(
                         onClick = onOpenGradientPicker,
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.surface,
-                        border = androidx.compose.foundation.BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
-                        shadowElevation = 2.dp,
-                        modifier = Modifier
-                            .size(44.dp)
-                            .testTag("open_gradient_studio_button")
+                        modifier = Modifier.testTag("open_gradient_studio_button")
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
@@ -207,15 +205,9 @@ fun HomeDashboardScreen(
                             )
                         }
                     }
-                    Surface(
+                    LightControl(
                         onClick = onOpenSettings,
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.surface,
-                        border = androidx.compose.foundation.BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
-                        shadowElevation = 2.dp,
-                        modifier = Modifier
-                            .size(44.dp)
-                            .testTag("home_settings_button")
+                        modifier = Modifier.testTag("home_settings_button")
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(

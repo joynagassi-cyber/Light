@@ -34,9 +34,9 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.res.painterResource
 import com.example.R
 import com.example.data.model.AgentProvider
+import com.example.data.model.AgentReflection
 import com.example.data.model.AgentModelOption
 import androidx.compose.ui.unit.dp
-import com.example.data.model.AgentCapabilities
 import com.example.data.model.AgentSkill
 import com.example.data.preferences.StudyAppSettings
 import java.util.UUID
@@ -56,7 +56,6 @@ fun AgentSettingsDialog(
     var baseUrl by remember(settings.agentBaseUrl) { mutableStateOf(settings.agentBaseUrl) }
     var model by remember(settings.agentModel) { mutableStateOf(settings.agentModel) }
     var reflection by remember(settings.agentReflection) { mutableStateOf(settings.agentReflection) }
-    var capabilities by remember(settings.agentCapabilities) { mutableStateOf(settings.agentCapabilities) }
     var skills by remember(settings.agentSkills) { mutableStateOf(settings.agentSkills) }
     var apiKey by remember { mutableStateOf("") }
     var clearKey by remember { mutableStateOf(false) }
@@ -143,26 +142,15 @@ fun AgentSettingsDialog(
                 }
 
                 Text("Niveau de réflexion", style = MaterialTheme.typography.titleSmall)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("quick" to "Rapide", "balanced" to "Équilibré", "deep" to "Approfondi").forEach { (key, label) ->
-                        FilterChip(selected = reflection == key, onClick = { reflection = key }, label = { Text(label) })
+                AgentReflection.entries.chunked(2).forEach { levels ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        levels.forEach { level ->
+                            FilterChip(selected = reflection == level.key, onClick = { reflection = level.key }, label = { Text(level.label) })
+                        }
                     }
                 }
-
-                Text("Capacités autorisées", style = MaterialTheme.typography.titleSmall)
-                AgentCapabilities.all.forEach { (key, label) ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(label, style = MaterialTheme.typography.bodySmall)
-                        Switch(
-                            checked = key in capabilities,
-                            onCheckedChange = { enabled -> capabilities = if (enabled) capabilities + key else capabilities - key }
-                        )
-                    }
-                }
+                Text("Max demande au modèle deux revues avant la réponse. Ce réglage ne donne pas accès à son raisonnement privé.",
+                    style = MaterialTheme.typography.bodySmall)
 
                 Text("Compétences personnalisées", style = MaterialTheme.typography.titleSmall)
                 Text("Ajoutez des consignes réutilisables pour apprendre à l'agent votre façon de travailler.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -198,7 +186,7 @@ fun AgentSettingsDialog(
         },
         confirmButton = {
             TextButton(onClick = {
-                onSave(provider, baseUrl.trim(), model.trim(), reflection, capabilities, skills, apiKey.takeIf { it.isNotBlank() }, clearKey)
+                onSave(provider, baseUrl.trim(), model.trim(), reflection, settings.agentCapabilities, skills, apiKey.takeIf { it.isNotBlank() }, clearKey)
             }) { Text("Enregistrer") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } }

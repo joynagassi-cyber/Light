@@ -77,6 +77,32 @@ service cloud.firestore {
              data.updatedAt is timestamp && data.updatedAt <= request.time;
     }
 
+    function isValidSubtaskAt(items, index) {
+      return items.size() <= index ||
+             (items[index] is string && items[index].size() >= 1 && items[index].size() <= 120);
+    }
+
+    function isValidSubtasks(items) {
+      return items is list && items.size() <= 8 &&
+             isValidSubtaskAt(items, 0) && isValidSubtaskAt(items, 1) &&
+             isValidSubtaskAt(items, 2) && isValidSubtaskAt(items, 3) &&
+             isValidSubtaskAt(items, 4) && isValidSubtaskAt(items, 5) &&
+             isValidSubtaskAt(items, 6) && isValidSubtaskAt(items, 7);
+    }
+
+    function isValidPredecessorAt(items, index, userId, taskId) {
+      return items.size() <= index ||
+        (isValidId(items[index]) && items[index] != taskId &&
+         exists(/databases/$(database)/documents/users/$(userId)/tasks/$(items[index])));
+    }
+
+    function isValidPredecessors(data, userId, taskId) {
+      let items = data.get('predecessorIds', []);
+      return items is list && items.size() <= 4 && items.toSet().size() == items.size() &&
+        isValidPredecessorAt(items, 0, userId, taskId) && isValidPredecessorAt(items, 1, userId, taskId) &&
+        isValidPredecessorAt(items, 2, userId, taskId) && isValidPredecessorAt(items, 3, userId, taskId);
+    }
+
     function isValidStudyTask(data, userId) {
       return data.userId is string && data.userId == userId &&
              (!('courseId' in data) || (data.courseId is string && data.courseId.size() <= 128)) &&
@@ -86,6 +112,7 @@ service cloud.firestore {
              (!('focusProfileTitle' in data) || (data.focusProfileTitle is string && data.focusProfileTitle.size() <= 100)) &&
              data.title is string && data.title.size() >= 1 && data.title.size() <= 140 &&
              (!('notes' in data) || (data.notes is string && data.notes.size() <= 500)) &&
+             (!('subtasks' in data) || isValidSubtasks(data.subtasks)) &&
              data.dueDateIso is string && data.dueDateIso.size() >= 1 && data.dueDateIso.size() <= 20 &&
              (!('startDateIso' in data) || (isValidIsoDate(data.startDateIso) && data.startDateIso <= data.dueDateIso)) &&
              (!('scheduledTime' in data) || (data.scheduledTime is string && data.scheduledTime.size() <= 20)) &&
@@ -166,6 +193,22 @@ service cloud.firestore {
                        incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'email', 'major', 'selectedGradientId', 'dailyGoalTasks', 'streakDays', 'lastStudyDate', 'gender', 'birthYear', 'age', 'profession', 'customProfession', 'notificationsEnabled', 'notificationFrequency', 'onboardingCompleted', 'updatedAt']);
       allow delete: if isOwner(userId) && isValidId(userId);
 
+      match /preferences/navigation {
+        // Account-wide UI data only: no credentials, arbitrary routes or settings in the bar.
+        allow get: if isOwner(userId);
+        allow create, update: if isOwner(userId) &&
+          incoming().keys().hasAll(['order', 'hidden', 'icons', 'updatedAt']) &&
+          incoming().keys().hasOnly(['order', 'hidden', 'icons', 'updatedAt']) &&
+          incoming().order is list && incoming().order.size() == 4 &&
+          incoming().order.toSet() == ['home', 'planner', 'focus', 'matrix'].toSet() &&
+          incoming().hidden is list && incoming().hidden.size() <= 2 &&
+          incoming().hidden.toSet().size() == incoming().hidden.size() &&
+          incoming().hidden.hasOnly(['planner', 'focus', 'matrix']) &&
+          incoming().icons is map && incoming().icons.keys().hasOnly(['home', 'planner', 'focus', 'matrix']) &&
+          incoming().icons.values().hasOnly(['bookmark', 'star', 'circle', 'bolt']) &&
+          incoming().updatedAt == request.time;
+      }
+
       match /courses/{courseId} {
         allow list: if isOwner(userId);
         allow get, delete: if isOwner(userId) && isValidId(courseId);
@@ -204,14 +247,17 @@ service cloud.firestore {
         allow create: if isOwner(userId) &&
                          isValidId(taskId) &&
                          incoming().keys().hasAll(['userId', 'title', 'dueDateIso', 'priority', 'estimatedMinutes', 'completed', 'aiGenerated', 'createdAt', 'updatedAt']) &&
-                         incoming().keys().hasOnly(['userId', 'courseId', 'courseTitle', 'projectId', 'focusProfileId', 'focusProfileTitle', 'title', 'notes', 'dueDateIso', 'startDateIso', 'scheduledTime', 'priority', 'category', 'estimatedMinutes', 'quadrant', 'completed', 'aiGenerated', 'createdAt', 'updatedAt']) &&
-                         isValidStudyTask(incoming(), userId);
+                         incoming().keys().hasOnly(['userId', 'courseId', 'courseTitle', 'projectId', 'focusProfileId', 'focusProfileTitle', 'title', 'notes', 'subtasks', 'predecessorIds', 'dueDateIso', 'startDateIso', 'scheduledTime', 'priority', 'category', 'estimatedMinutes', 'quadrant', 'completed', 'aiGenerated', 'createdAt', 'updatedAt']) &&
+                         isValidStudyTask(incoming(), userId) &&
+                         isValidPredecessors(incoming(), userId, taskId);
         allow update: if isOwner(userId) &&
                          isValidId(taskId) &&
                          incoming().userId == existing().userId &&
                          incoming().createdAt == existing().createdAt &&
                          isValidStudyTask(incoming(), userId) &&
-                         incoming().diff(existing()).affectedKeys().hasOnly(['courseId', 'courseTitle', 'projectId', 'focusProfileId', 'focusProfileTitle', 'title', 'notes', 'dueDateIso', 'startDateIso', 'scheduledTime', 'priority', 'category', 'estimatedMinutes', 'quadrant', 'completed', 'aiGenerated', 'updatedAt']);
+                         (!incoming().diff(existing()).affectedKeys().hasAny(['predecessorIds']) ||
+                           isValidPredecessors(incoming(), userId, taskId)) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['courseId', 'courseTitle', 'projectId', 'focusProfileId', 'focusProfileTitle', 'title', 'notes', 'subtasks', 'predecessorIds', 'dueDateIso', 'startDateIso', 'scheduledTime', 'priority', 'category', 'estimatedMinutes', 'quadrant', 'completed', 'aiGenerated', 'updatedAt']);
       }
 
       match /focusProfiles/{profileId} {

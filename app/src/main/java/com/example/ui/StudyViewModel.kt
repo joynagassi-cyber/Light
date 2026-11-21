@@ -2,6 +2,7 @@ package com.example.ui
 
 import android.content.Context
 import android.util.Log
+import android.os.SystemClock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.audio.FocusAudioCatalog
@@ -24,6 +25,9 @@ import com.example.data.model.StudyCountdown
 import com.example.data.model.StudyHabit
 import com.example.data.model.StudyProject
 import com.example.data.model.StudyTask
+import com.example.data.model.NavigationLayout
+import com.example.data.model.MAX_TASK_PREDECESSORS
+import com.example.data.model.wouldCreateTaskCycle
 import com.example.data.model.TaskCategory
 import com.example.data.model.UiState
 import com.example.data.model.UserGender
@@ -38,6 +42,8 @@ import com.example.data.repository.AgentActionApproval
 import com.example.data.repository.AgentPlanPreview
 import com.example.data.repository.AgentChatMessage
 import com.example.data.repository.AiAgentRepository
+import com.example.data.repository.AgentTurnProgress
+import com.example.data.repository.belongsTo
 import com.example.data.repository.AgentModelCatalogRepository
 import com.example.data.repository.AiPlannerRepository
 import com.example.data.repository.StudyAgentToolExecutor
@@ -48,6 +54,7 @@ import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -126,6 +133,7 @@ class StudyViewModel(
 
     private var timerJob: Job? = null
     private var agentRequestJob: Job? = null
+    private var plannerRequestJob: Job? = null
     private var persistThreadsJob: Job? = null
 
     val hasPendingCloudWrites: StateFlow<Boolean> = repository.observeHasPendingWrites(currentUserId)
@@ -137,6 +145,25 @@ class StudyViewModel(
 
     val appSettings: StateFlow<StudyAppSettings> = themePreferencesStore.appSettings
         .stateIn(viewModelScope, SharingStarted.Eagerly, StudyAppSettings())
+
+    val navigationLayout: StateFlow<NavigationLayout> = repository.observeNavigationLayout(currentUserId)
+        .catch { error ->
+            if (error is CancellationException) throw error
+            Log.w(TAG, "Navigation preferences unavailable", error)
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), NavigationLayout())
+
+    fun saveNavigationLayout(layout: NavigationLayout) {
+        viewModelScope.launch {
+            try {
+                repository.saveNavigationLayout(currentUserId, layout)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                _bannerMessage.value = "Impossible d’enregistrer la barre de navigation."
+            }
+        }
+    }
 
     val profileState: StateFlow<UiState<UserProfile?>> = repository.observeUserProfile(currentUserId)
         .map<UserProfile?, UiState<UserProfile?>> { UiState.Success(it) }
@@ -259,6 +286,8 @@ class StudyViewModel(
 
     private val _agentBusy = MutableStateFlow(false)
     val agentBusy: StateFlow<Boolean> = _agentBusy.asStateFlow()
+    private val _agentProgress = MutableStateFlow<AgentTurnProgress?>(null)
+    val agentProgress: StateFlow<AgentTurnProgress?> = _agentProgress.asStateFlow()
     private val _agentApiKeyConfigured = MutableStateFlow(false)
     val agentApiKeyConfigured: StateFlow<Boolean> = _agentApiKeyConfigured.asStateFlow()
     private val _agentModels = MutableStateFlow<List<AgentModelOption>>(emptyList())
@@ -688,7 +717,8 @@ class StudyViewModel(
         startDateIso: String = "",
         projectId: String = "",
         focusProfileId: String = "",
-        focusProfileTitle: String = ""
+        focusProfileTitle: String = "",
+        subtasks: List<String> = emptyList()
     ) {
         viewModelScope.launch {
             try {
@@ -708,7 +738,8 @@ class StudyViewModel(
                     startDateIso = startDateIso,
                     projectId = projectId,
                     focusProfileId = focusProfileId,
-                    focusProfileTitle = focusProfileTitle
+                    focusProfileTitle = focusProfileTitle,
+                    subtasks = subtasks
                 )
                 _bannerMessage.value = when {
                     isLocalMode -> "Tâche enregistrée sur l'appareil."
@@ -963,31 +994,76 @@ class StudyViewModel(
         }
     }
 
+    fun moveTask(task: StudyTask, newStart: LocalDate, scheduledTime: String?) {
+        val previousDue = runCatching { LocalDate.parse(task.dueDateIso) }.getOrNull() ?: return
+        val previousStart = runCatching { LocalDate.parse(task.startDateIso) }.getOrNull()?.coerceAtMost(previousDue) ?: previousDue
+        val duration = java.time.temporal.ChronoUnit.DAYS.between(previousStart, previousDue)
+        viewModelScope.launch {
+            try {
+                repository.moveTask(currentUserId, task.id, newStart.toString(), newStart.plusDays(duration).toString(), scheduledTime)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _bannerMessage.value = "Impossible de déplacer cette tâche."
+            }
+        }
+    }
+
+    fun setTaskPredecessors(task: StudyTask, ids: List<String>) {
+        val tasks = (tasksState.value as? UiState.Success)?.data.orEmpty().associateBy { it.id }
+        if (task.id !in tasks || ids.distinct().size != ids.size || ids.size > MAX_TASK_PREDECESSORS ||
+            ids.any { it !in tasks || wouldCreateTaskCycle(task.id, it, tasks) }) {
+            _bannerMessage.value = "Dépendances invalides : une tâche est introuvable ou la sélection crée une boucle."
+            return
+        }
+        viewModelScope.launch {
+            try {
+                repository.setTaskPredecessors(currentUserId, task.id, ids)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                _bannerMessage.value = "Impossible d’enregistrer les dépendances."
+            }
+        }
+    }
+
     fun generateAiStudyPlan(
         goalPrompt: String,
         targetDateIso: String,
         dailyMinutesAvailable: Int,
         courses: List<Course>
     ) {
+        plannerRequestJob?.cancel()
         if (goalPrompt.isBlank()) {
             _aiPlanState.value = AiPlanUiState.Error("Décrivez d'abord votre objectif d'étude.")
             return
         }
-        viewModelScope.launch {
+        val active = appSettings.value
+        plannerRequestJob = viewModelScope.launch {
             _aiPlanState.value = AiPlanUiState.Loading
             val persona = (profileState.value as? UiState.Success)?.data.adaptation().aiPersonaInstruction
             try {
+                val remoteCompletion: (suspend (String) -> String)? = if (active.agentProvider == AgentProvider.FIREBASE.id) null else {
+                    val key = themePreferencesStore.readAgentApiKey(active.agentProvider)
+                    require(!key.isNullOrBlank()) { "Ajoutez la clé API du fournisseur actif dans les réglages de Light Agent." }
+                    val completion: suspend (String) -> String = { prompt -> aiAgentRepository.completePlannerPrompt(prompt, active, key) }
+                    completion
+                }
                 val result = aiPlannerRepository.generateSmartStudyPlan(
                     goalPrompt = goalPrompt,
                     targetDateIso = targetDateIso,
                     dailyMinutesAvailable = dailyMinutesAvailable,
                     courses = courses,
-                    personaInstruction = persona
+                    personaInstruction = persona,
+                    modelName = active.agentModel,
+                    externalCompletion = remoteCompletion
                 )
+                coroutineContext.ensureActive()
                 _aiPlanState.value = AiPlanUiState.Success(result)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                coroutineContext.ensureActive()
                 _aiPlanState.value = AiPlanUiState.Error(
                     e.localizedMessage ?: "La génération du plan intelligent a échoué."
                 )
@@ -999,9 +1075,8 @@ class StudyViewModel(
         viewModelScope.launch {
             try {
                 val tasks = plan.tasks.map { aiTask ->
-                    val matchedCourse = courses.firstOrNull {
-                        it.code.equals(aiTask.courseCode, ignoreCase = true) ||
-                            it.title.contains(aiTask.courseCode, ignoreCase = true)
+                    val matchedCourse = aiTask.courseCode.takeIf(String::isNotBlank)?.let { code ->
+                        courses.firstOrNull { it.code.equals(code, ignoreCase = true) }
                     }
                     StudyTask(
                         userId = currentUserId,
@@ -1030,6 +1105,8 @@ class StudyViewModel(
     }
 
     fun resetAiPlan() {
+        plannerRequestJob?.cancel()
+        plannerRequestJob = null
         _aiPlanState.value = AiPlanUiState.Idle
     }
 
@@ -1295,12 +1372,31 @@ class StudyViewModel(
         _pendingAgentApproval.value = null
     }
 
+    private fun stoppedAgentMessage(message: AgentChatMessage, progress: AgentTurnProgress): AgentChatMessage {
+        val partial = message.text.takeUnless { it == "…" }.orEmpty()
+        return message.copy(text = if (partial.isBlank()) "Réponse interrompue." else "$partial\n\nRéponse interrompue.",
+            actions = progress.tools, elapsedMillis = (SystemClock.elapsedRealtime() - progress.startedAtMillis).coerceAtLeast(0))
+    }
+
+    private fun interruptAgentTurn() {
+        val oldProgress = _agentProgress.value
+        _agentProgress.value = null // Invalidate callbacks before changing thread or resuming a suspended tool.
+        agentRequestJob?.cancel()
+        cancelPendingAgentApproval()
+        _agentBusy.value = false
+        if (oldProgress != null) updateActiveThreadMessages(_agentMessages.value.map { message ->
+            if (message.id == oldProgress.messageId) stoppedAgentMessage(message, oldProgress) else message
+        }, persist = true)
+    }
+
     fun sendAgentMessage(prompt: String, onStartFocusRequested: () -> Unit, displayPrompt: String? = null) {
         val trimmed = prompt.trim()
         if (trimmed.isBlank() || _agentBusy.value) return
 
         val userMsg = AgentChatMessage(isUser = true, text = displayPrompt?.takeIf { it.isNotBlank() } ?: trimmed)
         val assistantId = UUID.randomUUID().toString()
+        val startedAt = SystemClock.elapsedRealtime()
+        _agentProgress.value = AgentTurnProgress(assistantId, startedAt)
         val assistantPlaceholder = AgentChatMessage(id = assistantId, isUser = false, text = "…")
         updateActiveThreadMessages(_agentMessages.value + userMsg + assistantPlaceholder, persist = true)
         _agentBusy.value = true
@@ -1322,9 +1418,11 @@ class StudyViewModel(
             val snapshot = "${adapt.aiPersonaInstruction} Matières=[$courseNames], projets=[$projectNames], tâches en cours=$pendingCount, thème actif=$themeName"
 
             val executor = object : StudyAgentToolExecutor {
-                override suspend fun requestApproval(action: AgentActionApproval): Boolean = awaitAgentApproval(action)
+                override suspend fun requestApproval(action: AgentActionApproval): Boolean =
+                    _agentProgress.value.belongsTo(assistantId) && awaitAgentApproval(action)
 
                 override suspend fun presentStudyPlan(plan: AgentPlanPreview): JsonObject {
+                    if (!_agentProgress.value.belongsTo(assistantId)) throw CancellationException()
                     _agentMessages.value = _agentMessages.value.map { message ->
                         if (message.id == assistantId) message.copy(planPreview = plan) else message
                     }
@@ -1603,11 +1701,19 @@ class StudyViewModel(
                     settings = currentAgentSettings,
                     apiKey = configuredKey,
                     onTextUpdate = { partialText ->
-                        _agentMessages.value = _agentMessages.value.map { message ->
-                            if (message.id == assistantId) message.copy(text = partialText.ifBlank { "…" }) else message
+                        if (_agentProgress.value.belongsTo(assistantId)) {
+                            _agentMessages.value = _agentMessages.value.map { message ->
+                                if (message.id == assistantId) message.copy(text = partialText.ifBlank { "…" }) else message
+                            }
                         }
-                    }
+                    },
+                    onActivity = { event ->
+                        val turn = _agentProgress.value
+                        if (turn != null && turn.belongsTo(assistantId)) _agentProgress.value = turn.record(event)
+                    },
                 )
+                coroutineContext.ensureActive()
+                if (!_agentProgress.value.belongsTo(assistantId)) return@launch
                 val tokensIn = result.inputTokens ?: 0L
                 val tokensOut = result.outputTokens ?: 0L
                 val pricing = _agentModels.value.firstOrNull { it.id == currentAgentSettings.agentModel }
@@ -1634,33 +1740,40 @@ class StudyViewModel(
                     )
                     )
                 }
+                coroutineContext.ensureActive()
+                if (!_agentProgress.value.belongsTo(assistantId)) return@launch
                 val completedMessages = _agentMessages.value.map { message ->
-                    if (message.id == assistantId) message.copy(text = result.replyText, actions = result.actions) else message
+                    if (message.id == assistantId) message.copy(text = result.replyText, actions = result.actions,
+                        elapsedMillis = (SystemClock.elapsedRealtime() - startedAt).coerceAtLeast(0)) else message
                 }
                 updateActiveThreadMessages(completedMessages, persist = true)
             } catch (e: CancellationException) {
-                val cancelledMessages = _agentMessages.value.map { message ->
-                    if (message.id == assistantId) message.copy(text = message.text.takeUnless { it == "…" }.orEmpty().let { partial -> if (partial.isBlank()) "Réponse interrompue." else "$partial\n\nRéponse interrompue." }) else message
-                }
-                updateActiveThreadMessages(cancelledMessages, persist = true)
+                val turn = _agentProgress.value?.takeIf { it.belongsTo(assistantId) }
+                if (turn != null) updateActiveThreadMessages(_agentMessages.value.map { message ->
+                    if (message.id == assistantId) stoppedAgentMessage(message, turn) else message
+                }, persist = true)
                 throw e
             } catch (e: Exception) {
+                val turn = _agentProgress.value?.takeIf { it.belongsTo(assistantId) } ?: return@launch
                 val errorMessages = _agentMessages.value.map { message ->
                     if (message.id == assistantId) message.copy(
                         text = e.localizedMessage ?: "Une erreur est survenue lors de l'appel au fournisseur IA.",
-                        isError = true
+                        isError = true, actions = turn.tools,
+                        elapsedMillis = (SystemClock.elapsedRealtime() - startedAt).coerceAtLeast(0),
                     ) else message
                 }
                 updateActiveThreadMessages(errorMessages, persist = true)
             } finally {
-                _agentBusy.value = false
+                if (_agentProgress.value.belongsTo(assistantId)) {
+                    _agentProgress.value = null
+                    _agentBusy.value = false
+                }
             }
         }
     }
 
     fun updateAgentCapabilities(capabilities: Set<String>) {
-        agentRequestJob?.cancel()
-        cancelPendingAgentApproval()
+        interruptAgentTurn()
         aiAgentRepository.resetConversation()
         viewModelScope.launch {
             themePreferencesStore.updateAgentCapabilities(capabilities)
@@ -1677,8 +1790,7 @@ class StudyViewModel(
         newApiKey: String? = null,
         clearApiKey: Boolean = false
     ) {
-        agentRequestJob?.cancel()
-        cancelPendingAgentApproval()
+        interruptAgentTurn()
         aiAgentRepository.resetConversation()
         viewModelScope.launch {
             themePreferencesStore.updateAgentPreferences(provider, baseUrl, model, reflection, capabilities, skills)
@@ -1717,9 +1829,7 @@ class StudyViewModel(
     }
 
     fun startNewAgentThread() {
-        agentRequestJob?.cancel()
-        cancelPendingAgentApproval()
-        _agentBusy.value = false
+        interruptAgentTurn()
         aiAgentRepository.resetConversation()
         val currentThread = _agentThreads.value.firstOrNull { it.id == _activeAgentThreadId.value }
         if (currentThread != null && _agentMessages.value.none { it.isUser }) {
@@ -1737,9 +1847,7 @@ class StudyViewModel(
     fun selectAgentThread(threadId: String) {
         if (threadId == _activeAgentThreadId.value) return
         val target = _agentThreads.value.firstOrNull { it.id == threadId } ?: return
-        agentRequestJob?.cancel()
-        cancelPendingAgentApproval()
-        _agentBusy.value = false
+        interruptAgentTurn()
         val restoredMsgs = target.messages.ifEmpty { listOf(welcomeAgentMessage()) }
         _activeAgentThreadId.value = target.id
         _agentMessages.value = restoredMsgs
@@ -1749,9 +1857,7 @@ class StudyViewModel(
     fun deleteAgentThread(threadId: String) {
         val wasActive = threadId == _activeAgentThreadId.value
         if (wasActive) {
-            agentRequestJob?.cancel()
-            cancelPendingAgentApproval()
-            _agentBusy.value = false
+            interruptAgentTurn()
         }
         val remaining = _agentThreads.value.filterNot { it.id == threadId }
         if (remaining.isEmpty()) {
@@ -1774,9 +1880,7 @@ class StudyViewModel(
     }
 
     fun clearAgentConversation() {
-        agentRequestJob?.cancel()
-        cancelPendingAgentApproval()
-        _agentBusy.value = false
+        interruptAgentTurn()
         aiAgentRepository.resetConversation()
         val resetMsgs = listOf(welcomeAgentMessage())
         val activeId = _activeAgentThreadId.value
@@ -1835,7 +1939,7 @@ class StudyViewModel(
 
     private fun welcomeAgentMessage() = AgentChatMessage(
         isUser = false,
-        text = "Bonjour ! Je suis Light, votre assistant de travail. Selon les capacités autorisées, je peux consulter vos données d'étude, créer des tâches, matières, projets, habitudes et échéances, valider une tâche, changer le thème ou lancer Focus. Avant chaque action, je vous présente les détails et j'attends votre accord. Vous gérez mes accès dans le menu ⋮ → Capacités de l'agent."
+        text = "Bonjour ! Je suis Light, votre assistant de travail. Selon les capacités autorisées, je peux consulter vos données d'étude, créer des tâches, matières, projets, habitudes et échéances, valider une tâche, changer le thème ou lancer Focus. Avant chaque action, je vous présente les détails et j'attends votre accord. Vous gérez mes accès dans Paramètres → Capacités de l’agent."
     )
 
     private fun unwrapFirestoreError(error: Throwable): FirebaseFirestoreException? =

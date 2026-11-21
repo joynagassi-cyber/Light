@@ -36,7 +36,6 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AttachFile
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.ChatBubbleOutline
-import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Description
@@ -82,6 +81,7 @@ import com.example.data.document.ExtractedAgentDocument
 import com.example.data.document.LocalDocumentExtractor
 import com.example.data.model.AgentModelOption
 import com.example.data.model.AgentProvider
+import com.example.data.model.AgentReflection
 import com.example.data.model.AgentSkill
 import com.example.data.model.AgentUsageRecord
 import com.example.data.preferences.AgentConversationThread
@@ -89,8 +89,11 @@ import com.example.data.preferences.StudyAppSettings
 import com.example.data.repository.AgentActionApproval
 import com.example.data.repository.AgentPlanPreview
 import com.example.data.repository.AgentChatMessage
+import com.example.data.repository.AgentTurnProgress
+import com.example.ui.components.AgentActivityPanel
+import com.example.ui.components.AgentMarkdown
 import com.example.ui.components.AgentThreadsDrawerSheet
-import com.example.ui.theme.AppleEmerald
+import com.example.ui.theme.LightSpacing
 import com.example.ui.theme.AppleRose
 import com.example.ui.theme.LocalLightGradient
 import com.example.ui.theme.appBrush
@@ -150,6 +153,7 @@ fun AgentChatScreen(
     onSaveAgentSettings: (String, String, String, String, Set<String>, List<AgentSkill>, String?, Boolean) -> Unit,
     showEmbeddedNavigationChrome: Boolean = true,
     externalConfigTrigger: Int = 0,
+    liveProgress: AgentTurnProgress? = null,
     modifier: Modifier = Modifier
 ) {
     val gradient = LocalLightGradient.current
@@ -396,7 +400,7 @@ fun AgentChatScreen(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             items(messages, key = { it.id }) { msg ->
-                AgentMessageBubble(message = msg)
+                AgentMessageBubble(message = msg, live = liveProgress?.takeIf { it.messageId == msg.id })
             }
 
             pendingAction?.let { action ->
@@ -452,33 +456,7 @@ fun AgentChatScreen(
                 }
             }
 
-            if (isBusy) {
-                item {
-                    Surface(
-                        shape = RoundedCornerShape(18.dp),
-                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-                        border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
-                        shadowElevation = 1.dp
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                color = gradient.accentColor,
-                                strokeWidth = 2.dp
-                            )
-                            Text(
-                                text = if (pendingAction != null) "En attente de votre validation avant l'action..." else "Light Agent réfléchit...",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-            }
+
         }
 
         if (attachedDocuments.isNotEmpty() || isExtractingDocuments || extractionError != null) {
@@ -584,27 +562,34 @@ fun AgentChatScreen(
                         tint = gradient.accentColor
                     )
                 }
-                OutlinedTextField(
-                    value = inputText,
-                    onValueChange = { inputText = it },
-                    placeholder = {
-                        Text(
-                            text = "Demandez une action à Light Agent...",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    },
-                    maxLines = 3,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color.Transparent,
-                        unfocusedBorderColor = Color.Transparent,
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent
-                    ),
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("agent_chat_input")
-                )
+                Column(Modifier.weight(1f)) {
+                    OutlinedTextField(
+                        value = inputText,
+                        onValueChange = { inputText = it },
+                        placeholder = {
+                            Text(
+                                text = "Demandez une action à Light Agent...",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        maxLines = 3,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color.Transparent,
+                            unfocusedBorderColor = Color.Transparent,
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("agent_chat_input")
+                    )
+                    TextButton(onClick = { showAgentSettings = true }, modifier = Modifier.testTag("agent_active_model")) {
+                        val model = settings.agentModel.ifBlank { "Choisir un modèle" }
+                        Text("$model · ${AgentReflection.fromKey(settings.agentReflection).label}", style = MaterialTheme.typography.labelMedium,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
 
                 Spacer(modifier = Modifier.width(6.dp))
 
@@ -796,80 +781,19 @@ private fun AgentActionApprovalCard(
 }
 
 @Composable
-private fun AgentMessageBubble(message: AgentChatMessage) {
+private fun AgentMessageBubble(message: AgentChatMessage, live: AgentTurnProgress?) {
     val gradient = LocalLightGradient.current
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = if (message.isUser) Arrangement.End else Arrangement.Start
-    ) {
-        Surface(
-            shape = RoundedCornerShape(
-                topStart = 20.dp,
-                topEnd = 20.dp,
-                bottomStart = if (message.isUser) 20.dp else 6.dp,
-                bottomEnd = if (message.isUser) 6.dp else 20.dp
-            ),
-            color = when {
-                message.isError -> AppleRose.copy(alpha = 0.12f)
-                message.isUser -> gradient.accentColor
-                else -> MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
-            },
-            border = if (message.isUser) null else BorderStroke(
-                0.8.dp,
-                if (message.isError) AppleRose.copy(alpha = 0.4f) else Color.White
-            ),
-            shadowElevation = if (message.isUser) 2.dp else 1.dp,
-            modifier = Modifier.fillMaxWidth(0.86f)
-        ) {
-            Column(
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 11.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                if (message.actions.isNotEmpty()) {
-                    Row(
-                        modifier = Modifier.horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        message.actions.forEach { action ->
-                            val actionColor = if (action.succeeded) AppleEmerald else AppleRose
-                            Surface(
-                                shape = CircleShape,
-                                color = actionColor.copy(alpha = 0.14f)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = if (action.succeeded) Icons.Rounded.CheckCircle else Icons.Rounded.Close,
-                                        contentDescription = null,
-                                        tint = actionColor,
-                                        modifier = Modifier.size(13.dp)
-                                    )
-                                    Text(
-                                        text = action.label,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = actionColor
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Text(
-                    text = message.text,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = when {
-                        message.isError -> AppleRose
-                        message.isUser -> Color.White
-                        else -> MaterialTheme.colorScheme.onSurface
-                    }
-                )
-                message.planPreview?.let { plan -> AgentPlanPreviewCard(plan) }
-            }
+    Row(Modifier.fillMaxWidth().padding(vertical = LightSpacing.one), horizontalArrangement = Arrangement.spacedBy(LightSpacing.one),
+        verticalAlignment = Alignment.Top) {
+        Box(Modifier.size(LightSpacing.four), contentAlignment = Alignment.Center) {
+            if (!message.isUser) Icon(Icons.Rounded.AutoAwesome, "Light Agent", tint = gradient.accentColor)
+        }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(LightSpacing.one)) {
+            if (!message.isUser) AgentActivityPanel(message.id, live, message.actions, message.elapsedMillis)
+            if (message.isError) Text(message.text, style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error)
+            else if (live == null || message.text != "…") AgentMarkdown(message.text, Modifier.testTag("agent_message_content"))
+            message.planPreview?.let { plan -> AgentPlanPreviewCard(plan) }
         }
     }
 }

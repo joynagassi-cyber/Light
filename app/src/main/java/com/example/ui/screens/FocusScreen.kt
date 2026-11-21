@@ -22,6 +22,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -80,6 +83,7 @@ import com.example.data.model.FocusProfile
 import com.example.data.model.FocusSession
 import com.example.data.preferences.StudyAppSettings
 import com.example.ui.FocusAudioUiState
+import com.example.ui.theme.LightSpacing
 import com.example.ui.FocusKind
 import com.example.ui.FocusMode
 import com.example.ui.FocusTimerState
@@ -1080,3 +1084,29 @@ private fun formatClockSeconds(totalSeconds: Int): String {
         "${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}"
     }
 }
+
+/** The workspace chrome is not composed while a running session is in the foreground. */
+@Composable
+internal fun ImmersiveFocusSession(focusState: FocusTimerState, onExit: () -> Unit) {
+    val view = androidx.compose.ui.platform.LocalView.current
+    androidx.compose.runtime.DisposableEffect(view) {
+        val previous = view.keepScreenOn
+        view.keepScreenOn = true
+        onDispose { view.keepScreenOn = previous }
+    }
+    val seconds = if (focusState.kind == FocusKind.STOPWATCH) focusState.elapsedSeconds else focusState.remainingSeconds
+    Box(Modifier.fillMaxSize().focusSessionInsets()) {
+        AppleCard(modifier = Modifier.align(Alignment.Center).padding(LightSpacing.three).widthInFocus()) {
+            Column(Modifier.fillMaxWidth().padding(LightSpacing.three), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(focusState.selectedTaskTitle.ifBlank { "Session Focus" }, style = MaterialTheme.typography.titleMedium)
+                Text(formatClockSeconds(seconds), style = MaterialTheme.typography.displayLarge, modifier = Modifier.testTag("immersive_focus_clock"))
+            }
+        }
+        IconButton(onClick = onExit, modifier = Modifier.align(Alignment.TopEnd).testTag("exit_immersive_focus")) {
+            Icon(Icons.Rounded.Close, contentDescription = "Quitter le plein écran", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+private fun Modifier.focusSessionInsets() = statusBarsPadding().navigationBarsPadding().padding(LightSpacing.two)
+private fun Modifier.widthInFocus() = widthIn(max = LightSpacing.six * 7)

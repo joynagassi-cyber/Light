@@ -85,6 +85,7 @@ class AgentThreadsStore(
                                     put("isUser", msg.isUser)
                                     put("text", msg.text)
                                     put("isError", msg.isError)
+                                    msg.elapsedMillis?.let { put("elapsedMillis", it) }
                                     if (msg.actions.isNotEmpty()) {
                                         put("actions", buildJsonArray {
                                             msg.actions.forEach { action ->
@@ -93,6 +94,7 @@ class AgentThreadsStore(
                                                         put("toolName", action.toolName)
                                                         put("label", action.label)
                                                         put("succeeded", action.succeeded)
+                                                        action.elapsedMillis?.let { put("elapsedMillis", it) }
                                                     }
                                                 )
                                             }
@@ -155,7 +157,8 @@ class AgentThreadsStore(
             AgentActionLog(
                 toolName = act["toolName"]?.jsonPrimitive?.contentOrNull ?: "",
                 label = label,
-                succeeded = act["succeeded"]?.jsonPrimitive?.booleanOrNull ?: true
+                succeeded = act["succeeded"]?.jsonPrimitive?.booleanOrNull ?: true,
+                elapsedMillis = act["elapsedMillis"]?.jsonPrimitive?.longOrNull?.takeIf { it >= 0 }
             )
         }.orEmpty()
         val plan = (obj["planPreview"] as? JsonObject)?.let { planObj ->
@@ -179,7 +182,8 @@ class AgentThreadsStore(
             text = text,
             actions = actions,
             isError = isError,
-            planPreview = plan
+            planPreview = plan,
+            elapsedMillis = obj["elapsedMillis"]?.jsonPrimitive?.longOrNull?.takeIf { it >= 0 }
         )
     }
 }

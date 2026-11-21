@@ -104,7 +104,7 @@ class FocusAndDrawerUiTest {
                             isBusy = false,
                             pendingAction = null,
                             onResolveAgentAction = { _, _ -> },
-                            onSendMessage = { _, _ -> },
+                            onSendMessage = { _, _, _ -> },
                             onClearConversation = {},
                             onSelectThread = { activeThreadId = it },
                             onNewThread = { createdThreadCount++ },

@@ -34,6 +34,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.res.painterResource
 import com.example.R
 import com.example.data.model.AgentProvider
+import com.example.data.model.AgentReflection
 import com.example.data.model.AgentModelOption
 import androidx.compose.ui.unit.dp
 import com.example.data.model.AgentSkill
@@ -141,11 +142,15 @@ fun AgentSettingsDialog(
                 }
 
                 Text("Niveau de réflexion", style = MaterialTheme.typography.titleSmall)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("quick" to "Rapide", "balanced" to "Équilibré", "deep" to "Approfondi").forEach { (key, label) ->
-                        FilterChip(selected = reflection == key, onClick = { reflection = key }, label = { Text(label) })
+                AgentReflection.entries.chunked(2).forEach { levels ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        levels.forEach { level ->
+                            FilterChip(selected = reflection == level.key, onClick = { reflection = level.key }, label = { Text(level.label) })
+                        }
                     }
                 }
+                Text("Max demande au modèle deux revues avant la réponse. Ce réglage ne donne pas accès à son raisonnement privé.",
+                    style = MaterialTheme.typography.bodySmall)
 
                 Text("Compétences personnalisées", style = MaterialTheme.typography.titleSmall)
                 Text("Ajoutez des consignes réutilisables pour apprendre à l'agent votre façon de travailler.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

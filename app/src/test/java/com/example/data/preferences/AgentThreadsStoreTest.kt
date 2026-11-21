@@ -56,8 +56,9 @@ class AgentThreadsStoreTest {
                         id = "m4",
                         isUser = false,
                         text = "Voici un plan structuré.",
-                        actions = listOf(AgentActionLog("createTask", "Création de tâche", succeeded = true)),
-                        planPreview = plan
+                        actions = listOf(AgentActionLog("createTask", "Création de tâche", succeeded = true, elapsedMillis = 250L)),
+                        planPreview = plan,
+                        elapsedMillis = 3_000L
                     )
                 )
             )
@@ -77,6 +78,9 @@ class AgentThreadsStoreTest {
         assertEquals(1, assistantMsg.actions.size)
         assertEquals("createTask", assistantMsg.actions[0].toolName)
         assertTrue(assistantMsg.actions[0].succeeded)
+        assertEquals(250L, assistantMsg.actions[0].elapsedMillis)
+        assertEquals(3_000L, assistantMsg.elapsedMillis)
+        assertEquals(null, loaded[1].messages[1].elapsedMillis)
         assertEquals("Sprint Révisions GL-301", assistantMsg.planPreview?.title)
         assertEquals(45, assistantMsg.planPreview?.items?.single()?.estimatedMinutes)
     }

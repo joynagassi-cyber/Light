@@ -2,6 +2,7 @@ package com.example.ui
 
 import android.content.Context
 import android.util.Log
+import android.os.SystemClock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.audio.FocusAudioCatalog
@@ -41,6 +42,8 @@ import com.example.data.repository.AgentActionApproval
 import com.example.data.repository.AgentPlanPreview
 import com.example.data.repository.AgentChatMessage
 import com.example.data.repository.AiAgentRepository
+import com.example.data.repository.AgentTurnProgress
+import com.example.data.repository.belongsTo
 import com.example.data.repository.AgentModelCatalogRepository
 import com.example.data.repository.AiPlannerRepository
 import com.example.data.repository.StudyAgentToolExecutor
@@ -283,6 +286,8 @@ class StudyViewModel(
 
     private val _agentBusy = MutableStateFlow(false)
     val agentBusy: StateFlow<Boolean> = _agentBusy.asStateFlow()
+    private val _agentProgress = MutableStateFlow<AgentTurnProgress?>(null)
+    val agentProgress: StateFlow<AgentTurnProgress?> = _agentProgress.asStateFlow()
     private val _agentApiKeyConfigured = MutableStateFlow(false)
     val agentApiKeyConfigured: StateFlow<Boolean> = _agentApiKeyConfigured.asStateFlow()
     private val _agentModels = MutableStateFlow<List<AgentModelOption>>(emptyList())
@@ -1367,12 +1372,31 @@ class StudyViewModel(
         _pendingAgentApproval.value = null
     }
 
+    private fun stoppedAgentMessage(message: AgentChatMessage, progress: AgentTurnProgress): AgentChatMessage {
+        val partial = message.text.takeUnless { it == "…" }.orEmpty()
+        return message.copy(text = if (partial.isBlank()) "Réponse interrompue." else "$partial\n\nRéponse interrompue.",
+            actions = progress.tools, elapsedMillis = (SystemClock.elapsedRealtime() - progress.startedAtMillis).coerceAtLeast(0))
+    }
+
+    private fun interruptAgentTurn() {
+        val oldProgress = _agentProgress.value
+        _agentProgress.value = null // Invalidate callbacks before changing thread or resuming a suspended tool.
+        agentRequestJob?.cancel()
+        cancelPendingAgentApproval()
+        _agentBusy.value = false
+        if (oldProgress != null) updateActiveThreadMessages(_agentMessages.value.map { message ->
+            if (message.id == oldProgress.messageId) stoppedAgentMessage(message, oldProgress) else message
+        }, persist = true)
+    }
+
     fun sendAgentMessage(prompt: String, onStartFocusRequested: () -> Unit, displayPrompt: String? = null) {
         val trimmed = prompt.trim()
         if (trimmed.isBlank() || _agentBusy.value) return
 
         val userMsg = AgentChatMessage(isUser = true, text = displayPrompt?.takeIf { it.isNotBlank() } ?: trimmed)
         val assistantId = UUID.randomUUID().toString()
+        val startedAt = SystemClock.elapsedRealtime()
+        _agentProgress.value = AgentTurnProgress(assistantId, startedAt)
         val assistantPlaceholder = AgentChatMessage(id = assistantId, isUser = false, text = "…")
         updateActiveThreadMessages(_agentMessages.value + userMsg + assistantPlaceholder, persist = true)
         _agentBusy.value = true
@@ -1394,9 +1418,11 @@ class StudyViewModel(
             val snapshot = "${adapt.aiPersonaInstruction} Matières=[$courseNames], projets=[$projectNames], tâches en cours=$pendingCount, thème actif=$themeName"
 
             val executor = object : StudyAgentToolExecutor {
-                override suspend fun requestApproval(action: AgentActionApproval): Boolean = awaitAgentApproval(action)
+                override suspend fun requestApproval(action: AgentActionApproval): Boolean =
+                    _agentProgress.value.belongsTo(assistantId) && awaitAgentApproval(action)
 
                 override suspend fun presentStudyPlan(plan: AgentPlanPreview): JsonObject {
+                    if (!_agentProgress.value.belongsTo(assistantId)) throw CancellationException()
                     _agentMessages.value = _agentMessages.value.map { message ->
                         if (message.id == assistantId) message.copy(planPreview = plan) else message
                     }
@@ -1675,11 +1701,19 @@ class StudyViewModel(
                     settings = currentAgentSettings,
                     apiKey = configuredKey,
                     onTextUpdate = { partialText ->
-                        _agentMessages.value = _agentMessages.value.map { message ->
-                            if (message.id == assistantId) message.copy(text = partialText.ifBlank { "…" }) else message
+                        if (_agentProgress.value.belongsTo(assistantId)) {
+                            _agentMessages.value = _agentMessages.value.map { message ->
+                                if (message.id == assistantId) message.copy(text = partialText.ifBlank { "…" }) else message
+                            }
                         }
-                    }
+                    },
+                    onActivity = { event ->
+                        val turn = _agentProgress.value
+                        if (turn != null && turn.belongsTo(assistantId)) _agentProgress.value = turn.record(event)
+                    },
                 )
+                coroutineContext.ensureActive()
+                if (!_agentProgress.value.belongsTo(assistantId)) return@launch
                 val tokensIn = result.inputTokens ?: 0L
                 val tokensOut = result.outputTokens ?: 0L
                 val pricing = _agentModels.value.firstOrNull { it.id == currentAgentSettings.agentModel }
@@ -1706,33 +1740,40 @@ class StudyViewModel(
                     )
                     )
                 }
+                coroutineContext.ensureActive()
+                if (!_agentProgress.value.belongsTo(assistantId)) return@launch
                 val completedMessages = _agentMessages.value.map { message ->
-                    if (message.id == assistantId) message.copy(text = result.replyText, actions = result.actions) else message
+                    if (message.id == assistantId) message.copy(text = result.replyText, actions = result.actions,
+                        elapsedMillis = (SystemClock.elapsedRealtime() - startedAt).coerceAtLeast(0)) else message
                 }
                 updateActiveThreadMessages(completedMessages, persist = true)
             } catch (e: CancellationException) {
-                val cancelledMessages = _agentMessages.value.map { message ->
-                    if (message.id == assistantId) message.copy(text = message.text.takeUnless { it == "…" }.orEmpty().let { partial -> if (partial.isBlank()) "Réponse interrompue." else "$partial\n\nRéponse interrompue." }) else message
-                }
-                updateActiveThreadMessages(cancelledMessages, persist = true)
+                val turn = _agentProgress.value?.takeIf { it.belongsTo(assistantId) }
+                if (turn != null) updateActiveThreadMessages(_agentMessages.value.map { message ->
+                    if (message.id == assistantId) stoppedAgentMessage(message, turn) else message
+                }, persist = true)
                 throw e
             } catch (e: Exception) {
+                val turn = _agentProgress.value?.takeIf { it.belongsTo(assistantId) } ?: return@launch
                 val errorMessages = _agentMessages.value.map { message ->
                     if (message.id == assistantId) message.copy(
                         text = e.localizedMessage ?: "Une erreur est survenue lors de l'appel au fournisseur IA.",
-                        isError = true
+                        isError = true, actions = turn.tools,
+                        elapsedMillis = (SystemClock.elapsedRealtime() - startedAt).coerceAtLeast(0),
                     ) else message
                 }
                 updateActiveThreadMessages(errorMessages, persist = true)
             } finally {
-                _agentBusy.value = false
+                if (_agentProgress.value.belongsTo(assistantId)) {
+                    _agentProgress.value = null
+                    _agentBusy.value = false
+                }
             }
         }
     }
 
     fun updateAgentCapabilities(capabilities: Set<String>) {
-        agentRequestJob?.cancel()
-        cancelPendingAgentApproval()
+        interruptAgentTurn()
         aiAgentRepository.resetConversation()
         viewModelScope.launch {
             themePreferencesStore.updateAgentCapabilities(capabilities)
@@ -1749,8 +1790,7 @@ class StudyViewModel(
         newApiKey: String? = null,
         clearApiKey: Boolean = false
     ) {
-        agentRequestJob?.cancel()
-        cancelPendingAgentApproval()
+        interruptAgentTurn()
         aiAgentRepository.resetConversation()
         viewModelScope.launch {
             themePreferencesStore.updateAgentPreferences(provider, baseUrl, model, reflection, capabilities, skills)
@@ -1789,9 +1829,7 @@ class StudyViewModel(
     }
 
     fun startNewAgentThread() {
-        agentRequestJob?.cancel()
-        cancelPendingAgentApproval()
-        _agentBusy.value = false
+        interruptAgentTurn()
         aiAgentRepository.resetConversation()
         val currentThread = _agentThreads.value.firstOrNull { it.id == _activeAgentThreadId.value }
         if (currentThread != null && _agentMessages.value.none { it.isUser }) {
@@ -1809,9 +1847,7 @@ class StudyViewModel(
     fun selectAgentThread(threadId: String) {
         if (threadId == _activeAgentThreadId.value) return
         val target = _agentThreads.value.firstOrNull { it.id == threadId } ?: return
-        agentRequestJob?.cancel()
-        cancelPendingAgentApproval()
-        _agentBusy.value = false
+        interruptAgentTurn()
         val restoredMsgs = target.messages.ifEmpty { listOf(welcomeAgentMessage()) }
         _activeAgentThreadId.value = target.id
         _agentMessages.value = restoredMsgs
@@ -1821,9 +1857,7 @@ class StudyViewModel(
     fun deleteAgentThread(threadId: String) {
         val wasActive = threadId == _activeAgentThreadId.value
         if (wasActive) {
-            agentRequestJob?.cancel()
-            cancelPendingAgentApproval()
-            _agentBusy.value = false
+            interruptAgentTurn()
         }
         val remaining = _agentThreads.value.filterNot { it.id == threadId }
         if (remaining.isEmpty()) {
@@ -1846,9 +1880,7 @@ class StudyViewModel(
     }
 
     fun clearAgentConversation() {
-        agentRequestJob?.cancel()
-        cancelPendingAgentApproval()
-        _agentBusy.value = false
+        interruptAgentTurn()
         aiAgentRepository.resetConversation()
         val resetMsgs = listOf(welcomeAgentMessage())
         val activeId = _activeAgentThreadId.value

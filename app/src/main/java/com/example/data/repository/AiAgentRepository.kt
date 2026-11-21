@@ -4,10 +4,13 @@ import android.util.Log
 import com.google.firebase.Firebase
 import com.google.firebase.ai.Chat
 import com.google.firebase.ai.ai
+import com.google.firebase.ai.type.FunctionCallPart
 import com.google.firebase.ai.type.FunctionResponsePart
+import com.google.firebase.ai.type.GenerateContentResponse
 import com.google.firebase.ai.type.Tool
 import com.google.firebase.ai.type.content
 import com.example.data.model.AgentProvider
+import com.example.data.model.AgentReflection
 import com.example.data.model.TaskCategory
 import com.example.data.model.HabitCategory
 import com.example.data.model.CountdownCategory
@@ -36,16 +39,17 @@ import java.net.URL
 import java.time.LocalDate
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.flow.toList
-import kotlinx.coroutines.flow.onEach
+import kotlin.time.TimeSource
 
 private const val TAG = "AiAgentRepo"
 
 data class AgentActionLog(
     val toolName: String,
     val label: String,
-    val succeeded: Boolean = true
+    val succeeded: Boolean = true,
+    val elapsedMillis: Long? = null,
 )
 
 internal fun agentToolResultSucceeded(result: JsonObject): Boolean {
@@ -81,7 +85,8 @@ data class AgentChatMessage(
     val text: String,
     val actions: List<AgentActionLog> = emptyList(),
     val isError: Boolean = false,
-    val planPreview: AgentPlanPreview? = null
+    val planPreview: AgentPlanPreview? = null,
+    val elapsedMillis: Long? = null,
 )
 
 interface StudyAgentToolExecutor {
@@ -126,17 +131,13 @@ data class AgentTurnResult(
 class AiAgentRepository {
 
     private fun systemPrompt(today: String, settings: StudyAppSettings, contextSnapshot: String): String {
-        val reflection = when (settings.agentReflection) {
-            "quick" -> "Réponds vite et directement, avec une réponse courte et une action utile."
-            "deep" -> "Analyse soigneusement la demande, les contraintes et les conséquences avant d’agir. Donne une synthèse claire sans révéler de raisonnement privé."
-            else -> "Prends le temps nécessaire pour une réponse équilibrée, concrète et concise."
-        }
+        val reflection = AgentReflection.fromKey(settings.agentReflection).instruction
         val skills = settings.agentSkills.filter { it.enabled }.joinToString("\n") { skill ->
             "Compétence ${skill.name}: ${skill.instructions}"
         }
         return """Tu es Light, l'assistant personnel intelligent de l'application Light.
 Date du jour : $today.
-Réponds en français, avec clarté et précision, en t'adaptant au profil et aux objectifs donnés. $reflection
+Réponds en français, avec clarté et précision, en t'adaptant au profil et aux objectifs donnés. $reflection Ne publie pas de raisonnement privé ; indique plutôt les résultats et limites vérifiables.
 Utilise uniquement les outils activés. Pour présenter un plan d'étude ou une proposition structurée, utilise present_study_plan, qui ne modifie aucune donnée. Toute modification exige ensuite l'accord explicite de l'utilisateur dans sa carte de validation; ne contourne jamais un refus et ne répète pas une action refusée sans nouvelle demande claire. Avant une action destructive, vérifie que la demande la désigne sans ambiguïté. Après l'accord, confirme exactement ce qui a été réalisé. Ne prétends jamais avoir effectué une action qui a échoué.
 Compétences personnalisées activées : ${skills.ifBlank { "aucune" }}
 Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
@@ -163,13 +164,14 @@ Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
         restoredHistoryPairs.addAll(usable.map { it.isUser to it.text })
     }
 
-    suspend fun sendMessage(
+    internal suspend fun sendMessage(
         userPrompt: String,
         contextSnapshot: String,
         executor: StudyAgentToolExecutor,
         settings: StudyAppSettings,
         apiKey: String? = null,
-        onTextUpdate: suspend (String) -> Unit = {}
+        onTextUpdate: suspend (String) -> Unit = {},
+        onActivity: (AgentActivity) -> Unit = {},
     ): AgentTurnResult {
         val fingerprint = listOf(settings.agentProvider, settings.agentBaseUrl, settings.agentModel, settings.agentReflection,
             settings.agentCapabilities.sorted().joinToString(), settings.agentSkills.filter { it.enabled }.joinToString { it.id + it.instructions })
@@ -183,9 +185,9 @@ Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
         return try {
             val result = withTimeout(60_000L) {
                 if (settings.agentProvider != AgentProvider.FIREBASE.id) {
-                    sendOpenAiCompatible(userPrompt, contextSnapshot, executor, settings, apiKey, executedActions)
+                    sendOpenAiCompatible(userPrompt, contextSnapshot, executor, settings, apiKey, executedActions, onActivity)
                 } else {
-                    sendFirebase(userPrompt, contextSnapshot, executor, settings, executedActions, onTextUpdate)
+                    sendFirebase(userPrompt, contextSnapshot, executor, settings, executedActions, onTextUpdate, onActivity)
                 }
             }
             onTextUpdate(result.replyText)
@@ -207,7 +209,8 @@ Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
         executor: StudyAgentToolExecutor,
         settings: StudyAppSettings,
         executedActions: MutableList<AgentActionLog>,
-        onTextUpdate: suspend (String) -> Unit
+        onTextUpdate: suspend (String) -> Unit,
+        onActivity: (AgentActivity) -> Unit,
     ): AgentTurnResult {
         val today = LocalDate.now().toString()
         val declarations = AgentToolContract.enabled(settings.agentCapabilities).map { it.firebaseDeclaration() }
@@ -224,35 +227,42 @@ Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
             chatSession = it
             restoredHistoryPairs.clear()
         }
-        val initialPartial = StringBuilder()
-        val initialChunks = chat.sendMessageStream(userPrompt).onEach { chunk ->
-            chunk.text?.let { text ->
-                initialPartial.append(text)
-                onTextUpdate(initialPartial.toString())
+        suspend fun receive(stream: Flow<GenerateContentResponse>): Pair<String, List<FunctionCallPart>> {
+            val buffer = AgentReplyBuffer<FunctionCallPart> { call -> call.id ?: (call.name to call.args) }
+            var streaming = false
+            stream.collect { chunk ->
+                val delta = chunk.text // Firebase's public response text excludes parts tagged as thoughts.
+                buffer.append(delta, chunk.functionCalls)
+                if (delta != null) {
+                    if (!streaming && delta.isNotBlank()) {
+                        streaming = true
+                        onActivity(AgentActivity(AgentTurnPhase.STREAMING))
+                    }
+                    onTextUpdate(buffer.reply)
+                }
             }
-        }.toList()
-        var response = initialChunks.lastOrNull() ?: throw IllegalStateException("Le modèle n'a renvoyé aucun contenu.")
+            check(buffer.received) { "Le modèle n’a renvoyé aucun contenu." }
+            return buffer.reply to buffer.requestedCalls
+        }
+        var (reply, calls) = receive(chat.sendMessageStream(userPrompt))
         var safetyHops = 0
-        while (response.functionCalls.isNotEmpty() && safetyHops < 6) {
+        while (calls.isNotEmpty() && safetyHops < 6) {
             safetyHops++
             val responseParts = mutableListOf<FunctionResponsePart>()
-            for (call in response.functionCalls) {
-                val (resultJson, logLabel) = executeTool(call.name, call.args, executor, settings.agentCapabilities)
-                executedActions.add(AgentActionLog(toolName = call.name, label = logLabel, succeeded = agentToolResultSucceeded(resultJson)))
-                responseParts.add(FunctionResponsePart(call.name, resultJson))
+            for (call in calls) {
+                val (resultJson, log) = runObservedTool(call.name, call.args, executor, settings.agentCapabilities, onActivity)
+                executedActions.add(log)
+                responseParts.add(FunctionResponsePart(call.name, resultJson, id = call.id))
             }
             val toolResponse = content("user") { responseParts.forEach { part(it) } }
             onTextUpdate("")
-            val toolPartial = StringBuilder()
-            val toolChunks = chat.sendMessageStream(toolResponse).onEach { chunk ->
-                chunk.text?.let { text ->
-                    toolPartial.append(text)
-                    onTextUpdate(toolPartial.toString())
-                }
-            }.toList()
-            response = toolChunks.lastOrNull() ?: throw IllegalStateException("Le modèle n'a renvoyé aucun contenu après l'action.")
+            onActivity(AgentActivity(AgentTurnPhase.RESUMING))
+            val next = receive(chat.sendMessageStream(toolResponse))
+            reply = next.first
+            calls = next.second
         }
-        val answer = response.text?.trim().orEmpty().ifBlank {
+        val answer = if (calls.isNotEmpty()) "J’ai atteint la limite d’appels d’outils pour ce message."
+        else reply.trim().ifBlank {
             if (executedActions.isNotEmpty()) summarizeActions(executedActions)
             else "Je n'ai pas pu formuler de réponse. Pouvez-vous reformuler ?"
         }
@@ -265,7 +275,8 @@ Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
         executor: StudyAgentToolExecutor,
         settings: StudyAppSettings,
         apiKey: String?,
-        executedActions: MutableList<AgentActionLog>
+        executedActions: MutableList<AgentActionLog>,
+        onActivity: (AgentActivity) -> Unit,
     ): AgentTurnResult {
         require(!apiKey.isNullOrBlank()) { "Ajoutez une clé API dans les réglages de Light Agent pour utiliser ce fournisseur." }
         require(settings.agentModel.isNotBlank()) { "Indiquez le nom du modèle à utiliser." }
@@ -295,7 +306,6 @@ Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
             val request = buildJsonObject {
                 put("model", settings.agentModel.trim())
                 put("messages", JsonArray(openAiHistory.toList()))
-                put("temperature", when (settings.agentReflection) { "quick" -> 0.5; "deep" -> 0.25; else -> 0.4 })
                 if (settings.agentProvider == AgentProvider.ANTHROPIC.id) put("max_tokens", 4096)
                 if (tools.isNotEmpty()) {
                     put("tools", JsonArray(tools))
@@ -345,14 +355,15 @@ Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
                         else -> null
                     }
                 }.getOrNull()
-                val (result, label) = executeTool(name, args, executor, settings.agentCapabilities)
-                executedActions += AgentActionLog(name, label, succeeded = agentToolResultSucceeded(result))
+                val (result, log) = runObservedTool(name, args, executor, settings.agentCapabilities, onActivity)
+                executedActions += log
                 openAiHistory += buildJsonObject {
                     put("role", "tool")
                     put("tool_call_id", callId)
                     put("content", result.toString())
                 }
             }
+            onActivity(AgentActivity(AgentTurnPhase.RESUMING))
         }
         return AgentTurnResult("J'ai arrêté la séquence après plusieurs appels d'outils. Vérifiez le résultat dans l'application.", executedActions)
     }
@@ -465,11 +476,25 @@ Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
         return if (answer.endsWith(summary)) answer else "$answer\n\n$summary"
     }
 
+    internal suspend fun runObservedTool(
+        name: String, arguments: Map<String, JsonElement>?, executor: StudyAgentToolExecutor,
+        enabled: Set<String>, onActivity: (AgentActivity) -> Unit,
+    ): Pair<JsonObject, AgentActionLog> {
+        val knownName = AgentToolContract[name]?.name
+        val started = TimeSource.Monotonic.markNow()
+        onActivity(AgentActivity(AgentTurnPhase.CHECKING_TOOL, knownName))
+        val (result, label) = executeTool(name, arguments, executor, enabled, onActivity)
+        val log = AgentActionLog(knownName.orEmpty(), label, agentToolResultSucceeded(result), started.elapsedNow().inWholeMilliseconds)
+        onActivity(AgentActivity(AgentTurnPhase.RESUMING, action = log))
+        return result to log
+    }
+
     internal suspend fun executeTool(
         name: String,
         arguments: Map<String, JsonElement>?,
         executor: StudyAgentToolExecutor,
-        enabledCapabilities: Set<String>
+        enabledCapabilities: Set<String>,
+        onActivity: (AgentActivity) -> Unit = {},
     ): Pair<JsonObject, String> {
         fun blocked(message: String, label: String) = buildJsonObject { put("success", false); put("error", message) } to label
         val spec = AgentToolContract[name]
@@ -487,11 +512,13 @@ Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
             return blocked("Cette action n’a pas de procédure de confirmation.", "Action bloquée : validation indisponible")
         }
         if (approval != null) {
+            onActivity(AgentActivity(AgentTurnPhase.AWAITING_APPROVAL, name))
             if (!executor.requestApproval(approval)) {
                 return JsonObject(mapOf("success" to JsonPrimitive(false), "cancelled" to JsonPrimitive(true), "error" to JsonPrimitive("L'utilisateur a refusé cette action."))) to "Action refusée : ${approval.title}"
             }
             currentCoroutineContext().ensureActive()
         }
+        onActivity(AgentActivity(AgentTurnPhase.RUNNING_TOOL, name))
         return when (name) {
             "list_tasks" -> {
                 val filter = args.str("filter", "all")

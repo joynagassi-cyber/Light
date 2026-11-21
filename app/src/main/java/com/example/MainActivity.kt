@@ -408,6 +408,7 @@ private fun AuthenticatedStudyShell(
     val agentThreads by viewModel.agentThreads.collectAsStateWithLifecycle()
     val activeAgentThreadId by viewModel.activeAgentThreadId.collectAsStateWithLifecycle()
     val agentBusy by viewModel.agentBusy.collectAsStateWithLifecycle()
+    val agentProgress by viewModel.agentProgress.collectAsStateWithLifecycle()
     val pendingAgentApproval by viewModel.pendingAgentApproval.collectAsStateWithLifecycle()
     val agentApiKeyConfigured by viewModel.agentApiKeyConfigured.collectAsStateWithLifecycle()
     val agentModels by viewModel.agentModels.collectAsStateWithLifecycle()
@@ -1032,6 +1033,7 @@ private fun AuthenticatedStudyShell(
                                                 threads = agentThreads,
                                                 activeThreadId = activeAgentThreadId,
                                                 isBusy = agentBusy,
+                                                liveProgress = agentProgress,
                                                 pendingAction = pendingAgentApproval,
                                                 onResolveAgentAction = viewModel::resolveAgentApproval,
                                                 onSendMessage = { prompt, visibleMessage ->

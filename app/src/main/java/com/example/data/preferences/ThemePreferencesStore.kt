@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.example.data.model.AgentCapabilities
 import com.example.data.model.AgentProvider
+import com.example.data.model.AgentReflection
 import com.example.data.model.AgentSkill
 import com.example.data.model.AgentUsageRecord
 import kotlinx.serialization.json.JsonNull
@@ -130,7 +131,7 @@ class ThemePreferencesStore(private val context: Context) {
             agentProvider = savedAgentProvider.id,
             agentBaseUrl = prefs[agentBaseUrlKey]?.takeIf { it.isNotBlank() } ?: savedAgentProvider.baseUrl,
             agentModel = prefs[agentModelKey]?.takeIf { it.isNotBlank() } ?: savedAgentProvider.defaultModel,
-            agentReflection = prefs[agentReflectionKey]?.takeIf { it in setOf("quick", "balanced", "deep") } ?: "balanced",
+            agentReflection = AgentReflection.fromKey(prefs[agentReflectionKey]).key,
             agentCapabilities = prefs[agentCapabilitiesKey]?.split(",")?.filter { key -> AgentCapabilities.all.any { it.first == key } }?.toSet()
                 ?: AgentCapabilities.defaults,
             agentSkills = decodeAgentSkills(prefs[agentSkillsKey]),
@@ -254,7 +255,7 @@ class ThemePreferencesStore(private val context: Context) {
             prefs[agentProviderKey] = AgentProvider.fromId(provider).id
             prefs[agentBaseUrlKey] = baseUrl.trim().take(500)
             prefs[agentModelKey] = model.trim().take(120)
-            prefs[agentReflectionKey] = reflection.takeIf { it in setOf("quick", "balanced", "deep") } ?: "balanced"
+            prefs[agentReflectionKey] = AgentReflection.fromKey(reflection).key
             prefs[agentCapabilitiesKey] = capabilities.filter { key -> AgentCapabilities.all.any { it.first == key } }.distinct().joinToString(",")
             prefs[agentSkillsKey] = encodeAgentSkills(skills.take(20))
         }

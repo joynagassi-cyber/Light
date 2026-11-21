@@ -13,3 +13,7 @@ Une phase est achevée lorsque ses critères de recette sont observés, pas lors
 | Sortie | Consolider les preuves sur un commit précis et vérifier les migrations/retours arrière. | Gates documentés, signatures et sommes vérifiées, validation du candidat sur le matériel ciblé. Release et déploiement seulement après accord explicite. |
 
 **Pré-requis d’accès.** Deux appareils Android ou sessions de test physiques documentées, un compte de test et un projet Firebase de recette, des clés de recette pour les fournisseurs retenus, l’identité et la documentation primaire d’Agnes si elle fait partie du périmètre, et les captures autorisées. Les émulateurs CI et transports factices ne suffisent pas à clore les gates physiques ou fournisseur.
+
+## Point de vérification prioritaire — profil
+
+Le code courant a déjà un bouton Google, un mode local distinct et cinq étapes (`AuthScreen.kt`, `OnboardingScreen.kt`). En revanche, dans `MainActivity.kt`, l’écran principal est autorisé lorsque l’observation du profil n’est plus en chargement et qu’aucun profil incomplet n’est présent. Un profil absent ou une erreur de lecture peut donc prendre ce chemin, tandis que `StudyViewModel.kt` initialise le profil dans une coroutine séparée. **À corriger avant recette** : distinguer profil à créer, lecture en échec, onboarding en cours et profil confirmé. Tester chacun de ces états, y compris un compte neuf hors-ligne et un refus Firestore, puis valider sur téléphone. Ce constat vient de la lecture du code, pas d’une reproduction du défaut en production.

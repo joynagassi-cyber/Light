@@ -1389,7 +1389,7 @@ class StudyViewModel(
         }, persist = true)
     }
 
-    fun sendAgentMessage(prompt: String, onStartFocusRequested: () -> Unit, displayPrompt: String? = null) {
+    fun sendAgentMessage(prompt: String, onStartFocusRequested: () -> Unit, displayPrompt: String? = null, skillKey: String? = null) {
         val trimmed = prompt.trim()
         if (trimmed.isBlank() || _agentBusy.value) return
 
@@ -1700,6 +1700,7 @@ class StudyViewModel(
                     executor = executor,
                     settings = currentAgentSettings,
                     apiKey = configuredKey,
+                    skillKey = skillKey,
                     onTextUpdate = { partialText ->
                         if (_agentProgress.value.belongsTo(assistantId)) {
                             _agentMessages.value = _agentMessages.value.map { message ->

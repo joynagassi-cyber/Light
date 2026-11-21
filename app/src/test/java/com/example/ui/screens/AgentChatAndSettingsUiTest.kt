@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performScrollToNode
 import com.example.data.preferences.AgentConversationThread
 import com.example.data.preferences.StudyAppSettings
@@ -29,9 +30,10 @@ class AgentChatAndSettingsUiTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun agentChat_uploadTrayHiddenUntilPlusClicked_andDrawerListsThreads() {
+    fun agentChat_menuUsesSkillForOneMessage_andDrawerListsThreads() {
         var selectedThread: String? = null
         var newThreadClicked = false
+        val sent = mutableListOf<Pair<String, String?>>()
         val threads = listOf(
             AgentConversationThread(
                 id = "t1",
@@ -56,7 +58,7 @@ class AgentChatAndSettingsUiTest {
                     isBusy = false,
                     pendingAction = null,
                     onResolveAgentAction = { _, _ -> },
-                    onSendMessage = { _, _ -> },
+                    onSendMessage = { prompt, _, skill -> sent += prompt to skill },
                     onClearConversation = {},
                     onSelectThread = { selectedThread = it },
                     onNewThread = { newThreadClicked = true },
@@ -89,6 +91,17 @@ class AgentChatAndSettingsUiTest {
         composeRule.onNodeWithTag("agent_attach_button").performClick()
         composeRule.waitForIdle()
         composeRule.onAllNodesWithTag("agent_upload_tray").assertCountEquals(0)
+
+        composeRule.onNodeWithTag("agent_attach_button").performClick()
+        composeRule.onNodeWithTag("agent_pick_skill_button").performClick()
+        composeRule.onNodeWithTag("agent_skill_light:study").performClick()
+        composeRule.onNodeWithTag("agent_selected_skill").assertIsDisplayed()
+        composeRule.onNodeWithTag("agent_chat_input").performTextInput("Les graphes")
+        composeRule.onNodeWithTag("agent_send_button").performClick()
+        composeRule.onNodeWithTag("agent_selected_skill").assertDoesNotExist()
+        composeRule.onNodeWithTag("agent_chat_input").performTextInput("Et ensuite ?")
+        composeRule.onNodeWithTag("agent_send_button").performClick()
+        assertEquals(listOf("Les graphes" to "light:study", "Et ensuite ?" to null), sent)
 
         // Clicking top-left menu button opens the conversation threads drawer
         composeRule.onNodeWithTag("agent_threads_drawer_button").performClick()

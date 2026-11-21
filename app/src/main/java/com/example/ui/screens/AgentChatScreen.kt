@@ -83,6 +83,7 @@ import com.example.data.model.AgentModelOption
 import com.example.data.model.AgentProvider
 import com.example.data.model.AgentReflection
 import com.example.data.model.AgentSkill
+import com.example.data.model.AgentSkillCatalog
 import com.example.data.model.AgentUsageRecord
 import com.example.data.preferences.AgentConversationThread
 import com.example.data.preferences.StudyAppSettings
@@ -92,6 +93,7 @@ import com.example.data.repository.AgentChatMessage
 import com.example.data.repository.AgentTurnProgress
 import com.example.ui.components.AgentActivityPanel
 import com.example.ui.components.AgentMarkdown
+import com.example.ui.components.AgentSkillPicker
 import com.example.ui.components.AgentThreadsDrawerSheet
 import com.example.ui.theme.LightSpacing
 import com.example.ui.theme.AppleRose
@@ -136,7 +138,7 @@ fun AgentChatScreen(
     isBusy: Boolean,
     pendingAction: AgentActionApproval?,
     onResolveAgentAction: (actionId: String, approved: Boolean) -> Unit,
-    onSendMessage: (agentPrompt: String, visibleMessage: String) -> Unit,
+    onSendMessage: (agentPrompt: String, visibleMessage: String, skillKey: String?) -> Unit,
     onClearConversation: () -> Unit,
     onSelectThread: (String) -> Unit = {},
     onNewThread: () -> Unit = onClearConversation,
@@ -157,10 +159,14 @@ fun AgentChatScreen(
     modifier: Modifier = Modifier
 ) {
     val gradient = LocalLightGradient.current
-    var inputText by rememberSaveable { mutableStateOf("") }
+    var inputText by rememberSaveable(activeThreadId) { mutableStateOf("") }
     var showAgentSettings by rememberSaveable { mutableStateOf(false) }
     var showUsageHistory by rememberSaveable { mutableStateOf(false) }
-    var showAttachmentTray by rememberSaveable { mutableStateOf(false) }
+    var showAttachmentTray by rememberSaveable(activeThreadId) { mutableStateOf(false) }
+    var showSkills by rememberSaveable(activeThreadId) { mutableStateOf(false) }
+    var selectedSkillKey by rememberSaveable(activeThreadId) { mutableStateOf<String?>(null) }
+    val skills = remember(settings.agentSkills) { AgentSkillCatalog.available(settings.agentSkills) }
+    val selectedSkill = skills.firstOrNull { it.key == selectedSkillKey }
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     LaunchedEffect(externalConfigTrigger) {
         if (externalConfigTrigger > 0) showAgentSettings = true
@@ -169,11 +175,16 @@ fun AgentChatScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val documentExtractor = remember(context) { LocalDocumentExtractor(context.applicationContext) }
-    val attachedDocuments = remember { mutableStateListOf<ExtractedAgentDocument>() }
-    var isExtractingDocuments by remember { mutableStateOf(false) }
-    var extractionError by remember { mutableStateOf<String?>(null) }
-    var showDocumentConsent by remember { mutableStateOf(false) }
+    val attachedDocuments = remember(activeThreadId) { mutableStateListOf<ExtractedAgentDocument>() }
+    var isExtractingDocuments by remember(activeThreadId) { mutableStateOf(false) }
+    var extractionError by remember(activeThreadId) { mutableStateOf<String?>(null) }
+    var showDocumentConsent by remember(activeThreadId) { mutableStateOf(false) }
+    val draftToken = remember(activeThreadId) { Any() }
+    var documentPickerOwner by remember { mutableStateOf<Any?>(null) }
     val documentPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        val owner = documentPickerOwner
+        documentPickerOwner = null
+        if (owner !== draftToken) return@rememberLauncherForActivityResult
         showAttachmentTray = false
         val available = (MAX_ATTACHED_DOCUMENTS - attachedDocuments.size).coerceAtLeast(0)
         val overLimit = uris.size > available
@@ -335,46 +346,7 @@ fun AgentChatScreen(
                 Spacer(modifier = Modifier.height(10.dp))
             }
 
-        // Quick action prompt pills
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            quickPrompts.forEachIndexed { idx, (icon, prompt) ->
-                val shortChipLabel = when (idx) {
-                    1 -> "Créer une tâche."
-                    else -> prompt
-                }
-                Surface(
-                    onClick = {
-                        if (!isBusy) onSendMessage(prompt, prompt)
-                    },
-                    shape = CircleShape,
-                    color = gradient.softContainer,
-                    border = BorderStroke(0.8.dp, gradient.accentColor.copy(alpha = 0.25f)),
-                    modifier = Modifier.testTag("agent_quick_prompt_$idx")
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = null,
-                            tint = gradient.accentColor,
-                            modifier = Modifier.size(15.dp)
-                        )
-                        Text(
-                            text = shortChipLabel,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = gradient.accentColor
-                        )
-                    }
-                }
-            }
+        Row(modifier = Modifier.fillMaxWidth()) {
             Surface(
                 onClick = { showUsageHistory = true },
                 shape = CircleShape,
@@ -426,7 +398,7 @@ fun AgentChatScreen(
                                 else -> prompt
                             }
                             Surface(
-                                onClick = { if (!isBusy) onSendMessage(prompt, prompt) },
+                                onClick = { if (!isBusy) inputText = prompt },
                                 shape = CircleShape,
                                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
                                 border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
@@ -457,6 +429,16 @@ fun AgentChatScreen(
             }
 
 
+        }
+
+        selectedSkill?.let { skill ->
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("Compétence : ${skill.title}", style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.weight(1f).testTag("agent_selected_skill"), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                IconButton(onClick = { selectedSkillKey = null }, modifier = Modifier.testTag("agent_remove_skill")) {
+                    Icon(Icons.Rounded.Close, contentDescription = "Retirer la compétence")
+                }
+            }
         }
 
         if (attachedDocuments.isNotEmpty() || isExtractingDocuments || extractionError != null) {
@@ -498,38 +480,52 @@ fun AgentChatScreen(
                     .padding(bottom = 8.dp)
                     .testTag("agent_upload_tray")
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.AttachFile,
-                        contentDescription = null,
-                        tint = gradient.accentColor,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Joindre un document",
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface
+                Column {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.AttachFile,
+                            contentDescription = null,
+                            tint = gradient.accentColor,
+                            modifier = Modifier.size(18.dp)
                         )
-                        Text(
-                            text = "MD, PDF, DOCX, XLSX ou PNG · lecture locale",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Joindre un document",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "MD, PDF, DOCX, XLSX ou PNG · lecture locale",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        TextButton(
+                            onClick = {
+                                documentPickerOwner = draftToken
+                                documentPicker.launch(SUPPORTED_DOCUMENT_MIME_TYPES)
+                            },
+                            enabled = !isBusy && !isExtractingDocuments,
+                            modifier = Modifier.testTag("agent_pick_files_button")
+                        ) {
+                            Text("Parcourir", color = gradient.accentColor, fontWeight = FontWeight.Bold)
+                        }
                     }
                     TextButton(
-                        onClick = { documentPicker.launch(SUPPORTED_DOCUMENT_MIME_TYPES) },
-                        enabled = !isBusy && !isExtractingDocuments,
-                        modifier = Modifier.testTag("agent_pick_files_button")
+                        onClick = { showAttachmentTray = false; showSkills = true },
+                        enabled = !isBusy,
+                        modifier = Modifier.padding(horizontal = 10.dp).testTag("agent_pick_skill_button"),
                     ) {
-                        Text("Parcourir", color = gradient.accentColor, fontWeight = FontWeight.Bold)
+                        Icon(Icons.Rounded.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Choisir une compétence")
                     }
                 }
             }
@@ -558,7 +554,7 @@ fun AgentChatScreen(
                 ) {
                     Icon(
                         imageVector = if (showAttachmentTray) Icons.Rounded.Close else Icons.Rounded.Add,
-                        contentDescription = if (showAttachmentTray) "Fermer les options de fichier" else "Joindre des fichiers",
+                        contentDescription = if (showAttachmentTray) "Fermer le menu du message" else "Options du message",
                         tint = gradient.accentColor
                     )
                 }
@@ -602,7 +598,9 @@ fun AgentChatScreen(
                             } else {
                                 val toSend = inputText.trim()
                                 inputText = ""
-                                onSendMessage(toSend, toSend)
+                                onSendMessage(toSend, toSend, selectedSkill?.key)
+                                selectedSkillKey = null
+                                showAttachmentTray = false
                             }
                         }
                     },
@@ -650,6 +648,13 @@ fun AgentChatScreen(
         chatContent()
     }
 
+    if (showSkills) {
+        AgentSkillPicker(skills, selectedSkill?.key, onSelect = { key ->
+            selectedSkillKey = key
+            showSkills = false
+        }, onDismiss = { showSkills = false })
+    }
+
     if (showDocumentConsent) {
         val providerName = AgentProvider.fromId(settings.agentProvider).displayName
         val visibleSummary = inputText.trim().ifBlank { "Analyse les documents joints" } + " · " + attachedDocuments.joinToString { it.displayName }
@@ -658,15 +663,17 @@ fun AgentChatScreen(
             title = { Text("Envoyer le texte extrait ?") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Les fichiers sont lus localement sur cet appareil. Pour répondre, leur texte extrait et votre demande seront transmis à $providerName (${settings.agentModel}) via son API.")
+                    Text("Les fichiers sont lus localement sur cet appareil. Pour répondre, leur texte extrait, votre demande et la méthode éventuellement sélectionnée seront transmis à $providerName (${settings.agentModel}) via son API.")
                     Text("${attachedDocuments.size} fichier(s) · au plus ${MAX_DOCUMENT_PROMPT_CHARS} caractères transmis. Ne joignez pas d'informations sensibles que vous ne souhaitez pas partager.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     attachedDocuments.forEach { Text("• ${it.displayName} (${it.formatLabel})", style = MaterialTheme.typography.labelMedium) }
                 }
             },
             confirmButton = {
-                TextButton(onClick = {
+                TextButton(enabled = !isBusy && attachedDocuments.isNotEmpty(), onClick = {
                     val agentPrompt = buildDocumentPrompt(inputText.trim(), attachedDocuments.toList())
-                    onSendMessage(agentPrompt, visibleSummary)
+                    onSendMessage(agentPrompt, visibleSummary, selectedSkill?.key)
+                    selectedSkillKey = null
+                    showAttachmentTray = false
                     inputText = ""
                     attachedDocuments.clear()
                     extractionError = null

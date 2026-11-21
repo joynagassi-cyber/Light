@@ -1036,10 +1036,11 @@ private fun AuthenticatedStudyShell(
                                                 liveProgress = agentProgress,
                                                 pendingAction = pendingAgentApproval,
                                                 onResolveAgentAction = viewModel::resolveAgentApproval,
-                                                onSendMessage = { prompt, visibleMessage ->
+                                                onSendMessage = { prompt, visibleMessage, skillKey ->
                                                     viewModel.sendAgentMessage(
                                                         prompt = prompt,
                                                         displayPrompt = visibleMessage,
+                                                        skillKey = skillKey,
                                                         onStartFocusRequested = { currentTab = LightTab.FOCUS }
                                                     )
                                                 },

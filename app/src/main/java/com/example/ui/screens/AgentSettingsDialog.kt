@@ -153,7 +153,7 @@ fun AgentSettingsDialog(
                     style = MaterialTheme.typography.bodySmall)
 
                 Text("Compétences personnalisées", style = MaterialTheme.typography.titleSmall)
-                Text("Ajoutez des consignes réutilisables pour apprendre à l'agent votre façon de travailler.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Les compétences actives sont proposées dans le menu + du chat. Choisissez-en une pour le prochain message ; elles ne sont plus appliquées automatiquement.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedTextField(newSkillName, { newSkillName = it }, label = { Text("Nom de la compétence") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(newSkillInstructions, { newSkillInstructions = it }, label = { Text("Consignes et méthode") }, minLines = 2, maxLines = 4, modifier = Modifier.fillMaxWidth())
                 Button(

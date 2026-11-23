@@ -39,6 +39,8 @@ jobs:
           fi
           # Keep compiler diagnostics visible even when the CI log archive is unavailable.
           awk '/^e: .*\.kt:/ || /^> .*FAILED/ || /^> Could not / { printf "::error::%s\n", substr($0, 1, 600); if (++n >= 12) exit }' "$RUNNER_TEMP/light-gradle.log"
+          echo "---- TEST FAILURES ----"
+          find app/build -name "*.xml" -path "*test-results*" -exec grep -l "failures=\"[1-9]" {} \; 2>/dev/null | head -5 | xargs -I {} sh -c 'echo "=== {} ==="; cat "{}" | head -n 200' 2>&1 | head -n 300 | sed "s/^/::error::/"
           exit 1
       - name: Upload test reports
         if: ${{ !cancelled() }}

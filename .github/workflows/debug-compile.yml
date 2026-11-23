@@ -1,0 +1,20 @@
+name: Debug Compile
+on: push
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v5
+      - name: Compile debug Kotlin
+        run: ./gradlew :app:compileDebugKotlin --stacktrace --info 2>&1 | tee /tmp/compile.log
+      - name: Upload compile log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compile-log
+          path: /tmp/compile.log

@@ -177,6 +177,28 @@ service cloud.firestore {
              data.updatedAt is timestamp && data.updatedAt <= request.time;
     }
 
+    function isValidLibraryFolder(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 60 &&
+             data.kind in ['manual', 'agent'] &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidLibraryItem(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             (!('folderId' in data) || (data.folderId is string && data.folderId.size() <= 128 && (data.folderId == '' || exists(/databases/$(database)/documents/users/$(userId)/libraryFolders/$(data.folderId))))) &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 120 &&
+             data.category in ['course', 'reading', 'research', 'project', 'other'] &&
+             data.source in ['manual', 'agent'] &&
+             data.mimeType in ['markdown', 'pdf', 'html', 'text'] &&
+             data.textContent is string && data.textContent.size() >= 1 && data.textContent.size() <= 800000 &&
+             (!('fileName' in data) || (data.fileName is string && data.fileName.size() <= 180)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+
     match /users/{userId} {
       allow get: if isOwner(userId) && isValidId(userId);
       allow list: if false;
@@ -318,6 +340,39 @@ service cloud.firestore {
                          isValidCountdown(incoming(), userId) &&
                          incoming().diff(existing()).affectedKeys().hasOnly(['title', 'notes', 'targetDateIso', 'category', 'colorIndex', 'updatedAt']);
       }
+
+      match /libraryFolders/{folderId} {
+        allow list: if isOwner(userId);
+        allow get, delete: if isOwner(userId) && isValidId(folderId);
+        allow create: if isOwner(userId) &&
+                         isValidId(folderId) &&
+                         incoming().keys().hasAll(['userId', 'name', 'kind', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'name', 'kind', 'createdAt', 'updatedAt']) &&
+                         isValidLibraryFolder(incoming(), userId);
+        allow update: if isOwner(userId) &&
+                         isValidId(folderId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidLibraryFolder(incoming(), userId) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['name', 'updatedAt']);
+      }
+
+      match /libraryItems/{itemId} {
+        allow list: if isOwner(userId);
+        allow get, delete: if isOwner(userId) && isValidId(itemId);
+        allow create: if isOwner(userId) &&
+                         isValidId(itemId) &&
+                         incoming().keys().hasAll(['userId', 'title', 'category', 'source', 'mimeType', 'textContent', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'folderId', 'title', 'category', 'source', 'mimeType', 'textContent', 'fileName', 'createdAt', 'updatedAt']) &&
+                         isValidLibraryItem(incoming(), userId);
+        allow update: if isOwner(userId) &&
+                         isValidId(itemId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidLibraryItem(incoming(), userId) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['folderId', 'title', 'category', 'textContent', 'updatedAt']);
+      }
+
     }
   }
 }

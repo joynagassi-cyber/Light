@@ -62,6 +62,7 @@ enum class MoreSubPage(
     val subtitle: String
 ) {
     AGENT("agent", "Assistant Light", "Préparez et ajustez votre planning par commandes"),
+    LIBRARY("library", "Bibliothèque", "Vos documents, classés par dossiers et isolés par compte"),
     FOCUS_PROFILES("focus_profiles", "Profils de Focus", "Apprenez ce que vous voulez & assignez vos tâches"),
     FOCUS_ANALYTICS("focus_analytics", "Focus Analytics", "Durée d'étude quotidienne & courbes Focus"),
     PROGRESS("progress", "Progression", "Objectifs, temps de concentration et résultats"),
@@ -96,6 +97,12 @@ fun MoreHubScreen(
             icon = Icons.Rounded.AutoAwesome,
             color = gradient.accentColor,
             badge = "IA"
+        ),
+        IndexedPageRow(
+            page = MoreSubPage.LIBRARY,
+            icon = Icons.Rounded.AutoAwesome,
+            color = AppleSky,
+            badge = null
         ),
         IndexedPageRow(
             page = MoreSubPage.FOCUS_PROFILES,

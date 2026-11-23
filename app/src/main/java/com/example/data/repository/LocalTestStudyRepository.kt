@@ -18,6 +18,14 @@ import com.example.data.model.normalizeSubtasks
 import com.example.data.model.TaskCategory
 import com.example.data.model.UserGender
 import com.example.data.model.UserProfession
+import com.example.data.model.LibraryFolder
+import com.example.data.model.LibraryFolderKind
+import com.example.data.model.LibraryItem
+import com.example.data.model.LibraryItemCategory
+import com.example.data.model.LibraryItemSource
+import com.example.data.model.MAX_LIBRARY_FOLDER_NAME
+import com.example.data.model.MAX_LIBRARY_TEXT_CHARS
+import com.example.data.model.MAX_LIBRARY_TITLE_CHARS
 import com.example.data.model.UserProfile
 import com.example.data.model.adaptiveStarterModulesFor
 import kotlinx.coroutines.flow.Flow
@@ -68,6 +76,8 @@ class LocalTestStudyRepository(
     private val focusProfilesFlow = MutableStateFlow<List<FocusProfile>>(emptyList())
     private val habitsFlow = MutableStateFlow<List<StudyHabit>>(emptyList())
     private val countdownsFlow = MutableStateFlow<List<StudyCountdown>>(emptyList())
+    private val libraryFoldersFlow = MutableStateFlow<List<LibraryFolder>>(emptyList())
+    private val libraryItemsFlow = MutableStateFlow<List<LibraryItem>>(emptyList())
 
     private val persistLock = Any()
     private val cloudSyncMutex = Mutex()
@@ -114,6 +124,12 @@ class LocalTestStudyRepository(
 
     override fun observeCountdowns(userId: String): Flow<List<StudyCountdown>> =
         countdownsFlow.map { list -> list.sortedBy { it.targetDateIso } }
+
+    override fun observeLibraryFolders(userId: String): Flow<List<LibraryFolder>> =
+        libraryFoldersFlow.map { list -> list.sortedBy { it.name.lowercase() } }
+
+    override fun observeLibraryItems(userId: String): Flow<List<LibraryItem>> =
+        libraryItemsFlow.map { list -> list.sortedByDescending { it.createdAt?.seconds ?: 0L } }
 
     override suspend fun ensureUserProfileAndSeedIfNew(
         userId: String,
@@ -713,6 +729,74 @@ class LocalTestStudyRepository(
         markModifiedAndPersist()
     }
 
+    override suspend fun createLibraryFolder(userId: String, name: String, kind: String): String {
+        val safeName = name.trim().take(MAX_LIBRARY_FOLDER_NAME)
+        require(safeName.isNotBlank()) { "Le nom du dossier est requis." }
+        val safeKind = LibraryFolderKind.sanitize(kind)
+        val folder = LibraryFolder(id = UUID.randomUUID().toString(), userId = userId, name = safeName, kind = safeKind)
+        libraryFoldersFlow.update { it + folder }
+        markModifiedAndPersist()
+        return folder.id
+    }
+
+    override suspend fun renameLibraryFolder(userId: String, folderId: String, newName: String) {
+        val safe = newName.trim().take(MAX_LIBRARY_FOLDER_NAME)
+        require(safe.isNotBlank()) { "Le nom du dossier est requis." }
+        libraryFoldersFlow.update { list -> list.map { if (it.id == folderId && it.userId == userId) it.copy(name = safe) else it } }
+        markModifiedAndPersist()
+    }
+
+    override suspend fun deleteLibraryFolder(userId: String, folderId: String) {
+        libraryFoldersFlow.update { list -> list.filterNot { it.id == folderId && it.userId == userId } }
+        libraryItemsFlow.update { list -> list.map { if (it.folderId == folderId && it.userId == userId) it.copy(folderId = "") else it } }
+        markModifiedAndPersist()
+    }
+
+    override suspend fun createLibraryItem(userId: String, folderId: String, title: String, category: String, source: String, mimeType: String, textContent: String, fileName: String): String {
+        if (folderId.isNotBlank()) require(libraryFoldersFlow.value.any { it.id == folderId }) { "Le dossier sélectionné n'existe plus." }
+        val safeTitle = title.trim().take(MAX_LIBRARY_TITLE_CHARS).ifBlank { "Document sans titre" }
+        val safeCat = LibraryItemCategory.sanitize(category)
+        val safeSrc = LibraryItemSource.sanitize(source)
+        val safeMime = mimeType.trim().lowercase().take(30).ifBlank { "markdown" }
+        require(safeMime in setOf("markdown", "pdf", "html", "text")) { "Type non pris en charge." }
+        val safeText = textContent.take(MAX_LIBRARY_TEXT_CHARS)
+        require(safeText.isNotBlank()) { "Le contenu est requis." }
+        val item = LibraryItem(id = UUID.randomUUID().toString(), userId = userId, folderId = folderId.trim().take(128), title = safeTitle, category = safeCat, source = safeSrc, mimeType = safeMime, textContent = safeText, fileName = fileName.trim().take(180))
+        libraryItemsFlow.update { it + item }
+        markModifiedAndPersist()
+        return item.id
+    }
+
+    override suspend fun updateLibraryItem(userId: String, itemId: String, title: String?, folderId: String?, category: String?, textContent: String?) {
+        if (folderId != null && folderId.isNotBlank()) require(libraryFoldersFlow.value.any { it.id == folderId }) { "Le dossier n'existe plus." }
+        libraryItemsFlow.update { list ->
+            list.map { item ->
+                if (item.id != itemId || item.userId != userId) return@map item
+                var updated = item
+                title?.let { updated = updated.copy(title = it.trim().take(MAX_LIBRARY_TITLE_CHARS).ifBlank { "Document sans titre" }) }
+                folderId?.let { updated = updated.copy(folderId = it.trim().take(128)) }
+                category?.let { updated = updated.copy(category = LibraryItemCategory.sanitize(it)) }
+                textContent?.let { txt ->
+                    val safe = txt.take(MAX_LIBRARY_TEXT_CHARS)
+                    require(safe.isNotBlank()) { "Le contenu ne peut pas être vide." }
+                    updated = updated.copy(textContent = safe)
+                }
+                updated
+            }
+        }
+        markModifiedAndPersist()
+    }
+
+    override suspend fun deleteLibraryItem(userId: String, itemId: String) {
+        libraryItemsFlow.update { list -> list.filterNot { it.id == itemId && it.userId == userId } }
+        markModifiedAndPersist()
+    }
+
+    override suspend fun moveLibraryItem(userId: String, itemId: String, targetFolderId: String) {
+        updateLibraryItem(userId, itemId, folderId = targetFolderId)
+    }
+
+
     override suspend fun logFocusSession(
         userId: String,
         courseId: String,
@@ -1077,6 +1161,12 @@ class LocalTestStudyRepository(
                 countdownsFlow.value = root["countdowns"]?.jsonArray?.mapNotNull { elem ->
                     (elem as? JsonObject)?.let(::decodeCountdown)
                 }.orEmpty()
+                libraryFoldersFlow.value = root["libraryFolders"]?.jsonArray?.mapNotNull { elem ->
+                    (elem as? JsonObject)?.let(::decodeLibraryFolder)
+                }.orEmpty()
+                libraryItemsFlow.value = root["libraryItems"]?.jsonArray?.mapNotNull { elem ->
+                    (elem as? JsonObject)?.let(::decodeLibraryItem)
+                }.orEmpty()
             }.onFailure { err ->
                 Log.w(TAG, "Corrupted local workspace snapshot ignored", err)
             }
@@ -1103,6 +1193,8 @@ class LocalTestStudyRepository(
         put("focusProfiles", buildJsonArray { focusProfilesFlow.value.forEach { add(encodeFocusProfile(it)) } })
         put("habits", buildJsonArray { habitsFlow.value.forEach { add(encodeHabit(it)) } })
         put("countdowns", buildJsonArray { countdownsFlow.value.forEach { add(encodeCountdown(it)) } })
+        put("libraryFolders", buildJsonArray { libraryFoldersFlow.value.forEach { add(encodeLibraryFolder(it)) } })
+        put("libraryItems", buildJsonArray { libraryItemsFlow.value.forEach { add(encodeLibraryItem(it)) } })
     }
 
     private fun encodeProfile(p: UserProfile): JsonObject = buildJsonObject {
@@ -1329,6 +1421,45 @@ class LocalTestStudyRepository(
         category = obj["category"]?.jsonPrimitive?.contentOrNull ?: CountdownCategory.EXAM.key,
         colorIndex = obj["colorIndex"]?.jsonPrimitive?.longOrNull ?: 0L
     )
+
+    private fun encodeLibraryFolder(f: LibraryFolder): JsonObject = buildJsonObject {
+        put("id", f.id)
+        put("userId", f.userId)
+        put("name", f.name)
+        put("kind", f.kind)
+    }
+
+    private fun decodeLibraryFolder(obj: JsonObject): LibraryFolder = LibraryFolder(
+        id = obj["id"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+        userId = obj["userId"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+        name = obj["name"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+        kind = obj["kind"]?.jsonPrimitive?.contentOrNull ?: LibraryFolderKind.MANUAL.key
+    )
+
+    private fun encodeLibraryItem(item: LibraryItem): JsonObject = buildJsonObject {
+        put("id", item.id)
+        put("userId", item.userId)
+        put("folderId", item.folderId)
+        put("title", item.title)
+        put("category", item.category)
+        put("source", item.source)
+        put("mimeType", item.mimeType)
+        put("textContent", item.textContent)
+        put("fileName", item.fileName)
+    }
+
+    private fun decodeLibraryItem(obj: JsonObject): LibraryItem = LibraryItem(
+        id = obj["id"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+        userId = obj["userId"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+        folderId = obj["folderId"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+        title = obj["title"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+        category = obj["category"]?.jsonPrimitive?.contentOrNull ?: LibraryItemCategory.OTHER.key,
+        source = obj["source"]?.jsonPrimitive?.contentOrNull ?: LibraryItemSource.MANUAL.key,
+        mimeType = obj["mimeType"]?.jsonPrimitive?.contentOrNull ?: "markdown",
+        textContent = obj["textContent"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+        fileName = obj["fileName"]?.jsonPrimitive?.contentOrNull.orEmpty()
+    )
+
 
     private fun computeHabitStreak(dates: List<String>, today: LocalDate): Long {
         if (dates.isEmpty()) return 0L

@@ -22,6 +22,8 @@ import com.example.data.model.FocusProfile
 import com.example.data.model.FocusSession
 import com.example.data.model.NotificationFrequency
 import com.example.data.model.StudyCountdown
+import com.example.data.model.LibraryFolder
+import com.example.data.model.LibraryItem
 import com.example.data.model.StudyHabit
 import com.example.data.model.StudyProject
 import com.example.data.model.StudyTask
@@ -46,6 +48,9 @@ import com.example.data.repository.AgentTurnProgress
 import com.example.data.repository.belongsTo
 import com.example.data.repository.AgentModelCatalogRepository
 import com.example.data.repository.AiPlannerRepository
+import com.example.data.repository.ImageGenerationRepository
+import com.example.data.repository.SearchRepository
+import com.example.data.repository.SearchResult
 import com.example.data.repository.StudyAgentToolExecutor
 import com.example.data.repository.StudyWorkspaceRepository
 import com.example.notifications.LightNotificationHelper
@@ -121,14 +126,16 @@ class StudyViewModel(
     private val aiPlannerRepository: AiPlannerRepository,
     private val themePreferencesStore: ThemePreferencesStore,
     private val currentUserId: String,
-    initialDisplayName: String,
-    initialEmail: String,
+    private val initialDisplayName: String,
+    private val initialEmail: String,
     private val aiAgentRepository: AiAgentRepository = AiAgentRepository(),
     private val agentModelCatalogRepository: AgentModelCatalogRepository = AgentModelCatalogRepository(),
     private val focusAudioEngine: FocusAudioEngine = FocusAudioEngine(),
     val isOnline: StateFlow<Boolean> = MutableStateFlow(true),
     val isLocalMode: Boolean = false,
-    private val agentThreadsStore: AgentThreadsStore? = null
+    private val agentThreadsStore: AgentThreadsStore? = null,
+    private val searchRepository: SearchRepository = SearchRepository(),
+    private val imageGenerationRepository: ImageGenerationRepository = ImageGenerationRepository()
 ) : ViewModel() {
 
     private var timerJob: Job? = null
@@ -253,6 +260,28 @@ class StudyViewModel(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), UiState.Loading)
 
+    val libraryFoldersState: StateFlow<UiState<List<LibraryFolder>>> = repository.observeLibraryFolders(currentUserId)
+        .map<List<LibraryFolder>, UiState<List<LibraryFolder>>> { UiState.Success(it) }
+        .catch { error ->
+            val fsError = unwrapFirestoreError(error)
+            if (fsError == null && error is CancellationException) throw error
+            val root = fsError ?: error
+            Log.w(TAG, "Error observing library folders", root)
+            emit(UiState.Error(root.message ?: "Impossible de charger les dossiers"))
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), UiState.Loading)
+
+    val libraryItemsState: StateFlow<UiState<List<LibraryItem>>> = repository.observeLibraryItems(currentUserId)
+        .map<List<LibraryItem>, UiState<List<LibraryItem>>> { UiState.Success(it) }
+        .catch { error ->
+            val fsError = unwrapFirestoreError(error)
+            if (fsError == null && error is CancellationException) throw error
+            val root = fsError ?: error
+            Log.w(TAG, "Error observing library items", root)
+            emit(UiState.Error(root.message ?: "Impossible de charger la bibliothèque"))
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), UiState.Loading)
+
     val selectedGradientId: StateFlow<String> = combine(
         themePreferencesStore.selectedGradientId,
         profileState
@@ -272,6 +301,11 @@ class StudyViewModel(
 
     private val _bannerMessage = MutableStateFlow<String?>(null)
     val bannerMessage: StateFlow<String?> = _bannerMessage.asStateFlow()
+
+    private val _isCreatingProfile = MutableStateFlow(true)
+    val isCreatingProfile: StateFlow<Boolean> = _isCreatingProfile.asStateFlow()
+    private val _profileInitError = MutableStateFlow<String?>(null)
+    val profileInitError: StateFlow<String?> = _profileInitError.asStateFlow()
 
     private val initialThread = createEmptyAgentThread()
     private val _agentThreads = MutableStateFlow(listOf(initialThread))
@@ -348,20 +382,7 @@ class StudyViewModel(
                 _agentApiKeyConfigured.value = themePreferencesStore.hasAgentApiKey(settings.agentProvider)
             }
         }
-        viewModelScope.launch {
-            try {
-                repository.ensureUserProfileAndSeedIfNew(
-                    userId = currentUserId,
-                    displayName = initialDisplayName,
-                    email = initialEmail
-                )
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to initialize user workspace", e)
-                _bannerMessage.value = "Erreur d'initialisation cloud : ${e.localizedMessage ?: "réessayez"}"
-            }
-        }
+        launchProfileInit()
 
         // Keep idle Pomodoro duration synced with DataStore preferences
         viewModelScope.launch {
@@ -375,6 +396,34 @@ class StudyViewModel(
                 }
             }
         }
+    }
+
+    private fun launchProfileInit() {
+        viewModelScope.launch {
+            _isCreatingProfile.value = true
+            _profileInitError.value = null
+            try {
+                repository.ensureUserProfileAndSeedIfNew(
+                    userId = currentUserId,
+                    displayName = initialDisplayName,
+                    email = initialEmail
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to initialize user workspace", e)
+                val msg = e.localizedMessage?.takeIf { it.isNotBlank() } ?: "réessayez"
+                _profileInitError.value = "Erreur d'initialisation : $msg"
+                _bannerMessage.value = "Erreur d'initialisation cloud : $msg"
+            } finally {
+                _isCreatingProfile.value = false
+            }
+        }
+    }
+
+    fun retryProfileInit() {
+        if (_isCreatingProfile.value) return
+        launchProfileInit()
     }
 
     private fun configuredMinutesFor(mode: FocusMode, settings: StudyAppSettings): Int = when (mode) {
@@ -865,6 +914,54 @@ class StudyViewModel(
             } catch (e: Exception) {
                 _bannerMessage.value = e.localizedMessage ?: "Impossible de supprimer le projet."
             }
+        }
+    }
+
+    fun createLibraryFolder(name: String, kind: String = "manual") {
+        viewModelScope.launch {
+            try {
+                repository.createLibraryFolder(currentUserId, name, kind)
+                _bannerMessage.value = "Dossier \"$name\" créé."
+            } catch (e: CancellationException) { throw e } catch (e: Exception) { _bannerMessage.value = e.localizedMessage ?: "Impossible de créer le dossier." }
+        }
+    }
+
+    fun renameLibraryFolder(folderId: String, newName: String) {
+        viewModelScope.launch {
+            try { repository.renameLibraryFolder(currentUserId, folderId, newName); _bannerMessage.value = "Dossier renommé." } catch (e: CancellationException) { throw e } catch (e: Exception) { _bannerMessage.value = e.localizedMessage ?: "Impossible de renommer." }
+        }
+    }
+
+    fun deleteLibraryFolder(folderId: String) {
+        viewModelScope.launch {
+            try { repository.deleteLibraryFolder(currentUserId, folderId); _bannerMessage.value = "Dossier supprimé." } catch (e: CancellationException) { throw e } catch (e: Exception) { _bannerMessage.value = e.localizedMessage ?: "Suppression impossible." }
+        }
+    }
+
+    fun createLibraryItem(folderId: String, title: String, category: String, source: String, mimeType: String, textContent: String, fileName: String = "") {
+        viewModelScope.launch {
+            try {
+                repository.createLibraryItem(currentUserId, folderId, title, category, source, mimeType, textContent, fileName)
+                _bannerMessage.value = "Document \"$title\" ajouté à la bibliothèque."
+            } catch (e: CancellationException) { throw e } catch (e: Exception) { _bannerMessage.value = e.localizedMessage ?: "Impossible d'ajouter le document." }
+        }
+    }
+
+    fun updateLibraryItem(itemId: String, title: String? = null, folderId: String? = null, category: String? = null, textContent: String? = null) {
+        viewModelScope.launch {
+            try { repository.updateLibraryItem(currentUserId, itemId, title, folderId, category, textContent); _bannerMessage.value = "Document mis à jour." } catch (e: CancellationException) { throw e } catch (e: Exception) { _bannerMessage.value = e.localizedMessage ?: "Mise à jour impossible." }
+        }
+    }
+
+    fun deleteLibraryItem(itemId: String) {
+        viewModelScope.launch {
+            try { repository.deleteLibraryItem(currentUserId, itemId); _bannerMessage.value = "Document supprimé." } catch (e: CancellationException) { throw e } catch (e: Exception) { _bannerMessage.value = e.localizedMessage ?: "Suppression impossible." }
+        }
+    }
+
+    fun moveLibraryItem(itemId: String, targetFolderId: String) {
+        viewModelScope.launch {
+            try { repository.moveLibraryItem(currentUserId, itemId, targetFolderId); _bannerMessage.value = "Document déplacé." } catch (e: CancellationException) { throw e } catch (e: Exception) { _bannerMessage.value = e.localizedMessage ?: "Déplacement impossible." }
         }
     }
 
@@ -1829,6 +1926,26 @@ class StudyViewModel(
         viewModelScope.launch { themePreferencesStore.clearAgentUsage() }
     }
 
+    // Phase 4a — recherche & images: gestion des clés locales et toggles explicites
+    fun updateSearchSettings(provider: String, enabled: Boolean, apiKey: String? = null, clearKey: Boolean = false) {
+        viewModelScope.launch {
+            themePreferencesStore.updateSearchSettings(provider, enabled)
+            if (clearKey) themePreferencesStore.clearSearchApiKey(provider)
+            else if (!apiKey.isNullOrBlank()) themePreferencesStore.saveSearchApiKey(provider, apiKey)
+        }
+    }
+
+    fun updateImageSettings(provider: String, enabled: Boolean, size: String, apiKey: String? = null, clearKey: Boolean = false) {
+        viewModelScope.launch {
+            themePreferencesStore.updateImageSettings(provider, enabled, size)
+            if (clearKey) themePreferencesStore.clearImageApiKey(provider)
+            else if (!apiKey.isNullOrBlank()) themePreferencesStore.saveImageApiKey(provider, apiKey)
+        }
+    }
+
+    suspend fun getSearchApiKey(provider: String): String? = themePreferencesStore.readSearchApiKey(provider)
+    suspend fun getImageApiKey(provider: String): String? = themePreferencesStore.readImageApiKey(provider)
+
     fun startNewAgentThread() {
         interruptAgentTurn()
         aiAgentRepository.resetConversation()
@@ -1942,6 +2059,75 @@ class StudyViewModel(
         isUser = false,
         text = "Bonjour ! Je suis Light, votre assistant de travail. Selon les capacités autorisées, je peux consulter vos données d'étude, créer des tâches, matières, projets, habitudes et échéances, valider une tâche, changer le thème ou lancer Focus. Avant chaque action, je vous présente les détails et j'attends votre accord. Vous gérez mes accès dans Paramètres → Capacités de l’agent."
     )
+
+    // Recherche web explicite (Tavily/Exa) — opt-in + clé locale, sources visibles
+    private val _searchResults = MutableStateFlow<List<SearchResult>>(emptyList())
+    val searchResults: StateFlow<List<SearchResult>> = _searchResults.asStateFlow()
+    private val _searchLoading = MutableStateFlow(false)
+    val searchLoading: StateFlow<Boolean> = _searchLoading.asStateFlow()
+    private val _searchError = MutableStateFlow<String?>(null)
+    val searchError: StateFlow<String?> = _searchError.asStateFlow()
+
+    fun performSearch(query: String) {
+        val settings = appSettings.value
+        if (!settings.searchEnabled || settings.searchProvider == "none") {
+            _searchError.value = "Recherche désactivée. Activez-la dans Paramètres → Recherche & Images."
+            return
+        }
+        viewModelScope.launch {
+            _searchLoading.value = true
+            _searchError.value = null
+            try {
+                val key = themePreferencesStore.readSearchApiKey(settings.searchProvider)
+                val results = searchRepository.search(query, settings.searchProvider, key)
+                _searchResults.value = results
+                if (results.isEmpty()) _searchError.value = "Aucun résultat pour cette requête."
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) {
+                _searchError.value = e.localizedMessage ?: "Recherche indisponible."
+                _searchResults.value = emptyList()
+            } finally { _searchLoading.value = false }
+        }
+    }
+
+    fun clearSearch() {
+        _searchResults.value = emptyList()
+        _searchError.value = null
+    }
+
+    // Génération d'images — OpenAI/OpenRouter, enregistrement en bibliothèque
+    private val _imageGenerating = MutableStateFlow(false)
+    val imageGenerating: StateFlow<Boolean> = _imageGenerating.asStateFlow()
+    private val _imageError = MutableStateFlow<String?>(null)
+    val imageError: StateFlow<String?> = _imageError.asStateFlow()
+
+    fun generateImages(prompt: String, folderId: String = "", onSaved: (String) -> Unit = {}) {
+        val settings = appSettings.value
+        if (!settings.imageEnabled || settings.imageProvider == "none") {
+            _imageError.value = "Génération désactivée. Activez-la dans Paramètres → Recherche & Images."
+            return
+        }
+        viewModelScope.launch {
+            _imageGenerating.value = true
+            _imageError.value = null
+            try {
+                val key = themePreferencesStore.readImageApiKey(settings.imageProvider)
+                val images = imageGenerationRepository.generate(prompt, settings.imageProvider, key, settings.imageSize)
+                for (img in images) {
+                    // Enregistre chaque image comme artefact en bibliothèque (URL comme contenu, attribution)
+                    val title = prompt.take(60).ifBlank { "Image générée" }
+                    val content = "Image générée via ${settings.imageProvider} — prompt: $prompt\nURL: ${img.url}\n${img.revisedPrompt?.let { "Prompt révisé: $it" } ?: ""}".take(800000)
+                    createLibraryItem(folderId, title, "other", "agent", "text", content, "")
+                }
+                onSaved("${images.size} image(s) enregistrée(s) dans la bibliothèque.")
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) {
+                _imageError.value = e.localizedMessage ?: "Génération indisponible."
+            } finally { _imageGenerating.value = false }
+        }
+    }
+
+    fun clearImageError() { _imageError.value = null }
 
     private fun unwrapFirestoreError(error: Throwable): FirebaseFirestoreException? =
         generateSequence(error) { it.cause }

@@ -3,11 +3,7 @@ package com.example.ui.screens
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -87,6 +83,7 @@ import com.example.data.model.AgentReflection
 import com.example.data.model.AgentSkill
 import com.example.data.model.AgentSkillCatalog
 import com.example.data.model.AgentUsageRecord
+import com.example.data.model.UiState
 import com.example.data.preferences.AgentConversationThread
 import com.example.data.preferences.StudyAppSettings
 import com.example.data.repository.AgentActionApproval
@@ -160,13 +157,26 @@ fun AgentChatScreen(
     showEmbeddedNavigationChrome: Boolean = true,
     externalConfigTrigger: Int = 0,
     liveProgress: AgentTurnProgress? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    libraryFoldersState: UiState<List<com.example.data.model.LibraryFolder>> = UiState.Success(emptyList()),
+    libraryItemsState: UiState<List<com.example.data.model.LibraryItem>> = UiState.Success(emptyList()),
+    onSaveToLibrary: ((folderId: String, title: String, category: String, source: String, mimeType: String, textContent: String, fileName: String) -> Unit)? = null,
+    searchResults: List<com.example.data.repository.SearchResult> = emptyList(),
+    searchLoading: Boolean = false,
+    searchError: String? = null,
+    onSearch: (String) -> Unit = {},
+    onClearSearch: () -> Unit = {},
+    imageGenerating: Boolean = false,
+    imageError: String? = null,
+    onGenerateImage: (String, String) -> Unit = { _, _ -> },
+    onClearImageError: () -> Unit = {}
 ) {
     val gradient = LocalLightGradient.current
     var inputText by rememberSaveable(activeThreadId) { mutableStateOf("") }
     var showAgentSettings by rememberSaveable { mutableStateOf(false) }
     var showUsageHistory by rememberSaveable { mutableStateOf(false) }
-    var showAttachmentTray by rememberSaveable(activeThreadId) { mutableStateOf(false) }
+    var showAttachmentTray by remember(activeThreadId) { mutableStateOf(false) }
+    LaunchedEffect(activeThreadId) { showAttachmentTray = false }
     var openDocumentId by rememberSaveable(activeThreadId) { mutableStateOf<String?>(null) }
     var showSkills by rememberSaveable(activeThreadId) { mutableStateOf(false) }
     var selectedSkillKey by rememberSaveable(activeThreadId) { mutableStateOf<String?>(null) }
@@ -184,6 +194,14 @@ fun AgentChatScreen(
     var isExtractingDocuments by remember(activeThreadId) { mutableStateOf(false) }
     var extractionError by remember(activeThreadId) { mutableStateOf<String?>(null) }
     var showDocumentConsent by remember(activeThreadId) { mutableStateOf(false) }
+    var showLibraryPicker by remember(activeThreadId) { mutableStateOf(false) }
+    var showSearchSheet by remember(activeThreadId) { mutableStateOf(false) }
+    var showImageSheet by remember(activeThreadId) { mutableStateOf(false) }
+    var searchQuery by remember(activeThreadId) { mutableStateOf("") }
+    var imagePrompt by remember(activeThreadId) { mutableStateOf("") }
+    var imageFolderId by remember { mutableStateOf("") }
+    var saveLibraryTarget by remember { mutableStateOf<AgentChatMessage?>(null) }
+    val libraryFolders = (libraryFoldersState as? UiState.Success)?.data.orEmpty()
     val draftToken = remember(activeThreadId) { Any() }
     var documentPickerOwner by remember { mutableStateOf<Any?>(null) }
     val documentPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
@@ -377,8 +395,14 @@ fun AgentChatScreen(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             items(messages, key = { it.id }) { msg ->
-                AgentMessageBubble(message = msg, live = liveProgress?.takeIf { it.messageId == msg.id },
-                    onOpenDocument = { openDocumentId = msg.id })
+                AgentMessageBubble(
+                    message = msg,
+                    live = liveProgress?.takeIf { it.messageId == msg.id },
+                    onOpenDocument = { openDocumentId = msg.id },
+                    onSaveToLibrary = if (onSaveToLibrary != null && !msg.isUser && msg.text.isNotBlank()) {
+                        { saveLibraryTarget = msg }
+                    } else null
+                )
             }
 
             pendingAction?.let { action ->
@@ -472,11 +496,7 @@ fun AgentChatScreen(
             Spacer(modifier = Modifier.height(6.dp))
         }
 
-        AnimatedVisibility(
-            visible = showAttachmentTray,
-            enter = fadeIn() + expandVertically(),
-            exit = fadeOut() + shrinkVertically()
-        ) {
+        if (showAttachmentTray) {
             Surface(
                 shape = RoundedCornerShape(18.dp),
                 color = gradient.softContainer,
@@ -532,6 +552,33 @@ fun AgentChatScreen(
                         Icon(Icons.Rounded.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
                         Text("Choisir une compétence")
+                    }
+                    TextButton(
+                        onClick = { showAttachmentTray = false; showLibraryPicker = true },
+                        enabled = !isBusy,
+                        modifier = Modifier.padding(horizontal = 10.dp).testTag("agent_pick_library_button"),
+                    ) {
+                        Icon(Icons.Rounded.Description, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Choisir dans la bibliothèque")
+                    }
+                    TextButton(
+                        onClick = { showAttachmentTray = false; showSearchSheet = true },
+                        enabled = !isBusy,
+                        modifier = Modifier.padding(horizontal = 10.dp).testTag("agent_search_button"),
+                    ) {
+                        Icon(Icons.Rounded.Search, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Rechercher sur le web")
+                    }
+                    TextButton(
+                        onClick = { showAttachmentTray = false; showImageSheet = true },
+                        enabled = !isBusy,
+                        modifier = Modifier.padding(horizontal = 10.dp).testTag("agent_image_button"),
+                    ) {
+                        Icon(Icons.Rounded.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Générer une image")
                     }
                 }
             }
@@ -701,6 +748,74 @@ fun AgentChatScreen(
         AgentUsageHistoryDialog(records = agentUsage, onClear = onClearAgentUsage, onDismiss = { showUsageHistory = false })
     }
 
+    if (showLibraryPicker) {
+        com.example.ui.components.LibraryPickerSheet(
+            foldersState = libraryFoldersState,
+            itemsState = libraryItemsState,
+            onPick = { item ->
+                // Insère le texte borné de la bibliothèque comme contexte supplémentaire
+                val header = "\n\n[Contexte bibliothèque: ${item.title} (${item.mimeType})]\n"
+                val excerpt = item.textContent.take(6000)
+                inputText = (inputText + header + excerpt).take(12000)
+                showLibraryPicker = false
+                showAttachmentTray = false
+            },
+            onDismiss = { showLibraryPicker = false }
+        )
+    }
+
+    saveLibraryTarget?.let { target ->
+        if (onSaveToLibrary != null) {
+            com.example.ui.components.SaveToLibrarySheet(
+                folders = libraryFolders,
+                initialTitle = target.text.lineSequence().firstOrNull()?.take(60) ?: "Artefact agent",
+                initialContent = target.text,
+                onSave = { folderId, title, mime ->
+                    onSaveToLibrary(folderId, title, "other", "agent", mime, target.text.take(800000), "")
+                    saveLibraryTarget = null
+                },
+                onDismiss = { saveLibraryTarget = null }
+            )
+        }
+    }
+
+    if (showSearchSheet) {
+        com.example.ui.components.SearchAgentSheet(
+            query = searchQuery,
+            onQueryChange = { searchQuery = it },
+            results = searchResults,
+            loading = searchLoading,
+            error = searchError,
+            enabled = settings.searchEnabled && settings.searchProvider != "none",
+            providerName = settings.searchProvider,
+            onSearch = { onSearch(searchQuery) },
+            onPick = { result ->
+                val header = "\n\n[Source: ${result.title} — ${result.url}]\n"
+                inputText = (inputText + header + result.snippet.take(2000)).take(12000)
+                showSearchSheet = false
+            },
+            onClear = onClearSearch,
+            onDismiss = { showSearchSheet = false }
+        )
+    }
+
+    if (showImageSheet) {
+        com.example.ui.components.ImageAgentSheet(
+            prompt = imagePrompt,
+            onPromptChange = { imagePrompt = it },
+            folderId = imageFolderId,
+            onFolderChange = { imageFolderId = it },
+            folders = libraryFolders,
+            generating = imageGenerating,
+            error = imageError,
+            enabled = settings.imageEnabled && settings.imageProvider != "none",
+            providerName = settings.imageProvider,
+            onGenerate = { onGenerateImage(imagePrompt, imageFolderId) },
+            onClearError = onClearImageError,
+            onDismiss = { showImageSheet = false }
+        )
+    }
+
     if (showAgentSettings) {
         AgentSettingsDialog(
             settings = settings,
@@ -801,7 +916,7 @@ private fun AgentActionApprovalCard(
 }
 
 @Composable
-internal fun AgentMessageBubble(message: AgentChatMessage, live: AgentTurnProgress?, onOpenDocument: () -> Unit) {
+internal fun AgentMessageBubble(message: AgentChatMessage, live: AgentTurnProgress?, onOpenDocument: () -> Unit, onSaveToLibrary: (() -> Unit)? = null) {
     val gradient = LocalLightGradient.current
     Row(Modifier.fillMaxWidth().padding(vertical = LightSpacing.one), horizontalArrangement = Arrangement.spacedBy(LightSpacing.one),
         verticalAlignment = Alignment.Top) {
@@ -815,6 +930,13 @@ internal fun AgentMessageBubble(message: AgentChatMessage, live: AgentTurnProgre
             else if (isAgentMarkdownDocument(message.text)) AgentMessageDocumentCard(message.text, streaming = live != null, onOpen = onOpenDocument)
             else if (live == null || message.text != "…") AgentMarkdown(message.text, Modifier.testTag("agent_message_content"))
             message.planPreview?.let { plan -> AgentPlanPreviewCard(plan) }
+            if (onSaveToLibrary != null && !message.isUser && message.text.length > 20) {
+                TextButton(onClick = onSaveToLibrary, modifier = Modifier.testTag("save_to_library_${message.id}")) {
+                    Icon(Icons.Rounded.Description, contentDescription = null, modifier = Modifier.size(14.dp))
+                    androidx.compose.foundation.layout.Spacer(Modifier.size(6.dp))
+                    Text("Enregistrer dans la bibliothèque", style = MaterialTheme.typography.labelSmall)
+                }
+            }
         }
     }
 }

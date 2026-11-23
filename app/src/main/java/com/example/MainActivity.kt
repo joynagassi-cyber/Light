@@ -57,6 +57,7 @@ import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.School
+import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.SelfImprovement
 import androidx.compose.material.icons.rounded.Settings
@@ -147,10 +148,13 @@ import com.example.ui.screens.ImmersiveFocusSession
 import com.example.ui.screens.GanttScreen
 import com.example.ui.screens.HabitsScreen
 import com.example.ui.screens.HomeDashboardScreen
+import com.example.ui.screens.LibraryScreen
 import com.example.ui.screens.MoreHubScreen
 import com.example.ui.screens.MoreSubPage
 import com.example.ui.screens.OnboardingScreen
 import com.example.ui.screens.PlannerScreen
+import com.example.ui.screens.ProfileErrorScreen
+import com.example.ui.screens.ProfileInitializingScreen
 import com.example.ui.screens.ProgressScreen
 import com.example.ui.screens.SearchScreen
 import com.example.ui.screens.SettingsScreen
@@ -417,8 +421,12 @@ private fun AuthenticatedStudyShell(
     val agentUsage by viewModel.agentUsage.collectAsStateWithLifecycle()
     val bannerMessage by viewModel.bannerMessage.collectAsStateWithLifecycle()
     val isOnline by viewModel.isOnline.collectAsStateWithLifecycle()
+    val isCreatingProfile by viewModel.isCreatingProfile.collectAsStateWithLifecycle()
+    val profileInitError by viewModel.profileInitError.collectAsStateWithLifecycle()
 
     val profile = (profileState as? UiState.Success)?.data
+    val profileGate = com.example.data.model.resolveProfileGate(profileState, isCreatingProfile, profileInitError)
+    val profileErrorMessage = (profileGate as? com.example.data.model.ProfileGate.Error)?.message
     val courses = (coursesState as? UiState.Success)?.data.orEmpty()
     val tasks = (tasksState as? UiState.Success)?.data.orEmpty()
     val projects = (projectsState as? UiState.Success)?.data.orEmpty()
@@ -426,6 +434,14 @@ private fun AuthenticatedStudyShell(
     val focusProfiles = (focusProfilesState as? UiState.Success)?.data.orEmpty()
     val habits = (habitsState as? UiState.Success)?.data.orEmpty()
     val countdowns = (countdownsState as? UiState.Success)?.data.orEmpty()
+    val libraryFoldersState by viewModel.libraryFoldersState.collectAsStateWithLifecycle()
+    val libraryItemsState by viewModel.libraryItemsState.collectAsStateWithLifecycle()
+    val libraryItems = (libraryItemsState as? UiState.Success)?.data.orEmpty()
+    val searchResults by viewModel.searchResults.collectAsStateWithLifecycle()
+    val searchLoading by viewModel.searchLoading.collectAsStateWithLifecycle()
+    val searchError by viewModel.searchError.collectAsStateWithLifecycle()
+    val imageGenerating by viewModel.imageGenerating.collectAsStateWithLifecycle()
+    val imageError by viewModel.imageError.collectAsStateWithLifecycle()
 
     var currentTab by rememberSaveable { mutableStateOf(LightTab.HOME) }
     var activeMorePage by rememberSaveable { mutableStateOf<MoreSubPage?>(null) }
@@ -481,19 +497,20 @@ private fun AuthenticatedStudyShell(
         }
     }
 
-    val isLoadingInitialProfile = profileState is UiState.Loading
-    val needsOnboarding = (profile != null && !profile.onboardingCompleted) || showOnboardingOverlay
+    val isProfileError = profileGate is com.example.data.model.ProfileGate.Error
+    val isInitializingProfile = profileGate is com.example.data.model.ProfileGate.Initializing
+    val needsOnboarding = profileGate is com.example.data.model.ProfileGate.NeedsOnboarding || (showOnboardingOverlay && !isInitializingProfile && !isProfileError)
     var immersiveDismissed by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(focusState.isRunning) {
         if (!focusState.isRunning) immersiveDismissed = false
     }
     val showImmersiveFocus = currentTab == LightTab.FOCUS && focusState.isRunning && !immersiveDismissed &&
-        !showSettingsOverlay && !showTaskCreation && !needsOnboarding && !isLoadingInitialProfile
-    val isOnAgentChat = !needsOnboarding && !isLoadingInitialProfile &&
+        !showSettingsOverlay && !showTaskCreation && !needsOnboarding && !isInitializingProfile && !isProfileError
+    val isOnAgentChat = !needsOnboarding && !isInitializingProfile && !isProfileError &&
         currentTab == LightTab.MORE && activeMorePage == MoreSubPage.AGENT &&
         !showSettingsOverlay && !showTaskCreation
 
-    if (!needsOnboarding && !isLoadingInitialProfile) {
+    if (!needsOnboarding && !isInitializingProfile && !isProfileError) {
         if (showImmersiveFocus) {
             BackHandler { immersiveDismissed = true }
         } else if (isOnAgentChat && agentDrawerState.isOpen) {
@@ -526,13 +543,16 @@ private fun AuthenticatedStudyShell(
     ) {
         val gradient = LocalLightGradient.current
 
-        if (isLoadingInitialProfile) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(color = gradient.accentColor)
-            }
+        if (isInitializingProfile) {
+            ProfileInitializingScreen(accentColor = gradient.accentColor, isCreating = isCreatingProfile)
+        } else if (isProfileError) {
+            ProfileErrorScreen(
+                message = profileErrorMessage ?: "Impossible de charger le profil.",
+                onRetry = viewModel::retryProfileInit,
+                accentColor = gradient.accentColor,
+                isOnline = isOnline,
+                isCreating = isCreatingProfile
+            )
         } else if (needsOnboarding) {
             OnboardingScreen(
                 initialProfile = profile,
@@ -571,6 +591,7 @@ private fun AuthenticatedStudyShell(
 
             val overflowPages = listOf(
                 MoreSubPage.AGENT to Icons.Rounded.AutoAwesome,
+                MoreSubPage.LIBRARY to Icons.Rounded.Description,
                 MoreSubPage.FOCUS_PROFILES to Icons.Rounded.School,
                 MoreSubPage.FOCUS_ANALYTICS to Icons.Rounded.Insights,
                 MoreSubPage.PROGRESS to Icons.Rounded.BarChart,
@@ -612,6 +633,7 @@ private fun AuthenticatedStudyShell(
                     overflowPages.forEach { (page, icon) ->
                         val badgeText = when (page) {
                             MoreSubPage.AGENT -> "IA"
+                            MoreSubPage.LIBRARY -> libraryItems.size.takeIf { it > 0 }?.toString()
                             MoreSubPage.FOCUS_PROFILES -> focusProfiles.size.takeIf { it > 0 }?.toString()
                             MoreSubPage.HABITS -> habits.size.takeIf { it > 0 }?.toString()
                             MoreSubPage.COUNTDOWN -> countdowns.size.takeIf { it > 0 }?.toString()
@@ -1060,7 +1082,21 @@ private fun AuthenticatedStudyShell(
                                                 onLoadAgentModels = viewModel::loadAgentModels,
                                                 onSaveAgentSettings = viewModel::updateAgentPreferences,
                                                 showEmbeddedNavigationChrome = false,
-                                                externalConfigTrigger = agentConfigTrigger
+                                                externalConfigTrigger = agentConfigTrigger,
+                                                libraryFoldersState = libraryFoldersState,
+                                                libraryItemsState = libraryItemsState,
+                                                onSaveToLibrary = { folderId, title, category, source, mimeType, textContent, fileName ->
+                                                    viewModel.createLibraryItem(folderId, title, category, source, mimeType, textContent, fileName)
+                                                },
+                                                searchResults = searchResults,
+                                                searchLoading = searchLoading,
+                                                searchError = searchError,
+                                                onSearch = viewModel::performSearch,
+                                                onClearSearch = viewModel::clearSearch,
+                                                imageGenerating = imageGenerating,
+                                                imageError = imageError,
+                                                onGenerateImage = { prompt, folderId -> viewModel.generateImages(prompt, folderId) },
+                                                onClearImageError = viewModel::clearImageError
                                             )
                                         } else {
                                             Column(modifier = Modifier.fillMaxSize()) {
@@ -1112,6 +1148,19 @@ private fun AuthenticatedStudyShell(
 
                                                 Box(modifier = Modifier.weight(1f)) {
                                                     when (subPage) {
+                                                        MoreSubPage.LIBRARY -> LibraryScreen(
+                                                            foldersState = libraryFoldersState,
+                                                            itemsState = libraryItemsState,
+                                                            onCreateFolder = viewModel::createLibraryFolder,
+                                                            onRenameFolder = viewModel::renameLibraryFolder,
+                                                            onDeleteFolder = viewModel::deleteLibraryFolder,
+                                                            onCreateItem = { folderId, title, category, source, mimeType, textContent, fileName ->
+                                                                viewModel.createLibraryItem(folderId, title, category, source, mimeType, textContent, fileName)
+                                                            },
+                                                            onDeleteItem = viewModel::deleteLibraryItem,
+                                                            onMoveItem = viewModel::moveLibraryItem
+                                                        )
+
                                                         MoreSubPage.AGENT -> Unit
 
                                                         MoreSubPage.FOCUS_PROFILES -> FocusProfilesScreen(
@@ -1312,6 +1361,8 @@ private fun AuthenticatedStudyShell(
                             onOpenCapabilities = { settingsPage = SettingsPage.CAPABILITIES },
                             onOpenProfile = { settingsPage = SettingsPage.PROFILE },
                             onClose = { showSettingsOverlay = false },
+                            onUpdateSearchSettings = viewModel::updateSearchSettings,
+                            onUpdateImageSettings = viewModel::updateImageSettings,
                             modifier = Modifier
                                 .widthIn(max = 760.dp)
                                 .fillMaxSize()

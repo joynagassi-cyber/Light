@@ -116,7 +116,7 @@ fun LibraryPickerSheet(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                Icon(Icons.Rounded.Description, contentDescription = null, modifier = androidx.compose.ui.unit.dp.size(18.dp))
+                                Icon(Icons.Rounded.Description, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(item.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     Text(
@@ -135,6 +135,7 @@ fun LibraryPickerSheet(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SaveToLibrarySheet(
     folders: List<LibraryFolder>,

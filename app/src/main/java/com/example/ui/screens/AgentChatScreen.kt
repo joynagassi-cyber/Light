@@ -87,6 +87,7 @@ import com.example.data.model.AgentReflection
 import com.example.data.model.AgentSkill
 import com.example.data.model.AgentSkillCatalog
 import com.example.data.model.AgentUsageRecord
+import com.example.data.model.UiState
 import com.example.data.preferences.AgentConversationThread
 import com.example.data.preferences.StudyAppSettings
 import com.example.data.repository.AgentActionApproval

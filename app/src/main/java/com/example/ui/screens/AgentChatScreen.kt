@@ -160,7 +160,10 @@ fun AgentChatScreen(
     showEmbeddedNavigationChrome: Boolean = true,
     externalConfigTrigger: Int = 0,
     liveProgress: AgentTurnProgress? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    libraryFoldersState: UiState<List<com.example.data.model.LibraryFolder>> = UiState.Success(emptyList()),
+    libraryItemsState: UiState<List<com.example.data.model.LibraryItem>> = UiState.Success(emptyList()),
+    onSaveToLibrary: ((folderId: String, title: String, category: String, source: String, mimeType: String, textContent: String, fileName: String) -> Unit)? = null
 ) {
     val gradient = LocalLightGradient.current
     var inputText by rememberSaveable(activeThreadId) { mutableStateOf("") }
@@ -184,6 +187,9 @@ fun AgentChatScreen(
     var isExtractingDocuments by remember(activeThreadId) { mutableStateOf(false) }
     var extractionError by remember(activeThreadId) { mutableStateOf<String?>(null) }
     var showDocumentConsent by remember(activeThreadId) { mutableStateOf(false) }
+    var showLibraryPicker by remember(activeThreadId) { mutableStateOf(false) }
+    var saveLibraryTarget by remember { mutableStateOf<AgentChatMessage?>(null) }
+    val libraryFolders = (libraryFoldersState as? UiState.Success)?.data.orEmpty()
     val draftToken = remember(activeThreadId) { Any() }
     var documentPickerOwner by remember { mutableStateOf<Any?>(null) }
     val documentPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
@@ -377,8 +383,14 @@ fun AgentChatScreen(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             items(messages, key = { it.id }) { msg ->
-                AgentMessageBubble(message = msg, live = liveProgress?.takeIf { it.messageId == msg.id },
-                    onOpenDocument = { openDocumentId = msg.id })
+                AgentMessageBubble(
+                    message = msg,
+                    live = liveProgress?.takeIf { it.messageId == msg.id },
+                    onOpenDocument = { openDocumentId = msg.id },
+                    onSaveToLibrary = if (onSaveToLibrary != null && !msg.isUser && msg.text.isNotBlank()) {
+                        { saveLibraryTarget = msg }
+                    } else null
+                )
             }
 
             pendingAction?.let { action ->
@@ -532,6 +544,15 @@ fun AgentChatScreen(
                         Icon(Icons.Rounded.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
                         Text("Choisir une compétence")
+                    }
+                    TextButton(
+                        onClick = { showAttachmentTray = false; showLibraryPicker = true },
+                        enabled = !isBusy,
+                        modifier = Modifier.padding(horizontal = 10.dp).testTag("agent_pick_library_button"),
+                    ) {
+                        Icon(Icons.Rounded.Description, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Choisir dans la bibliothèque")
                     }
                 }
             }
@@ -701,6 +722,37 @@ fun AgentChatScreen(
         AgentUsageHistoryDialog(records = agentUsage, onClear = onClearAgentUsage, onDismiss = { showUsageHistory = false })
     }
 
+    if (showLibraryPicker) {
+        com.example.ui.components.LibraryPickerSheet(
+            foldersState = libraryFoldersState,
+            itemsState = libraryItemsState,
+            onPick = { item ->
+                // Insère le texte borné de la bibliothèque comme contexte supplémentaire
+                val header = "\n\n[Contexte bibliothèque: ${item.title} (${item.mimeType})]\n"
+                val excerpt = item.textContent.take(6000)
+                inputText = (inputText + header + excerpt).take(12000)
+                showLibraryPicker = false
+                showAttachmentTray = false
+            },
+            onDismiss = { showLibraryPicker = false }
+        )
+    }
+
+    saveLibraryTarget?.let { target ->
+        if (onSaveToLibrary != null) {
+            com.example.ui.components.SaveToLibrarySheet(
+                folders = libraryFolders,
+                initialTitle = target.text.lineSequence().firstOrNull()?.take(60) ?: "Artefact agent",
+                initialContent = target.text,
+                onSave = { folderId, title, mime ->
+                    onSaveToLibrary(folderId, title, "other", "agent", mime, target.text.take(800000), "")
+                    saveLibraryTarget = null
+                },
+                onDismiss = { saveLibraryTarget = null }
+            )
+        }
+    }
+
     if (showAgentSettings) {
         AgentSettingsDialog(
             settings = settings,
@@ -801,7 +853,7 @@ private fun AgentActionApprovalCard(
 }
 
 @Composable
-internal fun AgentMessageBubble(message: AgentChatMessage, live: AgentTurnProgress?, onOpenDocument: () -> Unit) {
+internal fun AgentMessageBubble(message: AgentChatMessage, live: AgentTurnProgress?, onOpenDocument: () -> Unit, onSaveToLibrary: (() -> Unit)? = null) {
     val gradient = LocalLightGradient.current
     Row(Modifier.fillMaxWidth().padding(vertical = LightSpacing.one), horizontalArrangement = Arrangement.spacedBy(LightSpacing.one),
         verticalAlignment = Alignment.Top) {
@@ -815,6 +867,13 @@ internal fun AgentMessageBubble(message: AgentChatMessage, live: AgentTurnProgre
             else if (isAgentMarkdownDocument(message.text)) AgentMessageDocumentCard(message.text, streaming = live != null, onOpen = onOpenDocument)
             else if (live == null || message.text != "…") AgentMarkdown(message.text, Modifier.testTag("agent_message_content"))
             message.planPreview?.let { plan -> AgentPlanPreviewCard(plan) }
+            if (onSaveToLibrary != null && !message.isUser && message.text.length > 20) {
+                TextButton(onClick = onSaveToLibrary, modifier = Modifier.testTag("save_to_library_${message.id}")) {
+                    Icon(Icons.Rounded.Description, contentDescription = null, modifier = Modifier.size(14.dp))
+                    androidx.compose.foundation.layout.Spacer(Modifier.size(6.dp))
+                    Text("Enregistrer dans la bibliothèque", style = MaterialTheme.typography.labelSmall)
+                }
+            }
         }
     }
 }

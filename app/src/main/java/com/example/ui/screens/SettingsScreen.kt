@@ -167,6 +167,8 @@ fun SettingsScreen(
     onResumeGoogleSignIn: () -> Unit = {},
     onPauseGoogleSignIn: () -> Unit = {},
     onSignOut: () -> Unit,
+    onUpdateSearchSettings: (String, Boolean, String?, Boolean) -> Unit = { _, _, _, _ -> },
+    onUpdateImageSettings: (String, Boolean, String, String?, Boolean) -> Unit = { _, _, _, _, _ -> },
     onOpenNavigationLayout: (() -> Unit)? = null,
     onOpenCapabilities: (() -> Unit)? = null,
     onOpenProfile: (() -> Unit)? = null,
@@ -710,7 +712,16 @@ fun SettingsScreen(
             }
         }
 
-        // Section 5 : Matières & Cloud
+        // Section 5 : Recherche & Images (4a)
+        item {
+            SettingsSectionBlock(title = "Recherche & Images") {
+                SearchSettingsSection(settings = appSettings, onUpdateSearch = onUpdateSearchSettings)
+                SettingsInsetDivider()
+                ImageSettingsSection(settings = appSettings, onUpdateImage = onUpdateImageSettings)
+            }
+        }
+
+        // Section 6 : Matières & Cloud
         item {
             SettingsSectionBlock(title = "Matières & Cloud") {
                 SettingsNavigationRow(

@@ -1077,7 +1077,12 @@ private fun AuthenticatedStudyShell(
                                                 onLoadAgentModels = viewModel::loadAgentModels,
                                                 onSaveAgentSettings = viewModel::updateAgentPreferences,
                                                 showEmbeddedNavigationChrome = false,
-                                                externalConfigTrigger = agentConfigTrigger
+                                                externalConfigTrigger = agentConfigTrigger,
+                                                libraryFoldersState = libraryFoldersState,
+                                                libraryItemsState = libraryItemsState,
+                                                onSaveToLibrary = { folderId, title, category, source, mimeType, textContent, fileName ->
+                                                    viewModel.createLibraryItem(folderId, title, category, source, mimeType, textContent, fileName)
+                                                }
                                             )
                                         } else {
                                             Column(modifier = Modifier.fillMaxSize()) {
@@ -1342,6 +1347,8 @@ private fun AuthenticatedStudyShell(
                             onOpenCapabilities = { settingsPage = SettingsPage.CAPABILITIES },
                             onOpenProfile = { settingsPage = SettingsPage.PROFILE },
                             onClose = { showSettingsOverlay = false },
+                            onUpdateSearchSettings = viewModel::updateSearchSettings,
+                            onUpdateImageSettings = viewModel::updateImageSettings,
                             modifier = Modifier
                                 .widthIn(max = 760.dp)
                                 .fillMaxSize()

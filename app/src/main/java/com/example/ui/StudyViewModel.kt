@@ -1921,6 +1921,26 @@ class StudyViewModel(
         viewModelScope.launch { themePreferencesStore.clearAgentUsage() }
     }
 
+    // Phase 4a — recherche & images: gestion des clés locales et toggles explicites
+    fun updateSearchSettings(provider: String, enabled: Boolean, apiKey: String? = null, clearKey: Boolean = false) {
+        viewModelScope.launch {
+            themePreferencesStore.updateSearchSettings(provider, enabled)
+            if (clearKey) themePreferencesStore.clearSearchApiKey(provider)
+            else if (!apiKey.isNullOrBlank()) themePreferencesStore.saveSearchApiKey(provider, apiKey)
+        }
+    }
+
+    fun updateImageSettings(provider: String, enabled: Boolean, size: String, apiKey: String? = null, clearKey: Boolean = false) {
+        viewModelScope.launch {
+            themePreferencesStore.updateImageSettings(provider, enabled, size)
+            if (clearKey) themePreferencesStore.clearImageApiKey(provider)
+            else if (!apiKey.isNullOrBlank()) themePreferencesStore.saveImageApiKey(provider, apiKey)
+        }
+    }
+
+    suspend fun getSearchApiKey(provider: String): String? = themePreferencesStore.readSearchApiKey(provider)
+    suspend fun getImageApiKey(provider: String): String? = themePreferencesStore.readImageApiKey(provider)
+
     fun startNewAgentThread() {
         interruptAgentTurn()
         aiAgentRepository.resetConversation()

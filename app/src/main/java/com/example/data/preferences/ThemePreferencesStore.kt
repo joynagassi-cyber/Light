@@ -59,7 +59,13 @@ data class StudyAppSettings(
     val agentReflection: String = "balanced",
     val agentCapabilities: Set<String> = AgentCapabilities.defaults,
     val agentSkills: List<AgentSkill> = emptyList(),
-    val doclingBaseUrl: String = ""
+    val doclingBaseUrl: String = "",
+    // Phase 4a — recherche & images: désactivés par défaut, clés locales chiffrées, opt-in explicite
+    val searchProvider: String = "none",
+    val searchEnabled: Boolean = false,
+    val imageProvider: String = "none",
+    val imageEnabled: Boolean = false,
+    val imageSize: String = "1024x1024"
 )
 
 private val FOCUS_ILLUSTRATION_IDS = setOf(
@@ -97,6 +103,13 @@ class ThemePreferencesStore(private val context: Context) {
     private val doclingTokenStore by lazy { AgentApiKeyStore(context.applicationContext, "docling") }
     private val doclingBaseUrlKey = stringPreferencesKey("docling_base_url")
     private val agentUsageKey = stringPreferencesKey("agent_usage_history")
+    private val searchProviderKey = stringPreferencesKey("search_provider")
+    private val searchEnabledKey = booleanPreferencesKey("search_enabled")
+    private val imageProviderKey = stringPreferencesKey("image_provider")
+    private val imageEnabledKey = booleanPreferencesKey("image_enabled")
+    private val imageSizeKey = stringPreferencesKey("image_size")
+    private fun searchApiKeyStore(providerId: String) = AgentApiKeyStore(context.applicationContext, "search_${providerId}")
+    private fun imageApiKeyStore(providerId: String) = AgentApiKeyStore(context.applicationContext, "image_${providerId}")
 
     val selectedGradientId: Flow<String> = context.lightDataStore.data.map { prefs ->
         prefs[gradientKey] ?: "aurore_lavande"
@@ -135,7 +148,12 @@ class ThemePreferencesStore(private val context: Context) {
             agentCapabilities = prefs[agentCapabilitiesKey]?.split(",")?.filter { key -> AgentCapabilities.all.any { it.first == key } }?.toSet()
                 ?: AgentCapabilities.defaults,
             agentSkills = decodeAgentSkills(prefs[agentSkillsKey]),
-            doclingBaseUrl = prefs[doclingBaseUrlKey] ?: ""
+            doclingBaseUrl = prefs[doclingBaseUrlKey] ?: "",
+            searchProvider = prefs[searchProviderKey] ?: "none",
+            searchEnabled = prefs[searchEnabledKey] ?: false,
+            imageProvider = prefs[imageProviderKey] ?: "none",
+            imageEnabled = prefs[imageEnabledKey] ?: false,
+            imageSize = prefs[imageSizeKey] ?: "1024x1024"
         )
     }
 
@@ -360,4 +378,35 @@ class ThemePreferencesStore(private val context: Context) {
             prefs[googleAuthPausedKey] = paused
         }
     }
+
+    suspend fun updateSearchSettings(provider: String, enabled: Boolean) {
+        context.lightDataStore.edit { prefs ->
+            prefs[searchProviderKey] = provider.trim().take(20)
+            prefs[searchEnabledKey] = enabled
+        }
+    }
+
+    suspend fun saveSearchApiKey(providerId: String, apiKey: String) {
+        withContext(Dispatchers.IO) { searchApiKeyStore(providerId).save(apiKey.trim()) }
+    }
+
+    suspend fun readSearchApiKey(providerId: String): String? = withContext(Dispatchers.IO) { searchApiKeyStore(providerId).read() }
+    suspend fun hasSearchApiKey(providerId: String): Boolean = withContext(Dispatchers.IO) { searchApiKeyStore(providerId).read()?.isNotBlank() == true }
+    suspend fun clearSearchApiKey(providerId: String) { withContext(Dispatchers.IO) { searchApiKeyStore(providerId).clear() } }
+
+    suspend fun updateImageSettings(provider: String, enabled: Boolean, size: String) {
+        context.lightDataStore.edit { prefs ->
+            prefs[imageProviderKey] = provider.trim().take(20)
+            prefs[imageEnabledKey] = enabled
+            prefs[imageSizeKey] = size.trim().take(20).ifBlank { "1024x1024" }
+        }
+    }
+
+    suspend fun saveImageApiKey(providerId: String, apiKey: String) {
+        withContext(Dispatchers.IO) { imageApiKeyStore(providerId).save(apiKey.trim()) }
+    }
+
+    suspend fun readImageApiKey(providerId: String): String? = withContext(Dispatchers.IO) { imageApiKeyStore(providerId).read() }
+    suspend fun hasImageApiKey(providerId: String): Boolean = withContext(Dispatchers.IO) { imageApiKeyStore(providerId).read()?.isNotBlank() == true }
+    suspend fun clearImageApiKey(providerId: String) { withContext(Dispatchers.IO) { imageApiKeyStore(providerId).clear() } }
 }

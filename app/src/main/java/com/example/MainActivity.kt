@@ -422,8 +422,8 @@ private fun AuthenticatedStudyShell(
     val profileInitError by viewModel.profileInitError.collectAsStateWithLifecycle()
 
     val profile = (profileState as? UiState.Success)?.data
-    val profileErrorMessage = (profileState as? UiState.Error)?.message
-        ?: profileInitError?.takeIf { profile == null }
+    val profileGate = com.example.data.model.resolveProfileGate(profileState, isCreatingProfile, profileInitError)
+    val profileErrorMessage = (profileGate as? com.example.data.model.ProfileGate.Error)?.message
     val courses = (coursesState as? UiState.Success)?.data.orEmpty()
     val tasks = (tasksState as? UiState.Success)?.data.orEmpty()
     val projects = (projectsState as? UiState.Success)?.data.orEmpty()
@@ -489,9 +489,9 @@ private fun AuthenticatedStudyShell(
         }
     }
 
-    val isProfileError = profileErrorMessage != null
-    val isInitializingProfile = !isProfileError && (profileState is UiState.Loading || profile == null)
-    val needsOnboarding = !isInitializingProfile && !isProfileError && ((profile != null && !profile.onboardingCompleted) || showOnboardingOverlay)
+    val isProfileError = profileGate is com.example.data.model.ProfileGate.Error
+    val isInitializingProfile = profileGate is com.example.data.model.ProfileGate.Initializing
+    val needsOnboarding = profileGate is com.example.data.model.ProfileGate.NeedsOnboarding || (showOnboardingOverlay && !isInitializingProfile && !isProfileError)
     var immersiveDismissed by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(focusState.isRunning) {
         if (!focusState.isRunning) immersiveDismissed = false

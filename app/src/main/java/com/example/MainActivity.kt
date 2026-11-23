@@ -417,8 +417,12 @@ private fun AuthenticatedStudyShell(
     val agentUsage by viewModel.agentUsage.collectAsStateWithLifecycle()
     val bannerMessage by viewModel.bannerMessage.collectAsStateWithLifecycle()
     val isOnline by viewModel.isOnline.collectAsStateWithLifecycle()
+    val isCreatingProfile by viewModel.isCreatingProfile.collectAsStateWithLifecycle()
+    val profileInitError by viewModel.profileInitError.collectAsStateWithLifecycle()
 
     val profile = (profileState as? UiState.Success)?.data
+    val profileErrorMessage = (profileState as? UiState.Error)?.message
+        ?: profileInitError?.takeIf { profile == null }
     val courses = (coursesState as? UiState.Success)?.data.orEmpty()
     val tasks = (tasksState as? UiState.Success)?.data.orEmpty()
     val projects = (projectsState as? UiState.Success)?.data.orEmpty()
@@ -481,19 +485,20 @@ private fun AuthenticatedStudyShell(
         }
     }
 
-    val isLoadingInitialProfile = profileState is UiState.Loading
-    val needsOnboarding = (profile != null && !profile.onboardingCompleted) || showOnboardingOverlay
+    val isProfileError = profileErrorMessage != null
+    val isInitializingProfile = !isProfileError && (profileState is UiState.Loading || profile == null)
+    val needsOnboarding = !isInitializingProfile && !isProfileError && ((profile != null && !profile.onboardingCompleted) || showOnboardingOverlay)
     var immersiveDismissed by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(focusState.isRunning) {
         if (!focusState.isRunning) immersiveDismissed = false
     }
     val showImmersiveFocus = currentTab == LightTab.FOCUS && focusState.isRunning && !immersiveDismissed &&
-        !showSettingsOverlay && !showTaskCreation && !needsOnboarding && !isLoadingInitialProfile
-    val isOnAgentChat = !needsOnboarding && !isLoadingInitialProfile &&
+        !showSettingsOverlay && !showTaskCreation && !needsOnboarding && !isInitializingProfile && !isProfileError
+    val isOnAgentChat = !needsOnboarding && !isInitializingProfile && !isProfileError &&
         currentTab == LightTab.MORE && activeMorePage == MoreSubPage.AGENT &&
         !showSettingsOverlay && !showTaskCreation
 
-    if (!needsOnboarding && !isLoadingInitialProfile) {
+    if (!needsOnboarding && !isInitializingProfile && !isProfileError) {
         if (showImmersiveFocus) {
             BackHandler { immersiveDismissed = true }
         } else if (isOnAgentChat && agentDrawerState.isOpen) {
@@ -526,13 +531,16 @@ private fun AuthenticatedStudyShell(
     ) {
         val gradient = LocalLightGradient.current
 
-        if (isLoadingInitialProfile) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(color = gradient.accentColor)
-            }
+        if (isInitializingProfile) {
+            ProfileInitializingScreen(accentColor = gradient.accentColor, isCreating = isCreatingProfile)
+        } else if (isProfileError) {
+            ProfileErrorScreen(
+                message = profileErrorMessage ?: "Impossible de charger le profil.",
+                onRetry = viewModel::retryProfileInit,
+                accentColor = gradient.accentColor,
+                isOnline = isOnline,
+                isCreating = isCreatingProfile
+            )
         } else if (needsOnboarding) {
             OnboardingScreen(
                 initialProfile = profile,

@@ -273,6 +273,11 @@ class StudyViewModel(
     private val _bannerMessage = MutableStateFlow<String?>(null)
     val bannerMessage: StateFlow<String?> = _bannerMessage.asStateFlow()
 
+    private val _isCreatingProfile = MutableStateFlow(true)
+    val isCreatingProfile: StateFlow<Boolean> = _isCreatingProfile.asStateFlow()
+    private val _profileInitError = MutableStateFlow<String?>(null)
+    val profileInitError: StateFlow<String?> = _profileInitError.asStateFlow()
+
     private val initialThread = createEmptyAgentThread()
     private val _agentThreads = MutableStateFlow(listOf(initialThread))
     val agentThreads: StateFlow<List<AgentConversationThread>> = _agentThreads.asStateFlow()
@@ -348,20 +353,7 @@ class StudyViewModel(
                 _agentApiKeyConfigured.value = themePreferencesStore.hasAgentApiKey(settings.agentProvider)
             }
         }
-        viewModelScope.launch {
-            try {
-                repository.ensureUserProfileAndSeedIfNew(
-                    userId = currentUserId,
-                    displayName = initialDisplayName,
-                    email = initialEmail
-                )
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to initialize user workspace", e)
-                _bannerMessage.value = "Erreur d'initialisation cloud : ${e.localizedMessage ?: "réessayez"}"
-            }
-        }
+        launchProfileInit()
 
         // Keep idle Pomodoro duration synced with DataStore preferences
         viewModelScope.launch {
@@ -375,6 +367,34 @@ class StudyViewModel(
                 }
             }
         }
+    }
+
+    private fun launchProfileInit() {
+        viewModelScope.launch {
+            _isCreatingProfile.value = true
+            _profileInitError.value = null
+            try {
+                repository.ensureUserProfileAndSeedIfNew(
+                    userId = currentUserId,
+                    displayName = initialDisplayName,
+                    email = initialEmail
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to initialize user workspace", e)
+                val msg = e.localizedMessage?.takeIf { it.isNotBlank() } ?: "réessayez"
+                _profileInitError.value = "Erreur d'initialisation : $msg"
+                _bannerMessage.value = "Erreur d'initialisation cloud : $msg"
+            } finally {
+                _isCreatingProfile.value = false
+            }
+        }
+    }
+
+    fun retryProfileInit() {
+        if (_isCreatingProfile.value) return
+        launchProfileInit()
     }
 
     private fun configuredMinutesFor(mode: FocusMode, settings: StudyAppSettings): Int = when (mode) {

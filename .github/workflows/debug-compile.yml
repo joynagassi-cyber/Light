@@ -3,6 +3,10 @@ on: push
 jobs:
   debug:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-java@v5
@@ -10,11 +14,32 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v5
-      - name: Compile debug Kotlin
-        run: ./gradlew :app:compileDebugKotlin --stacktrace --info 2>&1 | tee /tmp/compile.log
-      - name: Upload compile log
+      - name: Run JVM tests with info
+        run: |
+          set +e
+          ./gradlew :app:testDebugUnitTest --stacktrace --info 2>&1 | tee /tmp/test.log
+          echo "EXIT_CODE=$?" >> $GITHUB_ENV
+          # Summarize failures
+          find app/build -name "*.xml" -path "*test-results*" -exec cat {} \; 2>/dev/null | head -2000 | tee /tmp/junit.xml
+      - name: Post test failure as comment if needed
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR=$(gh pr view --json number --jq .number 2>/dev/null || echo "")
+          if [ -n "$PR" ]; then
+            BODY=$(tail -c 60000 /tmp/test.log | sed 's/`/\\`/g')
+            gh pr comment "$PR" --body "🧪 JVM test log tail (exit $EXIT_CODE):
+            \`\`\`
+            $BODY
+            \`\`\`" 2>&1 | head -20
+          else
+            echo "No PR found, log tail:"
+            tail -n 200 /tmp/test.log
+          fi
+      - name: Upload test log artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: compile-log
-          path: /tmp/compile.log
+          name: test-log
+          path: /tmp/test.log

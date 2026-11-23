@@ -3,11 +3,6 @@ package com.example.ui.screens
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -499,11 +494,7 @@ fun AgentChatScreen(
             Spacer(modifier = Modifier.height(6.dp))
         }
 
-        AnimatedVisibility(
-            visible = showAttachmentTray,
-            enter = fadeIn() + expandVertically(),
-            exit = fadeOut() + shrinkVertically()
-        ) {
+        if (showAttachmentTray) {
             Surface(
                 shape = RoundedCornerShape(18.dp),
                 color = gradient.softContainer,

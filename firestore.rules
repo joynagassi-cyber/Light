@@ -371,7 +371,7 @@ service cloud.firestore {
                          incoming().createdAt == existing().createdAt &&
                          isValidLibraryItem(incoming(), userId) &&
                          incoming().diff(existing()).affectedKeys().hasOnly(['folderId', 'title', 'category', 'textContent', 'updatedAt']);
-      }"
+      }
 
     }
   }

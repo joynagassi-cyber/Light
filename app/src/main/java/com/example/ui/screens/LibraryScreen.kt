@@ -518,7 +518,7 @@ private fun mimeIcon(mime: String): ImageVector = when (mime.lowercase()) {
 @Composable
 private fun LibraryBoundedReader(mimeType: String, content: String) {
     when (mimeType.lowercase()) {
-        "markdown" -> AgentMarkdown(markdown = content)
+        "markdown" -> AgentMarkdown(text = content)
         "html" -> {
             // Bounded: show escaped text, never load or execute
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {

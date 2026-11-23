@@ -57,6 +57,7 @@ import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.School
+import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.SelfImprovement
 import androidx.compose.material.icons.rounded.Settings
@@ -152,6 +153,8 @@ import com.example.ui.screens.MoreHubScreen
 import com.example.ui.screens.MoreSubPage
 import com.example.ui.screens.OnboardingScreen
 import com.example.ui.screens.PlannerScreen
+import com.example.ui.screens.ProfileErrorScreen
+import com.example.ui.screens.ProfileInitializingScreen
 import com.example.ui.screens.ProgressScreen
 import com.example.ui.screens.SearchScreen
 import com.example.ui.screens.SettingsScreen

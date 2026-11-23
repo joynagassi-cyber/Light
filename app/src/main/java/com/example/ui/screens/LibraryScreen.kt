@@ -26,11 +26,7 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Description
-import androidx.compose.material.icons.rounded.DriveFolderUpload
 import androidx.compose.material.icons.rounded.Folder
-import androidx.compose.material.icons.rounded.Html
-import androidx.compose.material.icons.rounded.PictureAsPdf
-import androidx.compose.material.icons.rounded.TextSnippet
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
@@ -510,7 +506,7 @@ private fun LibraryItemRow(
 
 private fun mimeIcon(mime: String): ImageVector = when (mime.lowercase()) {
     "pdf" -> Icons.Rounded.Description
-    "html" -> Icons.Rounded.Code
+    "html" -> Icons.Rounded.Description
     "markdown" -> Icons.Rounded.Description
     else -> Icons.Rounded.Description
 }

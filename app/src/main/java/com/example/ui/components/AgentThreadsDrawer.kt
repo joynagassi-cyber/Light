@@ -3,6 +3,8 @@ package com.example.ui.components
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +31,7 @@ import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -39,17 +42,28 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.data.model.AgentHistoryPeriod
+import com.example.data.model.groupAgentHistory
 import com.example.data.preferences.AgentConversationThread
 import com.example.ui.theme.LocalLightGradient
 import com.example.ui.theme.appBrush
+import java.time.LocalDate
+import java.time.ZoneId
 
 @Composable
 fun AgentThreadsDrawerSheet(
@@ -59,8 +73,13 @@ fun AgentThreadsDrawerSheet(
     onNewThread: () -> Unit,
     onDeleteThread: (String) -> Unit,
     onCloseDrawer: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    drawerOpen: Boolean = true,
 ) {
+    var period by rememberSaveable { mutableStateOf(AgentHistoryPeriod.ALL) }
+    val zone = remember(drawerOpen) { ZoneId.systemDefault() }
+    val today = remember(drawerOpen, zone) { LocalDate.now(zone) }
+    val history = remember(threads, period, today, zone) { groupAgentHistory(threads, period, today, zone) }
     val gradient = LocalLightGradient.current
     ModalDrawerSheet(
         drawerContainerColor = MaterialTheme.colorScheme.surface,
@@ -134,87 +153,105 @@ fun AgentThreadsDrawerSheet(
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-            if (threads.isEmpty()) {
+            if (threads.isNotEmpty()) {
+                Row(
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    AgentHistoryPeriod.entries.forEach { option ->
+                        FilterChip(selected = option == period, onClick = { period = option },
+                            label = { Text(option.label) }, modifier = Modifier.testTag("agent_history_${option.name}"))
+                    }
+                }
+            }
+            if (history.isEmpty()) {
                 Text(
-                    text = "Aucune discussion enregistrée.",
+                    text = if (threads.isEmpty()) "Aucune discussion enregistrée." else "Aucune discussion dans cette période.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(vertical = 12.dp)
+                    modifier = Modifier.padding(vertical = 12.dp).testTag("agent_history_empty")
                 )
             } else {
                 LazyColumn(
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).testTag("agent_history_list"),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    items(threads, key = { it.id }) { thread ->
-                        val selected = thread.id == activeThreadId
-                        val messageCount = thread.messages.count { it.isUser }
-                        val preview = thread.messages
-                            .lastOrNull { it.text.isNotBlank() && it.text != "…" }
-                            ?.text
-                            .orEmpty()
-                        Surface(
-                            shape = RoundedCornerShape(16.dp),
-                            color = if (selected) gradient.softContainer else Color.Transparent,
-                            border = if (selected) BorderStroke(1.dp, gradient.accentColor.copy(alpha = 0.35f)) else null,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(16.dp))
-                                .clickable {
-                                    onSelectThread(thread.id)
-                                    onCloseDrawer()
-                                }
-                                .testTag("agent_thread_item_${thread.id}")
-                        ) {
-                            Row(
+                    history.forEach { (section, sectionThreads) ->
+                        item(key = "section_${section.name}") {
+                            Text(section.label, style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 6.dp).semantics { heading() })
+                        }
+                        items(sectionThreads, key = { "thread_${it.id}" }) { thread ->
+                            val selected = thread.id == activeThreadId
+                            val messageCount = thread.messages.count { it.isUser }
+                            val preview = thread.messages
+                                .lastOrNull { it.text.isNotBlank() && it.text != "…" }
+                                ?.text
+                                .orEmpty()
+                            Surface(
+                                shape = RoundedCornerShape(16.dp),
+                                color = if (selected) gradient.softContainer else Color.Transparent,
+                                border = if (selected) BorderStroke(1.dp, gradient.accentColor.copy(alpha = 0.35f)) else null,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 12.dp, vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .clickable {
+                                        onSelectThread(thread.id)
+                                        onCloseDrawer()
+                                    }
+                                    .testTag("agent_thread_item_${thread.id}")
                             ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.ChatBubbleOutline,
-                                    contentDescription = null,
-                                    tint = if (selected) gradient.accentColor else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = thread.title,
-                                        style = MaterialTheme.typography.titleSmall,
-                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                                        color = if (selected) gradient.accentColor else MaterialTheme.colorScheme.onSurface,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.ChatBubbleOutline,
+                                        contentDescription = null,
+                                        tint = if (selected) gradient.accentColor else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(18.dp)
                                     )
-                                    if (preview.isNotBlank()) {
+                                    Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = preview.replace('\n', ' '),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            text = thread.title,
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                                            color = if (selected) gradient.accentColor else MaterialTheme.colorScheme.onSurface,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
                                         )
+                                        if (preview.isNotBlank()) {
+                                            Text(
+                                                text = preview.take(240).replace('\n', ' '),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                        Text(
+                                            text = if (messageCount > 0) "$messageCount message(s)" else "Nouveau fil",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                                        )
                                     }
-                                    Text(
-                                        text = if (messageCount > 0) "$messageCount message(s)" else "Nouveau fil",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-                                    )
-                                }
-                                IconButton(
-                                    onClick = { onDeleteThread(thread.id) },
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .testTag("agent_delete_thread_${thread.id}")
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.DeleteOutline,
-                                        contentDescription = "Supprimer ce fil",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(18.dp)
-                                    )
+                                    IconButton(
+                                        onClick = { onDeleteThread(thread.id) },
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .testTag("agent_delete_thread_${thread.id}")
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.DeleteOutline,
+                                            contentDescription = "Supprimer ce fil",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
                                 }
                             }
                         }

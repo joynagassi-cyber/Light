@@ -674,7 +674,8 @@ private fun AuthenticatedStudyShell(
                         onSelectThread = viewModel::selectAgentThread,
                         onNewThread = viewModel::startNewAgentThread,
                         onDeleteThread = viewModel::deleteAgentThread,
-                        onCloseDrawer = { scope.launch { agentDrawerState.close() } }
+                        onCloseDrawer = { scope.launch { agentDrawerState.close() } },
+                        drawerOpen = agentDrawerState.isOpen
                     )
                 }
             ) {

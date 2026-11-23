@@ -62,6 +62,7 @@ import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -79,6 +80,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.data.document.ExtractedAgentDocument
 import com.example.data.document.LocalDocumentExtractor
+import com.example.data.document.isAgentMarkdownDocument
 import com.example.data.model.AgentModelOption
 import com.example.data.model.AgentProvider
 import com.example.data.model.AgentReflection
@@ -93,6 +95,8 @@ import com.example.data.repository.AgentChatMessage
 import com.example.data.repository.AgentTurnProgress
 import com.example.ui.components.AgentActivityPanel
 import com.example.ui.components.AgentMarkdown
+import com.example.ui.components.AgentMessageDocumentCard
+import com.example.ui.components.AgentMessageDocumentReader
 import com.example.ui.components.AgentSkillPicker
 import com.example.ui.components.AgentThreadsDrawerSheet
 import com.example.ui.theme.LightSpacing
@@ -163,6 +167,7 @@ fun AgentChatScreen(
     var showAgentSettings by rememberSaveable { mutableStateOf(false) }
     var showUsageHistory by rememberSaveable { mutableStateOf(false) }
     var showAttachmentTray by rememberSaveable(activeThreadId) { mutableStateOf(false) }
+    var openDocumentId by rememberSaveable(activeThreadId) { mutableStateOf<String?>(null) }
     var showSkills by rememberSaveable(activeThreadId) { mutableStateOf(false) }
     var selectedSkillKey by rememberSaveable(activeThreadId) { mutableStateOf<String?>(null) }
     val skills = remember(settings.agentSkills) { AgentSkillCatalog.available(settings.agentSkills) }
@@ -372,7 +377,8 @@ fun AgentChatScreen(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             items(messages, key = { it.id }) { msg ->
-                AgentMessageBubble(message = msg, live = liveProgress?.takeIf { it.messageId == msg.id })
+                AgentMessageBubble(message = msg, live = liveProgress?.takeIf { it.messageId == msg.id },
+                    onOpenDocument = { openDocumentId = msg.id })
             }
 
             pendingAction?.let { action ->
@@ -638,7 +644,8 @@ fun AgentChatScreen(
                     onSelectThread = onSelectThread,
                     onNewThread = onNewThread,
                     onDeleteThread = onDeleteThread,
-                    onCloseDrawer = { scope.launch { drawerState.close() } }
+                    onCloseDrawer = { scope.launch { drawerState.close() } },
+                        drawerOpen = drawerState.isOpen
                 )
             }
         ) {
@@ -646,6 +653,12 @@ fun AgentChatScreen(
         }
     } else {
         chatContent()
+    }
+
+    messages.firstOrNull { it.id == openDocumentId }?.let { message ->
+        key(activeThreadId, message.id) {
+            AgentMessageDocumentReader(message, onClose = { openDocumentId = null })
+        }
     }
 
     if (showSkills) {
@@ -788,7 +801,7 @@ private fun AgentActionApprovalCard(
 }
 
 @Composable
-private fun AgentMessageBubble(message: AgentChatMessage, live: AgentTurnProgress?) {
+internal fun AgentMessageBubble(message: AgentChatMessage, live: AgentTurnProgress?, onOpenDocument: () -> Unit) {
     val gradient = LocalLightGradient.current
     Row(Modifier.fillMaxWidth().padding(vertical = LightSpacing.one), horizontalArrangement = Arrangement.spacedBy(LightSpacing.one),
         verticalAlignment = Alignment.Top) {
@@ -799,6 +812,7 @@ private fun AgentMessageBubble(message: AgentChatMessage, live: AgentTurnProgres
             if (!message.isUser) AgentActivityPanel(message.id, live, message.actions, message.elapsedMillis)
             if (message.isError) Text(message.text, style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.error)
+            else if (isAgentMarkdownDocument(message.text)) AgentMessageDocumentCard(message.text, streaming = live != null, onOpen = onOpenDocument)
             else if (live == null || message.text != "…") AgentMarkdown(message.text, Modifier.testTag("agent_message_content"))
             message.planPreview?.let { plan -> AgentPlanPreviewCard(plan) }
         }

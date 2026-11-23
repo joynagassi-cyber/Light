@@ -22,6 +22,8 @@ import com.example.data.model.FocusProfile
 import com.example.data.model.FocusSession
 import com.example.data.model.NotificationFrequency
 import com.example.data.model.StudyCountdown
+import com.example.data.model.LibraryFolder
+import com.example.data.model.LibraryItem
 import com.example.data.model.StudyHabit
 import com.example.data.model.StudyProject
 import com.example.data.model.StudyTask
@@ -250,6 +252,28 @@ class StudyViewModel(
             val root = fsError ?: error
             Log.w(TAG, "Error observing countdowns", root)
             emit(UiState.Error(root.message ?: "Impossible de charger les comptes à rebours"))
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), UiState.Loading)
+
+    val libraryFoldersState: StateFlow<UiState<List<LibraryFolder>>> = repository.observeLibraryFolders(currentUserId)
+        .map<List<LibraryFolder>, UiState<List<LibraryFolder>>> { UiState.Success(it) }
+        .catch { error ->
+            val fsError = unwrapFirestoreError(error)
+            if (fsError == null && error is CancellationException) throw error
+            val root = fsError ?: error
+            Log.w(TAG, "Error observing library folders", root)
+            emit(UiState.Error(root.message ?: "Impossible de charger les dossiers"))
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), UiState.Loading)
+
+    val libraryItemsState: StateFlow<UiState<List<LibraryItem>>> = repository.observeLibraryItems(currentUserId)
+        .map<List<LibraryItem>, UiState<List<LibraryItem>>> { UiState.Success(it) }
+        .catch { error ->
+            val fsError = unwrapFirestoreError(error)
+            if (fsError == null && error is CancellationException) throw error
+            val root = fsError ?: error
+            Log.w(TAG, "Error observing library items", root)
+            emit(UiState.Error(root.message ?: "Impossible de charger la bibliothèque"))
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), UiState.Loading)
 
@@ -885,6 +909,54 @@ class StudyViewModel(
             } catch (e: Exception) {
                 _bannerMessage.value = e.localizedMessage ?: "Impossible de supprimer le projet."
             }
+        }
+    }
+
+    fun createLibraryFolder(name: String, kind: String = "manual") {
+        viewModelScope.launch {
+            try {
+                repository.createLibraryFolder(currentUserId, name, kind)
+                _bannerMessage.value = "Dossier \"$name\" créé."
+            } catch (e: CancellationException) { throw e } catch (e: Exception) { _bannerMessage.value = e.localizedMessage ?: "Impossible de créer le dossier." }
+        }
+    }
+
+    fun renameLibraryFolder(folderId: String, newName: String) {
+        viewModelScope.launch {
+            try { repository.renameLibraryFolder(currentUserId, folderId, newName); _bannerMessage.value = "Dossier renommé." } catch (e: CancellationException) { throw e } catch (e: Exception) { _bannerMessage.value = e.localizedMessage ?: "Impossible de renommer." }
+        }
+    }
+
+    fun deleteLibraryFolder(folderId: String) {
+        viewModelScope.launch {
+            try { repository.deleteLibraryFolder(currentUserId, folderId); _bannerMessage.value = "Dossier supprimé." } catch (e: CancellationException) { throw e } catch (e: Exception) { _bannerMessage.value = e.localizedMessage ?: "Suppression impossible." }
+        }
+    }
+
+    fun createLibraryItem(folderId: String, title: String, category: String, source: String, mimeType: String, textContent: String, fileName: String = "") {
+        viewModelScope.launch {
+            try {
+                repository.createLibraryItem(currentUserId, folderId, title, category, source, mimeType, textContent, fileName)
+                _bannerMessage.value = "Document \"$title\" ajouté à la bibliothèque."
+            } catch (e: CancellationException) { throw e } catch (e: Exception) { _bannerMessage.value = e.localizedMessage ?: "Impossible d'ajouter le document." }
+        }
+    }
+
+    fun updateLibraryItem(itemId: String, title: String? = null, folderId: String? = null, category: String? = null, textContent: String? = null) {
+        viewModelScope.launch {
+            try { repository.updateLibraryItem(currentUserId, itemId, title, folderId, category, textContent); _bannerMessage.value = "Document mis à jour." } catch (e: CancellationException) { throw e } catch (e: Exception) { _bannerMessage.value = e.localizedMessage ?: "Mise à jour impossible." }
+        }
+    }
+
+    fun deleteLibraryItem(itemId: String) {
+        viewModelScope.launch {
+            try { repository.deleteLibraryItem(currentUserId, itemId); _bannerMessage.value = "Document supprimé." } catch (e: CancellationException) { throw e } catch (e: Exception) { _bannerMessage.value = e.localizedMessage ?: "Suppression impossible." }
+        }
+    }
+
+    fun moveLibraryItem(itemId: String, targetFolderId: String) {
+        viewModelScope.launch {
+            try { repository.moveLibraryItem(currentUserId, itemId, targetFolderId); _bannerMessage.value = "Document déplacé." } catch (e: CancellationException) { throw e } catch (e: Exception) { _bannerMessage.value = e.localizedMessage ?: "Déplacement impossible." }
         }
     }
 

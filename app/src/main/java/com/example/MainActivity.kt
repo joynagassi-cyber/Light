@@ -147,6 +147,7 @@ import com.example.ui.screens.ImmersiveFocusSession
 import com.example.ui.screens.GanttScreen
 import com.example.ui.screens.HabitsScreen
 import com.example.ui.screens.HomeDashboardScreen
+import com.example.ui.screens.LibraryScreen
 import com.example.ui.screens.MoreHubScreen
 import com.example.ui.screens.MoreSubPage
 import com.example.ui.screens.OnboardingScreen
@@ -430,6 +431,9 @@ private fun AuthenticatedStudyShell(
     val focusProfiles = (focusProfilesState as? UiState.Success)?.data.orEmpty()
     val habits = (habitsState as? UiState.Success)?.data.orEmpty()
     val countdowns = (countdownsState as? UiState.Success)?.data.orEmpty()
+    val libraryFoldersState by viewModel.libraryFoldersState.collectAsStateWithLifecycle()
+    val libraryItemsState by viewModel.libraryItemsState.collectAsStateWithLifecycle()
+    val libraryItems = (libraryItemsState as? UiState.Success)?.data.orEmpty()
 
     var currentTab by rememberSaveable { mutableStateOf(LightTab.HOME) }
     var activeMorePage by rememberSaveable { mutableStateOf<MoreSubPage?>(null) }
@@ -579,6 +583,7 @@ private fun AuthenticatedStudyShell(
 
             val overflowPages = listOf(
                 MoreSubPage.AGENT to Icons.Rounded.AutoAwesome,
+                MoreSubPage.LIBRARY to Icons.Rounded.Description,
                 MoreSubPage.FOCUS_PROFILES to Icons.Rounded.School,
                 MoreSubPage.FOCUS_ANALYTICS to Icons.Rounded.Insights,
                 MoreSubPage.PROGRESS to Icons.Rounded.BarChart,
@@ -620,6 +625,7 @@ private fun AuthenticatedStudyShell(
                     overflowPages.forEach { (page, icon) ->
                         val badgeText = when (page) {
                             MoreSubPage.AGENT -> "IA"
+                            MoreSubPage.LIBRARY -> libraryItems.size.takeIf { it > 0 }?.toString()
                             MoreSubPage.FOCUS_PROFILES -> focusProfiles.size.takeIf { it > 0 }?.toString()
                             MoreSubPage.HABITS -> habits.size.takeIf { it > 0 }?.toString()
                             MoreSubPage.COUNTDOWN -> countdowns.size.takeIf { it > 0 }?.toString()
@@ -1120,6 +1126,19 @@ private fun AuthenticatedStudyShell(
 
                                                 Box(modifier = Modifier.weight(1f)) {
                                                     when (subPage) {
+                                                        MoreSubPage.LIBRARY -> LibraryScreen(
+                                                            foldersState = libraryFoldersState,
+                                                            itemsState = libraryItemsState,
+                                                            onCreateFolder = viewModel::createLibraryFolder,
+                                                            onRenameFolder = viewModel::renameLibraryFolder,
+                                                            onDeleteFolder = viewModel::deleteLibraryFolder,
+                                                            onCreateItem = { folderId, title, category, source, mimeType, textContent, fileName ->
+                                                                viewModel.createLibraryItem(folderId, title, category, source, mimeType, textContent, fileName)
+                                                            },
+                                                            onDeleteItem = viewModel::deleteLibraryItem,
+                                                            onMoveItem = viewModel::moveLibraryItem
+                                                        )
+
                                                         MoreSubPage.AGENT -> Unit
 
                                                         MoreSubPage.FOCUS_PROFILES -> FocusProfilesScreen(

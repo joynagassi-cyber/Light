@@ -10,6 +10,8 @@ import com.example.data.model.StudyHabit
 import com.example.data.model.StudyProject
 import com.example.data.model.StudyTask
 import com.example.data.model.NavigationLayout
+import com.example.data.model.LibraryFolder
+import com.example.data.model.LibraryItem
 import com.example.data.model.TaskCategory
 import com.example.data.model.UserGender
 import com.example.data.model.UserProfession
@@ -172,4 +174,31 @@ interface StudyWorkspaceRepository {
         focusProfileTitle: String = "",
         taskId: String = ""
     ): String
+
+    // Library — isolated per account, folders + items, manual/agent sources
+    fun observeLibraryFolders(userId: String): Flow<List<LibraryFolder>> = flowOf(emptyList())
+    fun observeLibraryItems(userId: String): Flow<List<LibraryItem>> = flowOf(emptyList())
+    suspend fun createLibraryFolder(userId: String, name: String, kind: String = "manual"): String { throw NotImplementedError() }
+    suspend fun renameLibraryFolder(userId: String, folderId: String, newName: String) { throw NotImplementedError() }
+    suspend fun deleteLibraryFolder(userId: String, folderId: String) { throw NotImplementedError() }
+    suspend fun createLibraryItem(
+        userId: String,
+        folderId: String,
+        title: String,
+        category: String,
+        source: String,
+        mimeType: String,
+        textContent: String,
+        fileName: String = ""
+    ): String { throw NotImplementedError() }
+    suspend fun updateLibraryItem(
+        userId: String,
+        itemId: String,
+        title: String? = null,
+        folderId: String? = null,
+        category: String? = null,
+        textContent: String? = null
+    ) { throw NotImplementedError() }
+    suspend fun deleteLibraryItem(userId: String, itemId: String) { throw NotImplementedError() }
+    suspend fun moveLibraryItem(userId: String, itemId: String, targetFolderId: String) { throw NotImplementedError() }
 }

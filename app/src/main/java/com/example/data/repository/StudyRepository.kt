@@ -14,6 +14,14 @@ import com.example.data.model.HabitCategory
 import com.example.data.model.NotificationFrequency
 import com.example.data.model.StudyCountdown
 import com.example.data.model.StudyHabit
+import com.example.data.model.LibraryFolder
+import com.example.data.model.LibraryFolderKind
+import com.example.data.model.LibraryItem
+import com.example.data.model.LibraryItemCategory
+import com.example.data.model.LibraryItemSource
+import com.example.data.model.MAX_LIBRARY_FOLDER_NAME
+import com.example.data.model.MAX_LIBRARY_TEXT_CHARS
+import com.example.data.model.MAX_LIBRARY_TITLE_CHARS
 import com.example.data.model.StudyProject
 import com.example.data.model.StudyTask
 import com.example.data.model.NavigationLayout
@@ -64,6 +72,8 @@ class StudyRepository(
     private fun focusProfilesCol(userId: String) = userDoc(userId).collection("focusProfiles")
     private fun habitsCol(userId: String) = userDoc(userId).collection("habits")
     private fun countdownsCol(userId: String) = userDoc(userId).collection("countdowns")
+    private fun libraryFoldersCol(userId: String) = userDoc(userId).collection("libraryFolders")
+    private fun libraryItemsCol(userId: String) = userDoc(userId).collection("libraryItems")
 
     private fun requireSignedInUid(): String {
         return auth.currentUser?.uid
@@ -1456,6 +1466,123 @@ class StudyRepository(
             handleFirestoreError(e, OperationType.CREATE, sessionRef.path)
             throw e
         }
+    }
+
+
+    override fun observeLibraryFolders(userId: String): Flow<List<LibraryFolder>> =
+        libraryFoldersCol(userId).snapshots()
+            .map { snap -> snap.toObjects(LibraryFolder::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE).sortedBy { it.name.lowercase() } }
+            .catch { error ->
+                val fe = generateSequence(error) { it.cause }.filterIsInstance<FirebaseFirestoreException>().firstOrNull()
+                if (fe == null && error is CancellationException) throw error
+                if (auth.currentUser?.uid == userId) handleFirestoreError(fe ?: error, OperationType.LIST, "users/$userId/libraryFolders")
+                throw error
+            }
+
+    override fun observeLibraryItems(userId: String): Flow<List<LibraryItem>> =
+        libraryItemsCol(userId).snapshots()
+            .map { snap -> snap.toObjects(LibraryItem::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE).sortedByDescending { it.createdAt?.seconds ?: 0L } }
+            .catch { error ->
+                val fe = generateSequence(error) { it.cause }.filterIsInstance<FirebaseFirestoreException>().firstOrNull()
+                if (fe == null && error is CancellationException) throw error
+                if (auth.currentUser?.uid == userId) handleFirestoreError(fe ?: error, OperationType.LIST, "users/$userId/libraryItems")
+                throw error
+            }
+
+    override suspend fun createLibraryFolder(userId: String, name: String, kind: String): String {
+        require(requireSignedInUid() == userId) { "Utilisateur non autorisé." }
+        val safeName = name.trim().take(MAX_LIBRARY_FOLDER_NAME)
+        require(safeName.isNotBlank()) { "Le nom du dossier est requis." }
+        val safeKind = LibraryFolderKind.sanitize(kind)
+        val ref = libraryFoldersCol(userId).document()
+        val payload = mapOf(
+            "userId" to userId,
+            "name" to safeName,
+            "kind" to safeKind,
+            "createdAt" to FieldValue.serverTimestamp(),
+            "updatedAt" to FieldValue.serverTimestamp()
+        )
+        try { awaitOptimisticWrite(ref.set(payload), OperationType.CREATE, ref.path); return ref.id } catch (e: CancellationException) { throw e } catch (e: Exception) { handleFirestoreError(e, OperationType.CREATE, ref.path); throw e }
+    }
+
+    override suspend fun renameLibraryFolder(userId: String, folderId: String, newName: String) {
+        require(requireSignedInUid() == userId) { "Utilisateur non autorisé." }
+        val safe = newName.trim().take(MAX_LIBRARY_FOLDER_NAME)
+        require(safe.isNotBlank()) { "Le nom du dossier est requis." }
+        val ref = libraryFoldersCol(userId).document(folderId)
+        try { awaitOptimisticWrite(ref.update(mapOf("name" to safe, "updatedAt" to FieldValue.serverTimestamp())), OperationType.UPDATE, ref.path) } catch (e: CancellationException) { throw e } catch (e: Exception) { handleFirestoreError(e, OperationType.UPDATE, ref.path); throw e }
+    }
+
+    override suspend fun deleteLibraryFolder(userId: String, folderId: String) {
+        require(requireSignedInUid() == userId) { "Utilisateur non autorisé." }
+        val linked = getQueryServerOrCache(libraryItemsCol(userId).whereEqualTo("folderId", folderId))?.documents.orEmpty()
+        linked.chunked(400).forEach { chunk ->
+            val batch = db.batch()
+            chunk.forEach { doc -> batch.update(doc.reference, mapOf("folderId" to "", "updatedAt" to FieldValue.serverTimestamp())) }
+            awaitOptimisticWrite(batch.commit(), OperationType.WRITE, "users/$userId/libraryItems")
+        }
+        val ref = libraryFoldersCol(userId).document(folderId)
+        try { awaitOptimisticWrite(ref.delete(), OperationType.DELETE, ref.path) } catch (e: CancellationException) { throw e } catch (e: Exception) { handleFirestoreError(e, OperationType.DELETE, ref.path); throw e }
+    }
+
+    override suspend fun createLibraryItem(userId: String, folderId: String, title: String, category: String, source: String, mimeType: String, textContent: String, fileName: String): String {
+        require(requireSignedInUid() == userId) { "Utilisateur non autorisé." }
+        if (folderId.isNotBlank()) {
+            val folder = getDocumentServerOrCache(libraryFoldersCol(userId).document(folderId))
+            require(folder?.exists() == true) { "Le dossier sélectionné n'existe plus." }
+        }
+        val safeTitle = title.trim().take(MAX_LIBRARY_TITLE_CHARS).ifBlank { "Document sans titre" }
+        val safeCat = LibraryItemCategory.sanitize(category)
+        val safeSrc = LibraryItemSource.sanitize(source)
+        val safeMime = mimeType.trim().lowercase().take(30).ifBlank { "markdown" }
+        require(safeMime in setOf("markdown", "pdf", "html", "text")) { "Type de document non pris en charge." }
+        val safeText = textContent.take(MAX_LIBRARY_TEXT_CHARS)
+        require(safeText.isNotBlank()) { "Le contenu textuel est requis." }
+        val ref = libraryItemsCol(userId).document()
+        val payload = mapOf(
+            "userId" to userId,
+            "folderId" to folderId.trim().take(128),
+            "title" to safeTitle,
+            "category" to safeCat,
+            "source" to safeSrc,
+            "mimeType" to safeMime,
+            "textContent" to safeText,
+            "fileName" to fileName.trim().take(180),
+            "createdAt" to FieldValue.serverTimestamp(),
+            "updatedAt" to FieldValue.serverTimestamp()
+        )
+        try { awaitOptimisticWrite(ref.set(payload), OperationType.CREATE, ref.path); return ref.id } catch (e: CancellationException) { throw e } catch (e: Exception) { handleFirestoreError(e, OperationType.CREATE, ref.path); throw e }
+    }
+
+    override suspend fun updateLibraryItem(userId: String, itemId: String, title: String?, folderId: String?, category: String?, textContent: String?) {
+        require(requireSignedInUid() == userId) { "Utilisateur non autorisé." }
+        val ref = libraryItemsCol(userId).document(itemId)
+        val updates = mutableMapOf<String, Any>("updatedAt" to FieldValue.serverTimestamp())
+        title?.let { updates["title"] = it.trim().take(MAX_LIBRARY_TITLE_CHARS).ifBlank { "Document sans titre" } }
+        folderId?.let {
+            if (it.isNotBlank()) {
+                val folder = getDocumentServerOrCache(libraryFoldersCol(userId).document(it))
+                require(folder?.exists() == true) { "Le dossier sélectionné n'existe plus." }
+            }
+            updates["folderId"] = it.trim().take(128)
+        }
+        category?.let { updates["category"] = LibraryItemCategory.sanitize(it) }
+        textContent?.let {
+            val safe = it.take(MAX_LIBRARY_TEXT_CHARS)
+            require(safe.isNotBlank()) { "Le contenu ne peut pas être vide." }
+            updates["textContent"] = safe
+        }
+        try { awaitOptimisticWrite(ref.update(updates), OperationType.UPDATE, ref.path) } catch (e: CancellationException) { throw e } catch (e: Exception) { handleFirestoreError(e, OperationType.UPDATE, ref.path); throw e }
+    }
+
+    override suspend fun deleteLibraryItem(userId: String, itemId: String) {
+        require(requireSignedInUid() == userId) { "Utilisateur non autorisé." }
+        val ref = libraryItemsCol(userId).document(itemId)
+        try { awaitOptimisticWrite(ref.delete(), OperationType.DELETE, ref.path) } catch (e: CancellationException) { throw e } catch (e: Exception) { handleFirestoreError(e, OperationType.DELETE, ref.path); throw e }
+    }
+
+    override suspend fun moveLibraryItem(userId: String, itemId: String, targetFolderId: String) {
+        updateLibraryItem(userId, itemId, folderId = targetFolderId)
     }
 
     private companion object {

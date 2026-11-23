@@ -437,6 +437,11 @@ private fun AuthenticatedStudyShell(
     val libraryFoldersState by viewModel.libraryFoldersState.collectAsStateWithLifecycle()
     val libraryItemsState by viewModel.libraryItemsState.collectAsStateWithLifecycle()
     val libraryItems = (libraryItemsState as? UiState.Success)?.data.orEmpty()
+    val searchResults by viewModel.searchResults.collectAsStateWithLifecycle()
+    val searchLoading by viewModel.searchLoading.collectAsStateWithLifecycle()
+    val searchError by viewModel.searchError.collectAsStateWithLifecycle()
+    val imageGenerating by viewModel.imageGenerating.collectAsStateWithLifecycle()
+    val imageError by viewModel.imageError.collectAsStateWithLifecycle()
 
     var currentTab by rememberSaveable { mutableStateOf(LightTab.HOME) }
     var activeMorePage by rememberSaveable { mutableStateOf<MoreSubPage?>(null) }
@@ -1082,7 +1087,16 @@ private fun AuthenticatedStudyShell(
                                                 libraryItemsState = libraryItemsState,
                                                 onSaveToLibrary = { folderId, title, category, source, mimeType, textContent, fileName ->
                                                     viewModel.createLibraryItem(folderId, title, category, source, mimeType, textContent, fileName)
-                                                }
+                                                },
+                                                searchResults = searchResults,
+                                                searchLoading = searchLoading,
+                                                searchError = searchError,
+                                                onSearch = viewModel::performSearch,
+                                                onClearSearch = viewModel::clearSearch,
+                                                imageGenerating = imageGenerating,
+                                                imageError = imageError,
+                                                onGenerateImage = { prompt, folderId -> viewModel.generateImages(prompt, folderId) },
+                                                onClearImageError = viewModel::clearImageError
                                             )
                                         } else {
                                             Column(modifier = Modifier.fillMaxSize()) {

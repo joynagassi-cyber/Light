@@ -48,6 +48,9 @@ import com.example.data.repository.AgentTurnProgress
 import com.example.data.repository.belongsTo
 import com.example.data.repository.AgentModelCatalogRepository
 import com.example.data.repository.AiPlannerRepository
+import com.example.data.repository.ImageGenerationRepository
+import com.example.data.repository.SearchRepository
+import com.example.data.repository.SearchResult
 import com.example.data.repository.StudyAgentToolExecutor
 import com.example.data.repository.StudyWorkspaceRepository
 import com.example.notifications.LightNotificationHelper
@@ -130,7 +133,9 @@ class StudyViewModel(
     private val focusAudioEngine: FocusAudioEngine = FocusAudioEngine(),
     val isOnline: StateFlow<Boolean> = MutableStateFlow(true),
     val isLocalMode: Boolean = false,
-    private val agentThreadsStore: AgentThreadsStore? = null
+    private val agentThreadsStore: AgentThreadsStore? = null,
+    private val searchRepository: SearchRepository = SearchRepository(),
+    private val imageGenerationRepository: ImageGenerationRepository = ImageGenerationRepository()
 ) : ViewModel() {
 
     private var timerJob: Job? = null
@@ -2054,6 +2059,75 @@ class StudyViewModel(
         isUser = false,
         text = "Bonjour ! Je suis Light, votre assistant de travail. Selon les capacités autorisées, je peux consulter vos données d'étude, créer des tâches, matières, projets, habitudes et échéances, valider une tâche, changer le thème ou lancer Focus. Avant chaque action, je vous présente les détails et j'attends votre accord. Vous gérez mes accès dans Paramètres → Capacités de l’agent."
     )
+
+    // Recherche web explicite (Tavily/Exa) — opt-in + clé locale, sources visibles
+    private val _searchResults = MutableStateFlow<List<SearchResult>>(emptyList())
+    val searchResults: StateFlow<List<SearchResult>> = _searchResults.asStateFlow()
+    private val _searchLoading = MutableStateFlow(false)
+    val searchLoading: StateFlow<Boolean> = _searchLoading.asStateFlow()
+    private val _searchError = MutableStateFlow<String?>(null)
+    val searchError: StateFlow<String?> = _searchError.asStateFlow()
+
+    fun performSearch(query: String) {
+        val settings = appSettings.value
+        if (!settings.searchEnabled || settings.searchProvider == "none") {
+            _searchError.value = "Recherche désactivée. Activez-la dans Paramètres → Recherche & Images."
+            return
+        }
+        viewModelScope.launch {
+            _searchLoading.value = true
+            _searchError.value = null
+            try {
+                val key = themePreferencesStore.readSearchApiKey(settings.searchProvider)
+                val results = searchRepository.search(query, settings.searchProvider, key)
+                _searchResults.value = results
+                if (results.isEmpty()) _searchError.value = "Aucun résultat pour cette requête."
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) {
+                _searchError.value = e.localizedMessage ?: "Recherche indisponible."
+                _searchResults.value = emptyList()
+            } finally { _searchLoading.value = false }
+        }
+    }
+
+    fun clearSearch() {
+        _searchResults.value = emptyList()
+        _searchError.value = null
+    }
+
+    // Génération d'images — OpenAI/OpenRouter, enregistrement en bibliothèque
+    private val _imageGenerating = MutableStateFlow(false)
+    val imageGenerating: StateFlow<Boolean> = _imageGenerating.asStateFlow()
+    private val _imageError = MutableStateFlow<String?>(null)
+    val imageError: StateFlow<String?> = _imageError.asStateFlow()
+
+    fun generateImages(prompt: String, folderId: String = "", onSaved: (String) -> Unit = {}) {
+        val settings = appSettings.value
+        if (!settings.imageEnabled || settings.imageProvider == "none") {
+            _imageError.value = "Génération désactivée. Activez-la dans Paramètres → Recherche & Images."
+            return
+        }
+        viewModelScope.launch {
+            _imageGenerating.value = true
+            _imageError.value = null
+            try {
+                val key = themePreferencesStore.readImageApiKey(settings.imageProvider)
+                val images = imageGenerationRepository.generate(prompt, settings.imageProvider, key, settings.imageSize)
+                for (img in images) {
+                    // Enregistre chaque image comme artefact en bibliothèque (URL comme contenu, attribution)
+                    val title = prompt.take(60).ifBlank { "Image générée" }
+                    val content = "Image générée via ${settings.imageProvider} — prompt: $prompt\nURL: ${img.url}\n${img.revisedPrompt?.let { "Prompt révisé: $it" } ?: ""}".take(800000)
+                    createLibraryItem(folderId, title, "other", "agent", "text", content, "")
+                }
+                onSaved("${images.size} image(s) enregistrée(s) dans la bibliothèque.")
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) {
+                _imageError.value = e.localizedMessage ?: "Génération indisponible."
+            } finally { _imageGenerating.value = false }
+        }
+    }
+
+    fun clearImageError() { _imageError.value = null }
 
     private fun unwrapFirestoreError(error: Throwable): FirebaseFirestoreException? =
         generateSequence(error) { it.cause }

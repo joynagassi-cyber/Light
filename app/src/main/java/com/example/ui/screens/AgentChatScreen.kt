@@ -3,11 +3,7 @@ package com.example.ui.screens
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -164,13 +160,23 @@ fun AgentChatScreen(
     modifier: Modifier = Modifier,
     libraryFoldersState: UiState<List<com.example.data.model.LibraryFolder>> = UiState.Success(emptyList()),
     libraryItemsState: UiState<List<com.example.data.model.LibraryItem>> = UiState.Success(emptyList()),
-    onSaveToLibrary: ((folderId: String, title: String, category: String, source: String, mimeType: String, textContent: String, fileName: String) -> Unit)? = null
+    onSaveToLibrary: ((folderId: String, title: String, category: String, source: String, mimeType: String, textContent: String, fileName: String) -> Unit)? = null,
+    searchResults: List<com.example.data.repository.SearchResult> = emptyList(),
+    searchLoading: Boolean = false,
+    searchError: String? = null,
+    onSearch: (String) -> Unit = {},
+    onClearSearch: () -> Unit = {},
+    imageGenerating: Boolean = false,
+    imageError: String? = null,
+    onGenerateImage: (String, String) -> Unit = { _, _ -> },
+    onClearImageError: () -> Unit = {}
 ) {
     val gradient = LocalLightGradient.current
     var inputText by rememberSaveable(activeThreadId) { mutableStateOf("") }
     var showAgentSettings by rememberSaveable { mutableStateOf(false) }
     var showUsageHistory by rememberSaveable { mutableStateOf(false) }
-    var showAttachmentTray by rememberSaveable(activeThreadId) { mutableStateOf(false) }
+    var showAttachmentTray by remember(activeThreadId) { mutableStateOf(false) }
+    LaunchedEffect(activeThreadId) { showAttachmentTray = false }
     var openDocumentId by rememberSaveable(activeThreadId) { mutableStateOf<String?>(null) }
     var showSkills by rememberSaveable(activeThreadId) { mutableStateOf(false) }
     var selectedSkillKey by rememberSaveable(activeThreadId) { mutableStateOf<String?>(null) }
@@ -189,6 +195,11 @@ fun AgentChatScreen(
     var extractionError by remember(activeThreadId) { mutableStateOf<String?>(null) }
     var showDocumentConsent by remember(activeThreadId) { mutableStateOf(false) }
     var showLibraryPicker by remember(activeThreadId) { mutableStateOf(false) }
+    var showSearchSheet by remember(activeThreadId) { mutableStateOf(false) }
+    var showImageSheet by remember(activeThreadId) { mutableStateOf(false) }
+    var searchQuery by remember(activeThreadId) { mutableStateOf("") }
+    var imagePrompt by remember(activeThreadId) { mutableStateOf("") }
+    var imageFolderId by remember { mutableStateOf("") }
     var saveLibraryTarget by remember { mutableStateOf<AgentChatMessage?>(null) }
     val libraryFolders = (libraryFoldersState as? UiState.Success)?.data.orEmpty()
     val draftToken = remember(activeThreadId) { Any() }
@@ -485,11 +496,7 @@ fun AgentChatScreen(
             Spacer(modifier = Modifier.height(6.dp))
         }
 
-        AnimatedVisibility(
-            visible = showAttachmentTray,
-            enter = fadeIn() + expandVertically(),
-            exit = fadeOut() + shrinkVertically()
-        ) {
+        if (showAttachmentTray) {
             Surface(
                 shape = RoundedCornerShape(18.dp),
                 color = gradient.softContainer,
@@ -554,6 +561,24 @@ fun AgentChatScreen(
                         Icon(Icons.Rounded.Description, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
                         Text("Choisir dans la bibliothèque")
+                    }
+                    TextButton(
+                        onClick = { showAttachmentTray = false; showSearchSheet = true },
+                        enabled = !isBusy,
+                        modifier = Modifier.padding(horizontal = 10.dp).testTag("agent_search_button"),
+                    ) {
+                        Icon(Icons.Rounded.Search, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Rechercher sur le web")
+                    }
+                    TextButton(
+                        onClick = { showAttachmentTray = false; showImageSheet = true },
+                        enabled = !isBusy,
+                        modifier = Modifier.padding(horizontal = 10.dp).testTag("agent_image_button"),
+                    ) {
+                        Icon(Icons.Rounded.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Générer une image")
                     }
                 }
             }
@@ -752,6 +777,43 @@ fun AgentChatScreen(
                 onDismiss = { saveLibraryTarget = null }
             )
         }
+    }
+
+    if (showSearchSheet) {
+        com.example.ui.components.SearchAgentSheet(
+            query = searchQuery,
+            onQueryChange = { searchQuery = it },
+            results = searchResults,
+            loading = searchLoading,
+            error = searchError,
+            enabled = settings.searchEnabled && settings.searchProvider != "none",
+            providerName = settings.searchProvider,
+            onSearch = { onSearch(searchQuery) },
+            onPick = { result ->
+                val header = "\n\n[Source: ${result.title} — ${result.url}]\n"
+                inputText = (inputText + header + result.snippet.take(2000)).take(12000)
+                showSearchSheet = false
+            },
+            onClear = onClearSearch,
+            onDismiss = { showSearchSheet = false }
+        )
+    }
+
+    if (showImageSheet) {
+        com.example.ui.components.ImageAgentSheet(
+            prompt = imagePrompt,
+            onPromptChange = { imagePrompt = it },
+            folderId = imageFolderId,
+            onFolderChange = { imageFolderId = it },
+            folders = libraryFolders,
+            generating = imageGenerating,
+            error = imageError,
+            enabled = settings.imageEnabled && settings.imageProvider != "none",
+            providerName = settings.imageProvider,
+            onGenerate = { onGenerateImage(imagePrompt, imageFolderId) },
+            onClearError = onClearImageError,
+            onDismiss = { showImageSheet = false }
+        )
     }
 
     if (showAgentSettings) {

@@ -184,7 +184,7 @@ fun LibraryScreen(
                 onClick = { showCreateFolder = true },
                 modifier = Modifier.testTag("library_create_folder_button")
             ) {
-                Icon(Icons.Rounded.DriveFolderUpload, contentDescription = null, modifier = Modifier.size(16.dp))
+                Icon(Icons.Rounded.Folder, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.size(6.dp))
                 Text("Nouveau dossier")
             }
@@ -225,7 +225,7 @@ fun LibraryScreen(
                                 Text(text = LibraryFolderKind.fromKey(folder.kind).label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             IconButton(onClick = { folderRenameTarget = folder; renameText = folder.name }, modifier = Modifier.size(32.dp)) {
-                                Icon(Icons.Rounded.DriveFolderUpload, contentDescription = "Renommer", modifier = Modifier.size(16.dp))
+                                Icon(Icons.Rounded.Folder, contentDescription = "Renommer", modifier = Modifier.size(16.dp))
                             }
                             IconButton(onClick = { onDeleteFolder(folder.id) }, modifier = Modifier.size(32.dp)) {
                                 Icon(Icons.Rounded.Delete, contentDescription = "Supprimer dossier", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
@@ -481,7 +481,7 @@ private fun LibraryItemRow(
             }
             Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 IconButton(onClick = { showMove = !showMove }, modifier = Modifier.size(36.dp)) {
-                    Icon(Icons.Rounded.DriveFolderUpload, contentDescription = "Déplacer", modifier = Modifier.size(16.dp))
+                    Icon(Icons.Rounded.Folder, contentDescription = "Déplacer", modifier = Modifier.size(16.dp))
                 }
                 IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
                     Icon(Icons.Rounded.Delete, contentDescription = "Supprimer", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
@@ -509,9 +509,9 @@ private fun LibraryItemRow(
 }
 
 private fun mimeIcon(mime: String): ImageVector = when (mime.lowercase()) {
-    "pdf" -> Icons.Rounded.PictureAsPdf
-    "html" -> Icons.Rounded.Html
-    "markdown" -> Icons.Rounded.TextSnippet
+    "pdf" -> Icons.Rounded.Description
+    "html" -> Icons.Rounded.Code
+    "markdown" -> Icons.Rounded.Description
     else -> Icons.Rounded.Description
 }
 

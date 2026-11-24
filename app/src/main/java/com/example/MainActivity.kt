@@ -1469,6 +1469,7 @@ private fun AuthenticatedStudyShell(
                                 .widthIn(max = 760.dp)
                                 .fillMaxSize()
                         )
+                        else -> Box(Modifier.fillMaxSize()) {}
                     }
                 }
             }

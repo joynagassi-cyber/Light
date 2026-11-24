@@ -992,6 +992,68 @@ private fun AuthenticatedStudyShell(
                                     onOpenSettings = openSettingsAction
                                 )
 
+                                LightTab.LIBRARY -> LibraryScreen(
+                                    foldersState = libraryFoldersState,
+                                    itemsState = libraryItemsState,
+                                    onCreateFolder = viewModel::createLibraryFolder,
+                                    onRenameFolder = viewModel::renameLibraryFolder,
+                                    onDeleteFolder = viewModel::deleteLibraryFolder,
+                                    onCreateItem = { folderId, title, category, source, mimeType, textContent, fileName ->
+                                        viewModel.createLibraryItem(folderId, title, category, source, mimeType, textContent, fileName)
+                                    },
+                                    onDeleteItem = viewModel::deleteLibraryItem,
+                                    onMoveItem = viewModel::moveLibraryItem
+                                )
+                                LightTab.AGENT -> AgentChatScreen(
+                                    messages = agentMessages,
+                                    threads = agentThreads,
+                                    activeThreadId = activeAgentThreadId,
+                                    isBusy = agentBusy,
+                                    liveProgress = agentProgress,
+                                    pendingAction = pendingAgentApproval,
+                                    onResolveAgentAction = viewModel::resolveAgentApproval,
+                                    onSendMessage = { prompt, visibleMessage, skillKey ->
+                                        viewModel.sendAgentMessage(prompt = prompt, displayPrompt = visibleMessage, skillKey = skillKey, onStartFocusRequested = { currentTab = LightTab.FOCUS })
+                                    },
+                                    onClearConversation = viewModel::clearAgentConversation,
+                                    onSelectThread = viewModel::selectAgentThread,
+                                    onNewThread = viewModel::startNewAgentThread,
+                                    onDeleteThread = viewModel::deleteAgentThread,
+                                    onOpenSettings = openSettingsAction,
+                                    settings = appSettings,
+                                    apiKeyConfigured = agentApiKeyConfigured,
+                                    agentModels = agentModels,
+                                    agentModelsLoading = agentModelsLoading,
+                                    agentModelsError = agentModelsError,
+                                    agentUsage = agentUsage,
+                                    onClearAgentUsage = viewModel::clearAgentUsage,
+                                    onLoadAgentModels = viewModel::loadAgentModels,
+                                    onSaveAgentSettings = viewModel::updateAgentPreferences,
+                                    showEmbeddedNavigationChrome = true,
+                                    externalConfigTrigger = agentConfigTrigger,
+                                    libraryFoldersState = libraryFoldersState,
+                                    libraryItemsState = libraryItemsState,
+                                    onSaveToLibrary = { folderId, title, category, source, mimeType, textContent, fileName ->
+                                        viewModel.createLibraryItem(folderId, title, category, source, mimeType, textContent, fileName)
+                                    },
+                                    searchResults = searchResults,
+                                    searchLoading = searchLoading,
+                                    searchError = searchError,
+                                    onSearch = viewModel::performSearch,
+                                    onClearSearch = viewModel::clearSearch,
+                                    imageGenerating = imageGenerating,
+                                    imageError = imageError,
+                                    onGenerateImage = { prompt, folderId -> viewModel.generateImages(prompt, folderId) },
+                                    onClearImageError = viewModel::clearImageError
+                                )
+                                LightTab.SEARCH -> SearchScreen(tasks = tasks, courses = courses, habits = habits, countdowns = countdowns, onToggleTask = viewModel::toggleTaskCompleted, onStartFocusForTask = startFocusForTask, onToggleHabitToday = viewModel::toggleHabitToday)
+                                LightTab.PROGRESS -> ProgressScreen(profile = profile, courses = courses, tasks = tasks, sessions = sessions, onUpdateCourseGrade = viewModel::updateCourseGrade, onOpenSettings = openSettingsAction, habits = habits, focusProfiles = focusProfiles)
+                                LightTab.HABITS -> HabitsScreen(habits = habits, onToggleHabitToday = viewModel::toggleHabitToday, onCreateHabit = viewModel::createHabit, onDeleteHabit = viewModel::deleteHabit, externalCreateTrigger = habitCreateTrigger)
+                                LightTab.COUNTDOWN -> CountdownScreen(countdowns = countdowns, onCreateCountdown = viewModel::createCountdown, onDeleteCountdown = viewModel::deleteCountdown, externalCreateTrigger = countdownCreateTrigger)
+                                LightTab.PROJECTS -> GanttScreen(tasks = tasks, courses = courses, projects = projects, onCreateProject = viewModel::createProject, onUpdateProject = viewModel::updateProject, onDeleteProject = viewModel::deleteProject, onCreateTask = { projectId -> pendingTaskQuadrant = null; pendingProjectId = projectId; pendingFocusProfileId = ""; showTaskCreation = true }, onToggleTask = viewModel::toggleTaskCompleted, onDeleteTask = viewModel::deleteTask, onMoveTask = viewModel::moveTask, onSetPredecessors = viewModel::setTaskPredecessors, externalCreateTrigger = ganttCreateTrigger)
+                                LightTab.FOCUS_PROFILES -> FocusProfilesScreen(profiles = focusProfiles, tasks = tasks, sessions = sessions, focusState = focusState, initialSelectedProfileId = initialFocusProfileDetailId, externalCreateTrigger = focusProfileCreateTrigger, onCreateProfile = viewModel::createFocusProfile, onDeleteProfile = viewModel::deleteFocusProfile, onAssignTaskToProfile = viewModel::assignTaskToFocusProfile, onToggleTaskCompleted = viewModel::toggleTaskCompleted, onStartFocusForTaskInProfile = { fp, task -> viewModel.startFocusForProfileTask(fp, task, courses) }, onToggleTimerPlayPause = { viewModel.toggleFocusTimer(courses) }, onOpenTimerScreen = { currentTab = LightTab.FOCUS }, onOpenCreateTaskForProfile = { fp -> pendingTaskQuadrant = null; pendingProjectId = ""; pendingFocusProfileId = fp.id; showTaskCreation = true })
+                                LightTab.FOCUS_ANALYTICS -> FocusAnalyticsScreen(sessions = sessions, courses = courses, onStartFocusSession = { currentTab = LightTab.FOCUS }, onOpenSettings = openSettingsAction, focusProfiles = focusProfiles)
+
                                 LightTab.MORE -> {
                                     AnimatedContent(
                                         targetState = activeMorePage,

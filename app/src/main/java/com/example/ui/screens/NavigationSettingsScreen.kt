@@ -12,10 +12,22 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Circle
+import androidx.compose.material.icons.rounded.DateRange
+import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.Event
+import androidx.compose.material.icons.rounded.GridView
+import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.Insights
+import androidx.compose.material.icons.rounded.School
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.SelfImprovement
 import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -46,6 +58,19 @@ internal fun navigationIcon(id: String?): ImageVector? = when (id) {
     "star" -> Icons.Rounded.Star
     "circle" -> Icons.Rounded.Circle
     "bolt" -> Icons.Rounded.Bolt
+    "home" -> Icons.Rounded.Home
+    "calendar" -> Icons.Rounded.DateRange
+    "timer" -> Icons.Rounded.Timer
+    "grid" -> Icons.Rounded.GridView
+    "book" -> Icons.Rounded.Description
+    "auto_awesome" -> Icons.Rounded.AutoAwesome
+    "search" -> Icons.Rounded.Search
+    "bar_chart" -> Icons.Rounded.BarChart
+    "self_improvement" -> Icons.Rounded.SelfImprovement
+    "event" -> Icons.Rounded.Event
+    "date_range" -> Icons.Rounded.DateRange
+    "school" -> Icons.Rounded.School
+    "insights" -> Icons.Rounded.Insights
     else -> null
 }
 
@@ -54,6 +79,19 @@ private fun navigationIconLabel(id: String?) = when (id) {
     "star" -> "Étoile"
     "circle" -> "Cercle"
     "bolt" -> "Éclair"
+    "home" -> "Accueil"
+    "calendar" -> "Calendrier"
+    "timer" -> "Focus"
+    "grid" -> "Matrice"
+    "book" -> "Bibliothèque"
+    "auto_awesome" -> "Agent IA"
+    "search" -> "Recherche"
+    "bar_chart" -> "Progrès"
+    "self_improvement" -> "Habitudes"
+    "event" -> "Échéances"
+    "date_range" -> "Projets"
+    "school" -> "Profils Focus"
+    "insights" -> "Analytics"
     else -> "Par défaut"
 }
 

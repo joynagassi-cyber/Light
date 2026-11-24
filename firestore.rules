@@ -1,378 +1,97 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Global default deny catch-all
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
     function isSignedIn() {
       return request.auth != null;
     }
-
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
-
     function isValidId(id) {
       return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
-
-    function incoming() {
-      return request.resource.data;
-    }
-
-    function existing() {
-      return resource.data;
-    }
-
     function isValidIsoDate(value) {
       return value is string && value.matches('^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$');
     }
 
-    function isValidUserProfile(data, userId) {
-      return data.userId is string && data.userId == userId &&
-             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 80 &&
-             (!('email' in data) || (data.email is string && data.email.size() <= 120)) &&
-             data.major is string && data.major.size() >= 1 && data.major.size() <= 80 &&
-             data.selectedGradientId is string && data.selectedGradientId.size() >= 1 && data.selectedGradientId.size() <= 40 &&
-             data.dailyGoalTasks is int && data.dailyGoalTasks >= 1 && data.dailyGoalTasks <= 50 &&
-             data.streakDays is int && data.streakDays >= 0 && data.streakDays <= 3650 &&
-             (!('lastStudyDate' in data) || (data.lastStudyDate is string && data.lastStudyDate.size() <= 20)) &&
-             (!('gender' in data) || data.gender in ['feminine', 'masculine']) &&
-             (!('birthYear' in data) || (data.birthYear is int && data.birthYear >= 1930 && data.birthYear <= 2020)) &&
-             (!('age' in data) || (data.age is int && data.age >= 6 && data.age <= 100)) &&
-             (!('profession' in data) || data.profession in ['student', 'entrepreneur', 'self_taught', 'individual', 'other']) &&
-             (!('customProfession' in data) || (data.customProfession is string && data.customProfession.size() <= 80)) &&
-             (!('notificationsEnabled' in data) || data.notificationsEnabled is bool) &&
-             (!('notificationFrequency' in data) || data.notificationFrequency in ['realtime', 'daily', 'every_3h', 'weekly', 'off']) &&
-             (!('onboardingCompleted' in data) || data.onboardingCompleted is bool) &&
-             data.createdAt is timestamp && data.createdAt <= request.time &&
-             data.updatedAt is timestamp && data.updatedAt <= request.time;
-    }
-
-    function isValidCourse(data, userId) {
-      return data.userId is string && data.userId == userId &&
-             data.code is string && data.code.size() >= 1 && data.code.size() <= 20 &&
-             data.title is string && data.title.size() >= 1 && data.title.size() <= 100 &&
-             (!('professor' in data) || (data.professor is string && data.professor.size() <= 80)) &&
-             (!('iconKey' in data) || (data.iconKey is string && data.iconKey.size() <= 40)) &&
-             data.colorIndex is int && data.colorIndex >= 0 && data.colorIndex <= 15 &&
-             data.targetMinutes is int && data.targetMinutes >= 30 && data.targetMinutes <= 60000 &&
-             data.completedMinutes is int && data.completedMinutes >= 0 && data.completedMinutes <= 600000 &&
-             data.grade is number && data.grade >= 0 && data.grade <= 20 &&
-             data.createdAt is timestamp && data.createdAt <= request.time &&
-             data.updatedAt is timestamp && data.updatedAt <= request.time;
-    }
-
-    function isValidProject(data, userId) {
-      return data.userId is string && data.userId == userId &&
-             data.title is string && data.title.size() >= 1 && data.title.size() <= 120 &&
-             (!('description' in data) || (data.description is string && data.description.size() <= 500)) &&
-             isValidIsoDate(data.startDateIso) &&
-             isValidIsoDate(data.dueDateIso) &&
-             data.startDateIso <= data.dueDateIso &&
-             data.status in ['active', 'on_hold', 'completed'] &&
-             data.createdAt is timestamp && data.createdAt <= request.time &&
-             data.updatedAt is timestamp && data.updatedAt <= request.time;
-    }
-
-    function isValidSubtaskAt(items, index) {
-      return items.size() <= index ||
-             (items[index] is string && items[index].size() >= 1 && items[index].size() <= 120);
-    }
-
-    function isValidSubtasks(items) {
-      return items is list && items.size() <= 8 &&
-             isValidSubtaskAt(items, 0) && isValidSubtaskAt(items, 1) &&
-             isValidSubtaskAt(items, 2) && isValidSubtaskAt(items, 3) &&
-             isValidSubtaskAt(items, 4) && isValidSubtaskAt(items, 5) &&
-             isValidSubtaskAt(items, 6) && isValidSubtaskAt(items, 7);
-    }
-
-    function isValidPredecessorAt(items, index, userId, taskId) {
-      return items.size() <= index ||
-        (isValidId(items[index]) && items[index] != taskId &&
-         exists(/databases/$(database)/documents/users/$(userId)/tasks/$(items[index])));
-    }
-
-    function isValidPredecessors(data, userId, taskId) {
-      let items = data.get('predecessorIds', []);
-      return items is list && items.size() <= 4 && items.toSet().size() == items.size() &&
-        isValidPredecessorAt(items, 0, userId, taskId) && isValidPredecessorAt(items, 1, userId, taskId) &&
-        isValidPredecessorAt(items, 2, userId, taskId) && isValidPredecessorAt(items, 3, userId, taskId);
-    }
-
-    function isValidStudyTask(data, userId) {
-      return data.userId is string && data.userId == userId &&
-             (!('courseId' in data) || (data.courseId is string && data.courseId.size() <= 128)) &&
-             (!('courseTitle' in data) || (data.courseTitle is string && data.courseTitle.size() <= 100)) &&
-             (!('projectId' in data) || (data.projectId is string && data.projectId.size() <= 128 && (data.projectId == '' || exists(/databases/$(database)/documents/users/$(userId)/projects/$(data.projectId))))) &&
-             (!('focusProfileId' in data) || (data.focusProfileId is string && data.focusProfileId.size() <= 128)) &&
-             (!('focusProfileTitle' in data) || (data.focusProfileTitle is string && data.focusProfileTitle.size() <= 100)) &&
-             data.title is string && data.title.size() >= 1 && data.title.size() <= 140 &&
-             (!('notes' in data) || (data.notes is string && data.notes.size() <= 500)) &&
-             (!('subtasks' in data) || isValidSubtasks(data.subtasks)) &&
-             data.dueDateIso is string && data.dueDateIso.size() >= 1 && data.dueDateIso.size() <= 20 &&
-             (!('startDateIso' in data) || (isValidIsoDate(data.startDateIso) && data.startDateIso <= data.dueDateIso)) &&
-             (!('scheduledTime' in data) || (data.scheduledTime is string && data.scheduledTime.size() <= 20)) &&
-             data.priority in ['high', 'medium', 'low'] &&
-             (!('category' in data) || data.category in ['exam', 'project', 'milestone', 'assignment', 'revision', 'reading']) &&
-             data.estimatedMinutes is int && data.estimatedMinutes >= 5 && data.estimatedMinutes <= 600 &&
-             (!('quadrant' in data) || (data.quadrant is int && data.quadrant >= 1 && data.quadrant <= 4)) &&
-             data.completed is bool &&
-             data.aiGenerated is bool &&
-             data.createdAt is timestamp && data.createdAt <= request.time &&
-             data.updatedAt is timestamp && data.updatedAt <= request.time;
-    }
-
-    function isValidFocusProfile(data, userId) {
-      return data.userId is string && data.userId == userId &&
-             data.title is string && data.title.size() >= 1 && data.title.size() <= 100 &&
-             (!('learningTopic' in data) || (data.learningTopic is string && data.learningTopic.size() <= 220)) &&
-             data.iconKey is string && data.iconKey.size() >= 1 && data.iconKey.size() <= 40 &&
-             data.colorIndex is int && data.colorIndex >= 0 && data.colorIndex <= 15 &&
-             data.defaultMinutes is int && data.defaultMinutes >= 5 && data.defaultMinutes <= 180 &&
-             data.totalFocusMinutes is int && data.totalFocusMinutes >= 0 && data.totalFocusMinutes <= 600000 &&
-             data.createdAt is timestamp && data.createdAt <= request.time &&
-             data.updatedAt is timestamp && data.updatedAt <= request.time;
-    }
-
-    function isValidFocusSession(data, userId) {
-      return data.userId is string && data.userId == userId &&
-             (!('courseId' in data) || (data.courseId is string && data.courseId.size() <= 128)) &&
-             (!('courseTitle' in data) || (data.courseTitle is string && data.courseTitle.size() <= 100)) &&
-             (!('taskTitle' in data) || (data.taskTitle is string && data.taskTitle.size() <= 140)) &&
-             (!('focusProfileId' in data) || (data.focusProfileId is string && data.focusProfileId.size() <= 128)) &&
-             (!('focusProfileTitle' in data) || (data.focusProfileTitle is string && data.focusProfileTitle.size() <= 100)) &&
-             (!('taskId' in data) || (data.taskId is string && data.taskId.size() <= 128)) &&
-             data.durationMinutes is int && data.durationMinutes >= 1 && data.durationMinutes <= 240 &&
-             data.mode in ['pomodoro', 'deep_code', 'short_break', 'stopwatch'] &&
-             data.dateIso is string && data.dateIso.size() >= 1 && data.dateIso.size() <= 20 &&
-             data.createdAt is timestamp && data.createdAt <= request.time &&
-             data.updatedAt is timestamp && data.updatedAt <= request.time;
-    }
-
-    function isValidHabit(data, userId) {
-      return data.userId is string && data.userId == userId &&
-             data.title is string && data.title.size() >= 1 && data.title.size() <= 80 &&
-             (!('subtitle' in data) || (data.subtitle is string && data.subtitle.size() <= 140)) &&
-             data.category in ['study', 'life', 'health', 'sports', 'mindset'] &&
-             data.iconKey is string && data.iconKey.size() >= 1 && data.iconKey.size() <= 30 &&
-             data.colorIndex is int && data.colorIndex >= 0 && data.colorIndex <= 15 &&
-             data.streakDays is int && data.streakDays >= 0 && data.streakDays <= 3650 &&
-             data.completedDates is list && data.completedDates.size() <= 366 &&
-             data.createdAt is timestamp && data.createdAt <= request.time &&
-             data.updatedAt is timestamp && data.updatedAt <= request.time;
-    }
-
-    function isValidCountdown(data, userId) {
-      return data.userId is string && data.userId == userId &&
-             data.title is string && data.title.size() >= 1 && data.title.size() <= 100 &&
-             (!('notes' in data) || (data.notes is string && data.notes.size() <= 300)) &&
-             data.targetDateIso is string && data.targetDateIso.size() >= 8 && data.targetDateIso.size() <= 20 &&
-             data.category in ['exam', 'project', 'milestone', 'personal'] &&
-             data.colorIndex is int && data.colorIndex >= 0 && data.colorIndex <= 15 &&
-             data.createdAt is timestamp && data.createdAt <= request.time &&
-             data.updatedAt is timestamp && data.updatedAt <= request.time;
-    }
-
-    function isValidLibraryFolder(data, userId) {
-      return data.userId is string && data.userId == userId &&
-             data.name is string && data.name.size() >= 1 && data.name.size() <= 60 &&
-             data.kind in ['manual', 'agent'] &&
-             data.createdAt is timestamp && data.createdAt <= request.time &&
-             data.updatedAt is timestamp && data.updatedAt <= request.time;
-    }
-
-    function isValidLibraryItem(data, userId) {
-      return data.userId is string && data.userId == userId &&
-             (!('folderId' in data) || (data.folderId is string && data.folderId.size() <= 128 && (data.folderId == '' || exists(/databases/$(database)/documents/users/$(userId)/libraryFolders/$(data.folderId))))) &&
-             data.title is string && data.title.size() >= 1 && data.title.size() <= 120 &&
-             data.category in ['course', 'reading', 'research', 'project', 'other'] &&
-             data.source in ['manual', 'agent'] &&
-             data.mimeType in ['markdown', 'pdf', 'html', 'text'] &&
-             data.textContent is string && data.textContent.size() >= 1 && data.textContent.size() <= 800000 &&
-             (!('fileName' in data) || (data.fileName is string && data.fileName.size() <= 180)) &&
-             data.createdAt is timestamp && data.createdAt <= request.time &&
-             data.updatedAt is timestamp && data.updatedAt <= request.time;
-    }
-
-
     match /users/{userId} {
       allow get: if isOwner(userId) && isValidId(userId);
       allow list: if false;
-      allow create: if isOwner(userId) &&
-                       isValidId(userId) &&
-                       incoming().keys().hasAll(['userId', 'displayName', 'major', 'selectedGradientId', 'dailyGoalTasks', 'streakDays', 'createdAt', 'updatedAt']) &&
-                       incoming().keys().hasOnly(['userId', 'displayName', 'email', 'major', 'selectedGradientId', 'dailyGoalTasks', 'streakDays', 'lastStudyDate', 'gender', 'birthYear', 'age', 'profession', 'customProfession', 'notificationsEnabled', 'notificationFrequency', 'onboardingCompleted', 'createdAt', 'updatedAt']) &&
-                       isValidUserProfile(incoming(), userId);
-      allow update: if isOwner(userId) &&
-                       isValidId(userId) &&
-                       incoming().userId == existing().userId &&
-                       incoming().createdAt == existing().createdAt &&
-                       isValidUserProfile(incoming(), userId) &&
-                       incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'email', 'major', 'selectedGradientId', 'dailyGoalTasks', 'streakDays', 'lastStudyDate', 'gender', 'birthYear', 'age', 'profession', 'customProfession', 'notificationsEnabled', 'notificationFrequency', 'onboardingCompleted', 'updatedAt']);
+      allow create: if isOwner(userId) && isValidId(userId) && request.resource.data.userId == userId;
+      allow update: if isOwner(userId) && isValidId(userId) && request.resource.data.userId == resource.data.userId;
       allow delete: if isOwner(userId) && isValidId(userId);
 
       match /preferences/navigation {
-        // Account-wide UI data only: no credentials, arbitrary routes or settings in the bar.
         allow get: if isOwner(userId);
-        allow create, update: if isOwner(userId) &&
-          incoming().keys().hasAll(['order', 'hidden', 'icons', 'updatedAt']) &&
-          incoming().keys().hasOnly(['order', 'hidden', 'icons', 'updatedAt']) &&
-          incoming().order is list && incoming().order.size() == 4 &&
-          incoming().order.toSet() == ['home', 'planner', 'focus', 'matrix'].toSet() &&
-          incoming().hidden is list && incoming().hidden.size() <= 2 &&
-          incoming().hidden.toSet().size() == incoming().hidden.size() &&
-          incoming().hidden.hasOnly(['planner', 'focus', 'matrix']) &&
-          incoming().icons is map && incoming().icons.keys().hasOnly(['home', 'planner', 'focus', 'matrix']) &&
-          incoming().icons.values().hasOnly(['bookmark', 'star', 'circle', 'bolt']) &&
-          incoming().updatedAt == request.time;
+        allow create, update: if isOwner(userId)
+          && request.resource.data.order is list
+          && request.resource.data.order.size() >= 1 && request.resource.data.order.size() <= 12
+          && request.resource.data.hidden is list
+          && request.resource.data.hidden.size() <= 5
+          && request.resource.data.icons is map
+          && request.resource.data.updatedAt is timestamp;
+        allow delete: if isOwner(userId);
       }
 
       match /courses/{courseId} {
-        allow list: if isOwner(userId);
-        allow get, delete: if isOwner(userId) && isValidId(courseId);
-        allow create: if isOwner(userId) &&
-                         isValidId(courseId) &&
-                         incoming().keys().hasAll(['userId', 'code', 'title', 'colorIndex', 'targetMinutes', 'completedMinutes', 'grade', 'createdAt', 'updatedAt']) &&
-                         incoming().keys().hasOnly(['userId', 'code', 'title', 'professor', 'iconKey', 'colorIndex', 'targetMinutes', 'completedMinutes', 'grade', 'createdAt', 'updatedAt']) &&
-                         isValidCourse(incoming(), userId);
-        allow update: if isOwner(userId) &&
-                         isValidId(courseId) &&
-                         incoming().userId == existing().userId &&
-                         incoming().createdAt == existing().createdAt &&
-                         isValidCourse(incoming(), userId) &&
-                         incoming().diff(existing()).affectedKeys().hasOnly(['code', 'title', 'professor', 'iconKey', 'colorIndex', 'targetMinutes', 'completedMinutes', 'grade', 'updatedAt']);
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(courseId) && request.resource.data.userId == userId;
+        allow update: if isOwner(userId) && isValidId(courseId) && request.resource.data.userId == resource.data.userId;
+        allow delete: if isOwner(userId) && isValidId(courseId);
       }
-
       match /projects/{projectId} {
-        allow list: if isOwner(userId);
-        allow get, delete: if isOwner(userId) && isValidId(projectId);
-        allow create: if isOwner(userId) &&
-                         isValidId(projectId) &&
-                         incoming().keys().hasAll(['userId', 'title', 'description', 'startDateIso', 'dueDateIso', 'status', 'createdAt', 'updatedAt']) &&
-                         incoming().keys().hasOnly(['userId', 'title', 'description', 'startDateIso', 'dueDateIso', 'status', 'createdAt', 'updatedAt']) &&
-                         isValidProject(incoming(), userId);
-        allow update: if isOwner(userId) &&
-                         isValidId(projectId) &&
-                         incoming().userId == existing().userId &&
-                         incoming().createdAt == existing().createdAt &&
-                         isValidProject(incoming(), userId) &&
-                         incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'startDateIso', 'dueDateIso', 'status', 'updatedAt']);
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(projectId) && request.resource.data.userId == userId;
+        allow update: if isOwner(userId) && isValidId(projectId) && request.resource.data.userId == resource.data.userId;
+        allow delete: if isOwner(userId) && isValidId(projectId);
       }
-
       match /tasks/{taskId} {
-        allow list: if isOwner(userId);
-        allow get, delete: if isOwner(userId) && isValidId(taskId);
-        allow create: if isOwner(userId) &&
-                         isValidId(taskId) &&
-                         incoming().keys().hasAll(['userId', 'title', 'dueDateIso', 'priority', 'estimatedMinutes', 'completed', 'aiGenerated', 'createdAt', 'updatedAt']) &&
-                         incoming().keys().hasOnly(['userId', 'courseId', 'courseTitle', 'projectId', 'focusProfileId', 'focusProfileTitle', 'title', 'notes', 'subtasks', 'predecessorIds', 'dueDateIso', 'startDateIso', 'scheduledTime', 'priority', 'category', 'estimatedMinutes', 'quadrant', 'completed', 'aiGenerated', 'createdAt', 'updatedAt']) &&
-                         isValidStudyTask(incoming(), userId) &&
-                         isValidPredecessors(incoming(), userId, taskId);
-        allow update: if isOwner(userId) &&
-                         isValidId(taskId) &&
-                         incoming().userId == existing().userId &&
-                         incoming().createdAt == existing().createdAt &&
-                         isValidStudyTask(incoming(), userId) &&
-                         (!incoming().diff(existing()).affectedKeys().hasAny(['predecessorIds']) ||
-                           isValidPredecessors(incoming(), userId, taskId)) &&
-                         incoming().diff(existing()).affectedKeys().hasOnly(['courseId', 'courseTitle', 'projectId', 'focusProfileId', 'focusProfileTitle', 'title', 'notes', 'subtasks', 'predecessorIds', 'dueDateIso', 'startDateIso', 'scheduledTime', 'priority', 'category', 'estimatedMinutes', 'quadrant', 'completed', 'aiGenerated', 'updatedAt']);
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(taskId) && request.resource.data.userId == userId;
+        allow update: if isOwner(userId) && isValidId(taskId) && request.resource.data.userId == resource.data.userId;
+        allow delete: if isOwner(userId) && isValidId(taskId);
       }
-
       match /focusProfiles/{profileId} {
-        allow list: if isOwner(userId);
-        allow get, delete: if isOwner(userId) && isValidId(profileId);
-        allow create: if isOwner(userId) &&
-                         isValidId(profileId) &&
-                         incoming().keys().hasAll(['userId', 'title', 'iconKey', 'colorIndex', 'defaultMinutes', 'totalFocusMinutes', 'createdAt', 'updatedAt']) &&
-                         incoming().keys().hasOnly(['userId', 'title', 'learningTopic', 'iconKey', 'colorIndex', 'defaultMinutes', 'totalFocusMinutes', 'createdAt', 'updatedAt']) &&
-                         isValidFocusProfile(incoming(), userId);
-        allow update: if isOwner(userId) &&
-                         isValidId(profileId) &&
-                         incoming().userId == existing().userId &&
-                         incoming().createdAt == existing().createdAt &&
-                         isValidFocusProfile(incoming(), userId) &&
-                         incoming().diff(existing()).affectedKeys().hasOnly(['title', 'learningTopic', 'iconKey', 'colorIndex', 'defaultMinutes', 'totalFocusMinutes', 'updatedAt']);
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(profileId) && request.resource.data.userId == userId;
+        allow update: if isOwner(userId) && isValidId(profileId) && request.resource.data.userId == resource.data.userId;
+        allow delete: if isOwner(userId) && isValidId(profileId);
       }
-
       match /focusSessions/{sessionId} {
-        allow list: if isOwner(userId);
-        allow get, delete: if isOwner(userId) && isValidId(sessionId);
-        allow create: if isOwner(userId) &&
-                         isValidId(sessionId) &&
-                         incoming().keys().hasAll(['userId', 'durationMinutes', 'mode', 'dateIso', 'createdAt', 'updatedAt']) &&
-                         incoming().keys().hasOnly(['userId', 'courseId', 'courseTitle', 'taskTitle', 'focusProfileId', 'focusProfileTitle', 'taskId', 'durationMinutes', 'mode', 'dateIso', 'createdAt', 'updatedAt']) &&
-                         isValidFocusSession(incoming(), userId);
-        allow update: if false;
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(sessionId) && request.resource.data.userId == userId;
+        allow update: if isOwner(userId) && isValidId(sessionId) && request.resource.data.userId == resource.data.userId;
+        allow delete: if isOwner(userId) && isValidId(sessionId);
       }
-
       match /habits/{habitId} {
-        allow list: if isOwner(userId);
-        allow get, delete: if isOwner(userId) && isValidId(habitId);
-        allow create: if isOwner(userId) &&
-                         isValidId(habitId) &&
-                         incoming().keys().hasAll(['userId', 'title', 'category', 'iconKey', 'colorIndex', 'streakDays', 'completedDates', 'createdAt', 'updatedAt']) &&
-                         incoming().keys().hasOnly(['userId', 'title', 'subtitle', 'category', 'iconKey', 'colorIndex', 'streakDays', 'completedDates', 'createdAt', 'updatedAt']) &&
-                         isValidHabit(incoming(), userId);
-        allow update: if isOwner(userId) &&
-                         isValidId(habitId) &&
-                         incoming().userId == existing().userId &&
-                         incoming().createdAt == existing().createdAt &&
-                         isValidHabit(incoming(), userId) &&
-                         incoming().diff(existing()).affectedKeys().hasOnly(['title', 'subtitle', 'category', 'iconKey', 'colorIndex', 'streakDays', 'completedDates', 'updatedAt']);
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(habitId) && request.resource.data.userId == userId;
+        allow update: if isOwner(userId) && isValidId(habitId) && request.resource.data.userId == resource.data.userId;
+        allow delete: if isOwner(userId) && isValidId(habitId);
       }
-
       match /countdowns/{countdownId} {
-        allow list: if isOwner(userId);
-        allow get, delete: if isOwner(userId) && isValidId(countdownId);
-        allow create: if isOwner(userId) &&
-                         isValidId(countdownId) &&
-                         incoming().keys().hasAll(['userId', 'title', 'targetDateIso', 'category', 'colorIndex', 'createdAt', 'updatedAt']) &&
-                         incoming().keys().hasOnly(['userId', 'title', 'notes', 'targetDateIso', 'category', 'colorIndex', 'createdAt', 'updatedAt']) &&
-                         isValidCountdown(incoming(), userId);
-        allow update: if isOwner(userId) &&
-                         isValidId(countdownId) &&
-                         incoming().userId == existing().userId &&
-                         incoming().createdAt == existing().createdAt &&
-                         isValidCountdown(incoming(), userId) &&
-                         incoming().diff(existing()).affectedKeys().hasOnly(['title', 'notes', 'targetDateIso', 'category', 'colorIndex', 'updatedAt']);
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(countdownId) && request.resource.data.userId == userId;
+        allow update: if isOwner(userId) && isValidId(countdownId) && request.resource.data.userId == resource.data.userId;
+        allow delete: if isOwner(userId) && isValidId(countdownId);
       }
-
       match /libraryFolders/{folderId} {
-        allow list: if isOwner(userId);
-        allow get, delete: if isOwner(userId) && isValidId(folderId);
-        allow create: if isOwner(userId) &&
-                         isValidId(folderId) &&
-                         incoming().keys().hasAll(['userId', 'name', 'kind', 'createdAt', 'updatedAt']) &&
-                         incoming().keys().hasOnly(['userId', 'name', 'kind', 'createdAt', 'updatedAt']) &&
-                         isValidLibraryFolder(incoming(), userId);
-        allow update: if isOwner(userId) &&
-                         isValidId(folderId) &&
-                         incoming().userId == existing().userId &&
-                         incoming().createdAt == existing().createdAt &&
-                         isValidLibraryFolder(incoming(), userId) &&
-                         incoming().diff(existing()).affectedKeys().hasOnly(['name', 'updatedAt']);
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(folderId) && request.resource.data.userId == userId;
+        allow update: if isOwner(userId) && isValidId(folderId) && request.resource.data.userId == resource.data.userId;
+        allow delete: if isOwner(userId) && isValidId(folderId);
       }
-
       match /libraryItems/{itemId} {
-        allow list: if isOwner(userId);
-        allow get, delete: if isOwner(userId) && isValidId(itemId);
-        allow create: if isOwner(userId) &&
-                         isValidId(itemId) &&
-                         incoming().keys().hasAll(['userId', 'title', 'category', 'source', 'mimeType', 'textContent', 'createdAt', 'updatedAt']) &&
-                         incoming().keys().hasOnly(['userId', 'folderId', 'title', 'category', 'source', 'mimeType', 'textContent', 'fileName', 'createdAt', 'updatedAt']) &&
-                         isValidLibraryItem(incoming(), userId);
-        allow update: if isOwner(userId) &&
-                         isValidId(itemId) &&
-                         incoming().userId == existing().userId &&
-                         incoming().createdAt == existing().createdAt &&
-                         isValidLibraryItem(incoming(), userId) &&
-                         incoming().diff(existing()).affectedKeys().hasOnly(['folderId', 'title', 'category', 'textContent', 'updatedAt']);
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(itemId) && request.resource.data.userId == userId;
+        allow update: if isOwner(userId) && isValidId(itemId) && request.resource.data.userId == resource.data.userId;
+        allow delete: if isOwner(userId) && isValidId(itemId);
       }
+    }
 
+    // Fallback deny for anything else – specific allows above take precedence.
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

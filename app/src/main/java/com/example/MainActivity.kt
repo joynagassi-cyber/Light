@@ -120,7 +120,6 @@ import com.example.data.preferences.AgentThreadsStore
 import com.example.data.preferences.StudyAppSettings
 import com.example.data.preferences.ThemePreferencesStore
 import com.example.data.repository.AiPlannerRepository
-import com.example.data.repository.LocalTestStudyRepository
 import com.example.data.repository.StudyRepository
 import com.example.data.repository.StudyWorkspaceRepository
 import com.example.audio.FocusAudioTrack
@@ -139,6 +138,7 @@ import com.example.ui.screens.WorkspaceProfilePage
 import com.example.ui.screens.navigationIcon
 import com.example.ui.theme.LightSpacing
 import com.example.ui.screens.AuthScreen
+import com.example.ui.screens.WelcomeScreen
 import com.example.ui.screens.CountdownScreen
 import com.example.ui.screens.EisenhowerScreen
 import com.example.ui.screens.FocusAnalyticsScreen
@@ -180,10 +180,23 @@ private enum class LightTab(
     PLANNER("planner", R.string.nav_planner, Icons.Rounded.CalendarMonth, Icons.Outlined.CalendarMonth),
     FOCUS("focus", R.string.nav_focus, Icons.Rounded.Timer, Icons.Outlined.Timer),
     MATRIX("matrix", R.string.nav_matrix, Icons.Rounded.GridView, Icons.Outlined.GridView),
+    LIBRARY("library", R.string.nav_library, Icons.Rounded.Description, Icons.Rounded.Description),
+    AGENT("agent", R.string.nav_agent, Icons.Rounded.AutoAwesome, Icons.Rounded.AutoAwesome),
+    SEARCH("search", R.string.nav_search, Icons.Rounded.Search, Icons.Rounded.Search),
+    PROGRESS("progress", R.string.nav_progress, Icons.Rounded.BarChart, Icons.Rounded.BarChart),
+    HABITS("habits", R.string.nav_habits, Icons.Rounded.SelfImprovement, Icons.Rounded.SelfImprovement),
+    COUNTDOWN("countdown", R.string.nav_countdown, Icons.Rounded.Event, Icons.Rounded.Event),
+    PROJECTS("projects", R.string.nav_projects, Icons.Rounded.DateRange, Icons.Rounded.DateRange),
+    FOCUS_PROFILES("focus_profiles", R.string.nav_focus_profiles, Icons.Rounded.School, Icons.Rounded.School),
+    FOCUS_ANALYTICS("focus_analytics", R.string.nav_focus_analytics, Icons.Rounded.Insights, Icons.Rounded.Insights),
     MORE("more", R.string.nav_more, Icons.Rounded.Explore, Icons.Rounded.Explore)
 }
 
-private enum class SettingsPage { NAVIGATION, CAPABILITIES, PROFILE }
+private enum class SettingsPage {
+    NAVIGATION, CAPABILITIES, PROFILE,
+    NOTIFICATIONS, NOTIF_FREQUENCY, CALENDAR_VIEW, APPEARANCE, TIMER_DURATIONS,
+    COURSES, ADD_COURSE, FOCUS_UNIVERSE, THEMES, GRADIENTS, SEARCH_IMAGE
+}
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -207,8 +220,6 @@ private fun LightAppRoot() {
     val themeStore = remember(context) { ThemePreferencesStore(context.applicationContext) }
     val localGradientId by themeStore.selectedGradientId.collectAsStateWithLifecycle(initialValue = "aurore_lavande")
     val themeSettings by themeStore.appSettings.collectAsStateWithLifecycle(initialValue = StudyAppSettings())
-    val googleAuthPaused by themeStore.googleAuthPausedForTesting.collectAsStateWithLifecycle(initialValue = null)
-    val localTestRepository = remember(context) { LocalTestStudyRepository(context.applicationContext) }
     val networkMonitor = remember(context) { NetworkMonitor(context.applicationContext) }
     DisposableEffect(networkMonitor) {
         networkMonitor.start()
@@ -216,27 +227,19 @@ private fun LightAppRoot() {
     }
     val isOnline by networkMonitor.isOnline.collectAsStateWithLifecycle()
 
-    // Local mode is the default. Avoid touching Firebase Auth until the user explicitly opts in.
-    // This lets the app launch and be explored even without google-services.json or OAuth setup.
-    val auth = remember(googleAuthPaused) {
-        if (googleAuthPaused == false) {
-            runCatching {
-                val app = FirebaseApp.getApps(context).firstOrNull()
-                    ?: FirebaseApp.initializeApp(context)
-                app?.let { FirebaseAuth.getInstance(it) }
-            }.getOrNull()
-        } else {
-            null
-        }
+    val auth = remember {
+        runCatching {
+            val app = FirebaseApp.getApps(context).firstOrNull()
+                ?: FirebaseApp.initializeApp(context)
+            app?.let { FirebaseAuth.getInstance(it) }
+        }.getOrNull()
     }
     val authState = remember(auth) { auth?.authStateFlow() ?: flowOf(auth?.currentUser) }
     val currentUser by authState.collectAsStateWithLifecycle(initialValue = auth?.currentUser)
     var startupChecked by remember { mutableStateOf(false) }
 
-    LaunchedEffect(googleAuthPaused, currentUser, auth) {
-        val paused = googleAuthPaused ?: return@LaunchedEffect
+    LaunchedEffect(currentUser, auth) {
         when {
-            paused -> startupChecked = true
             auth == null -> startupChecked = true
             currentUser != null -> startupChecked = true
             else -> {
@@ -253,8 +256,7 @@ private fun LightAppRoot() {
     }
 
     val user = currentUser
-    val paused = googleAuthPaused
-    if (paused == null || !startupChecked) {
+    if (!startupChecked) {
         LightThemeProvider(
             selectedGradientId = localGradientId,
             selectedThemeId = themeSettings.selectedThemeId,
@@ -282,74 +284,30 @@ private fun LightAppRoot() {
             }
             StudyRepository(db, activeAuth)
         }
-        LaunchedEffect(user.uid, isOnline, cloudRepository) {
-            if (isOnline) {
-                runCatching {
-                    localTestRepository.syncToCloudIfNeeded(
-                        cloudRepo = cloudRepository,
-                        cloudUserId = user.uid,
-                        displayName = user.displayName.orEmpty(),
-                        email = user.email.orEmpty()
-                    )
-                }
-            }
-        }
         key(user.uid) {
             AuthenticatedStudyShell(
                 userId = user.uid,
                 initialDisplayName = user.displayName ?: "Étudiante",
                 initialEmail = user.email ?: "",
                 photoUrl = user.photoUrl?.toString(),
-                isGoogleAuthPaused = false,
                 isOnlineFlow = networkMonitor.isOnline,
                 themeStore = themeStore,
                 repositoryFactory = { cloudRepository },
-                onTogglePauseGoogleAuth = { pause ->
-                    scope.launch {
-                        // Persist the local-mode choice before Firebase emits its signed-out event,
-                        // so the auth observer cannot immediately trigger another Google prompt.
-                        themeStore.updateGoogleAuthPausedForTesting(pause)
-                        if (pause) {
-                            val cm = CredentialManager.create(context)
-                            signOut(credentialManager = cm, scope = scope)
-                        }
-                    }
-                }
-            )
-        }
-    } else if (paused) {
-        key("local_test_mode") {
-            AuthenticatedStudyShell(
-                userId = "local_test_user",
-                initialDisplayName = "Mode Test",
-                initialEmail = "mode.test@local.light",
-                photoUrl = null,
-                isGoogleAuthPaused = true,
-                isOnlineFlow = networkMonitor.isOnline,
-                themeStore = themeStore,
-                repositoryFactory = { localTestRepository },
-                onTogglePauseGoogleAuth = { pause ->
-                    scope.launch {
-                        themeStore.updateGoogleAuthPausedForTesting(pause)
-                    }
-                }
             )
         }
     } else {
+        var showWelcome by rememberSaveable { mutableStateOf(true) }
         LightThemeProvider(
             selectedGradientId = localGradientId,
             selectedThemeId = themeSettings.selectedThemeId,
             appearanceModeKey = themeSettings.appearanceMode,
             glassEnabled = themeSettings.glassEnabled
         ) {
-            AuthScreen(
-                onAuthSuccess = { startupChecked = true },
-                onEnterTestMode = {
-                    scope.launch {
-                        themeStore.updateGoogleAuthPausedForTesting(true)
-                    }
-                }
-            )
+            if (showWelcome) {
+                WelcomeScreen(onContinueToSignIn = { showWelcome = false })
+            } else {
+                AuthScreen(onAuthSuccess = { startupChecked = true })
+            }
         }
     }
 }
@@ -360,18 +318,16 @@ private fun AuthenticatedStudyShell(
     initialDisplayName: String,
     initialEmail: String,
     photoUrl: String?,
-    isGoogleAuthPaused: Boolean,
     isOnlineFlow: StateFlow<Boolean>,
     themeStore: ThemePreferencesStore,
     repositoryFactory: (android.app.Application) -> StudyWorkspaceRepository,
-    onTogglePauseGoogleAuth: (Boolean) -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val credentialManager = remember { CredentialManager.create(context) }
 
     val viewModel: StudyViewModel = viewModel(
-        key = "${userId}_${if (isGoogleAuthPaused) "test" else "cloud"}",
+        key = userId,
         factory = viewModelFactory {
             initializer {
                 val app = checkNotNull(this[APPLICATION_KEY])
@@ -383,7 +339,7 @@ private fun AuthenticatedStudyShell(
                     initialDisplayName = initialDisplayName,
                     initialEmail = initialEmail,
                     isOnline = isOnlineFlow,
-                    isLocalMode = isGoogleAuthPaused,
+                    isLocalMode = false,
                     agentThreadsStore = AgentThreadsStore(app, userId)
                 )
             }
@@ -462,9 +418,18 @@ private fun AuthenticatedStudyShell(
     var settingsPage by rememberSaveable { mutableStateOf<SettingsPage?>(null) }
     var profileOpenedFromAvatar by rememberSaveable { mutableStateOf(false) }
     val backFromSettingsPage: () -> Unit = {
-        if (settingsPage == SettingsPage.PROFILE && profileOpenedFromAvatar) showSettingsOverlay = false
-        profileOpenedFromAvatar = false
-        settingsPage = null
+        when (settingsPage) {
+            SettingsPage.ADD_COURSE -> settingsPage = SettingsPage.COURSES
+            SettingsPage.PROFILE -> {
+                if (profileOpenedFromAvatar) showSettingsOverlay = false
+                profileOpenedFromAvatar = false
+                settingsPage = null
+            }
+            else -> {
+                profileOpenedFromAvatar = false
+                settingsPage = null
+            }
+        }
     }
     var showOnboardingOverlay by rememberSaveable { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -907,7 +872,7 @@ private fun AuthenticatedStudyShell(
 
                             when (tab) {
                                 LightTab.HOME -> Column(modifier = Modifier.fillMaxSize()) {
-                                    OfflineBanner(isOnline = isOnline || isGoogleAuthPaused)
+                                    OfflineBanner(isOnline = isOnline)
                                     HomeDashboardScreen(
                                     profile = profile,
                                     photoUrl = photoUrl,
@@ -1310,6 +1275,70 @@ private fun AuthenticatedStudyShell(
                             AgentCapabilitiesScreen(appSettings.agentCapabilities, viewModel::updateAgentCapabilities, Modifier.weight(1f))
                         }
                         SettingsPage.PROFILE -> WorkspaceProfilePage(profile, photoUrl, viewModel::updateProfile, backFromSettingsPage, pageModifier)
+                        SettingsPage.NOTIF_FREQUENCY -> NotificationFrequencyPage(
+                            currentFrequency = NotificationFrequency.fromKey(profile?.notificationFrequency ?: appSettings.notificationFrequency),
+                            notifEnabled = profile?.notificationsEnabled ?: appSettings.notificationsEnabled,
+                            onUpdateNotifications = { enabled, freq -> viewModel.updateNotificationSettings(context, enabled, freq) },
+                            onBack = backFromSettingsPage,
+                            modifier = pageModifier
+                        )
+                        SettingsPage.CALENDAR_VIEW -> CalendarViewPage(
+                            currentViewKey = appSettings.defaultCalendarView,
+                            onUpdateDefaultCalendarView = viewModel::updateDefaultCalendarView,
+                            onBack = backFromSettingsPage,
+                            modifier = pageModifier
+                        )
+                        SettingsPage.APPEARANCE -> AppearancePage(
+                            currentModeKey = appSettings.appearanceMode,
+                            onSelectAppearanceMode = viewModel::selectAppearanceMode,
+                            onBack = backFromSettingsPage,
+                            modifier = pageModifier
+                        )
+                        SettingsPage.TIMER_DURATIONS -> TimerDurationsPage(
+                            appSettings = appSettings,
+                            onUpdateTimerDurations = viewModel::updateTimerDurations,
+                            onBack = backFromSettingsPage,
+                            modifier = pageModifier
+                        )
+                        SettingsPage.COURSES -> CoursesPage(
+                            courses = courses,
+                            onDeleteCourse = viewModel::deleteCourse,
+                            onAddCourse = { settingsPage = SettingsPage.ADD_COURSE },
+                            onBack = backFromSettingsPage,
+                            modifier = pageModifier
+                        )
+                        SettingsPage.ADD_COURSE -> AddCoursePage(
+                            courses = courses,
+                            onCreateCourse = viewModel::createCourse,
+                            onBack = { settingsPage = SettingsPage.COURSES },
+                            modifier = pageModifier
+                        )
+                        SettingsPage.FOCUS_UNIVERSE -> FocusUniversePage(
+                            appSettings = appSettings,
+                            audioState = audioState,
+                            onSelectIllustration = viewModel::selectFocusIllustration,
+                            onSelectTheme = viewModel::selectFocusTheme,
+                            onSelectAudioTrack = handleSelectAudioTrack,
+                            onToggleAudioPlayPause = viewModel::toggleAudioPlayback,
+                            onAudioVolumeChange = viewModel::setAudioVolume,
+                            onToggleAutoPlayAudio = viewModel::setAutoPlayAudioWithFocus,
+                            onBack = backFromSettingsPage,
+                            modifier = pageModifier
+                        )
+                        SettingsPage.THEMES -> ThemesPage(
+                            selectedThemeId = appSettings.selectedThemeId,
+                            onSelectTheme = viewModel::selectTheme,
+                            onBack = backFromSettingsPage,
+                            modifier = pageModifier
+                        )
+                        SettingsPage.GRADIENTS -> GradientsPage(
+                            selectedGradientId = selectedGradientId,
+                            selectedThemeId = appSettings.selectedThemeId,
+                            onSelectGradient = viewModel::selectGradient,
+                            onSelectTheme = viewModel::selectTheme,
+                            onBack = backFromSettingsPage,
+                            modifier = pageModifier
+                        )
                         null -> SettingsScreen(
                             profile = profile,
                             photoUrl = photoUrl,
@@ -1341,25 +1370,24 @@ private fun AuthenticatedStudyShell(
                             onSetGlassEnabled = viewModel::setGlassEnabled,
                             onCreateCourse = viewModel::createCourse,
                             onDeleteCourse = viewModel::deleteCourse,
-                            isGoogleAuthPaused = isGoogleAuthPaused,
-                            onResumeGoogleSignIn = {
-                                showSettingsOverlay = false
-                                onTogglePauseGoogleAuth(false)
-                            },
-                            onPauseGoogleSignIn = {
-                                showSettingsOverlay = false
-                                onTogglePauseGoogleAuth(true)
-                            },
                             onSignOut = {
                                 showSettingsOverlay = false
                                 scope.launch {
-                                    themeStore.updateGoogleAuthPausedForTesting(true)
                                     signOut(credentialManager = credentialManager, scope = scope)
                                 }
                             },
                             onOpenNavigationLayout = { settingsPage = SettingsPage.NAVIGATION },
                             onOpenCapabilities = { settingsPage = SettingsPage.CAPABILITIES },
                             onOpenProfile = { settingsPage = SettingsPage.PROFILE },
+                            onOpenNotificationFrequency = { settingsPage = SettingsPage.NOTIF_FREQUENCY },
+                            onOpenCalendarView = { settingsPage = SettingsPage.CALENDAR_VIEW },
+                            onOpenAppearance = { settingsPage = SettingsPage.APPEARANCE },
+                            onOpenTimerDurations = { settingsPage = SettingsPage.TIMER_DURATIONS },
+                            onOpenCourses = { settingsPage = SettingsPage.COURSES },
+                            onOpenAddCourse = { settingsPage = SettingsPage.ADD_COURSE },
+                            onOpenFocusUniverse = { settingsPage = SettingsPage.FOCUS_UNIVERSE },
+                            onOpenThemes = { settingsPage = SettingsPage.THEMES },
+                            onOpenGradients = { settingsPage = SettingsPage.GRADIENTS },
                             onClose = { showSettingsOverlay = false },
                             onUpdateSearchSettings = viewModel::updateSearchSettings,
                             onUpdateImageSettings = viewModel::updateImageSettings,

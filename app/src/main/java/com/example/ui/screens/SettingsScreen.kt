@@ -45,7 +45,6 @@ import androidx.compose.material.icons.outlined.Book
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.material.icons.outlined.CloudDone
-import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.ColorLens
 import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material.icons.outlined.Layers
@@ -163,15 +162,22 @@ fun SettingsScreen(
     onSetGlassEnabled: (Boolean) -> Unit = {},
     onCreateCourse: (String, String, String, Long, Int, Double, String) -> Unit,
     onDeleteCourse: (String) -> Unit,
-    isGoogleAuthPaused: Boolean = false,
-    onResumeGoogleSignIn: () -> Unit = {},
-    onPauseGoogleSignIn: () -> Unit = {},
     onSignOut: () -> Unit,
     onUpdateSearchSettings: (String, Boolean, String?, Boolean) -> Unit = { _, _, _, _ -> },
     onUpdateImageSettings: (String, Boolean, String, String?, Boolean) -> Unit = { _, _, _, _, _ -> },
     onOpenNavigationLayout: (() -> Unit)? = null,
     onOpenCapabilities: (() -> Unit)? = null,
     onOpenProfile: (() -> Unit)? = null,
+    onOpenNotificationFrequency: (() -> Unit)? = null,
+    onOpenCalendarView: (() -> Unit)? = null,
+    onOpenAppearance: (() -> Unit)? = null,
+    onOpenTimerDurations: (() -> Unit)? = null,
+    onOpenCourses: (() -> Unit)? = null,
+    onOpenAddCourse: (() -> Unit)? = null,
+    onOpenFocusUniverse: (() -> Unit)? = null,
+    onOpenThemes: (() -> Unit)? = null,
+    onOpenGradients: (() -> Unit)? = null,
+    onOpenSearchImage: (() -> Unit)? = null,
     onClose: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -180,16 +186,6 @@ fun SettingsScreen(
     val adapt = remember(profile) { profile.adaptation() }
 
     var showInlineProfile by rememberSaveable { mutableStateOf(false) }
-    var showNotifFreqSheet by remember { mutableStateOf(false) }
-    var showCalendarViewSheet by remember { mutableStateOf(false) }
-    var showAppearanceSheet by remember { mutableStateOf(false) }
-    var showTimerDurationsSheet by remember { mutableStateOf(false) }
-    var showCoursesSheet by remember { mutableStateOf(false) }
-    var showAddCourseSheet by remember { mutableStateOf(false) }
-
-    var focusUniverseExpanded by rememberSaveable { mutableStateOf(false) }
-    var themesExpanded by rememberSaveable { mutableStateOf(false) }
-    var gradientsExpanded by rememberSaveable { mutableStateOf(false) }
 
     val activeFocusTheme = remember(appSettings.focusThemeId) { focusThemeFor(appSettings.focusThemeId) }
     val activeColorTheme = remember(appSettings.selectedThemeId) {
@@ -397,7 +393,7 @@ fun SettingsScreen(
                     icon = Icons.Outlined.Schedule,
                     title = "Fréquence des rappels",
                     valueText = currentFreq.label,
-                    onClick = { showNotifFreqSheet = true },
+                    onClick = { onOpenNotificationFrequency?.invoke() },
                     testTag = "settings_notif_frequency_row"
                 )
 
@@ -407,7 +403,7 @@ fun SettingsScreen(
                     icon = Icons.Outlined.Tune,
                     title = "Apparence",
                     valueText = activeAppearanceMode.label,
-                    onClick = { showAppearanceSheet = true },
+                    onClick = { onOpenAppearance?.invoke() },
                     testTag = "settings_appearance_mode_row"
                 )
 
@@ -417,7 +413,7 @@ fun SettingsScreen(
                     icon = Icons.Outlined.CalendarMonth,
                     title = "Vue Calendrier",
                     valueText = activeCalendarView.label,
-                    onClick = { showCalendarViewSheet = true },
+                    onClick = { onOpenCalendarView?.invoke() },
                     testTag = "settings_default_calendar_row"
                 )
             }
@@ -430,7 +426,7 @@ fun SettingsScreen(
                     icon = Icons.Outlined.Timer,
                     title = "Durées du minuteur",
                     valueText = "${appSettings.pomodoroMinutes} · ${appSettings.deepCodeMinutes} · ${appSettings.shortBreakMinutes} min",
-                    onClick = { showTimerDurationsSheet = true },
+                    onClick = { onOpenTimerDurations?.invoke() },
                     testTag = "settings_timer_durations_row"
                 )
 
@@ -466,75 +462,13 @@ fun SettingsScreen(
 
                 SettingsInsetDivider()
 
-                // Collapsible Focus Universe & Audio inside the grouped Focus card
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = LightTouchTarget.minimum)
-                        .clickable { focusUniverseExpanded = !focusUniverseExpanded }
-                        .padding(horizontal = LightSpacing.two, vertical = LightSpacing.oneAndHalf)
-                        .testTag("settings_expand_focus_universe"),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(LightSpacing.oneAndHalf)
-                ) {
-                    Image(
-                        painter = painterResource(id = focusIllustrationResource(appSettings.focusIllustrationId)),
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(activeFocusTheme.containerColor)
-                    )
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Univers & audio Focus",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "${focusIllustrationTitle(appSettings.focusIllustrationId)} · ${audioState.selectedTrack.title}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                    Icon(
-                        imageVector = if (focusUniverseExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                        contentDescription = if (focusUniverseExpanded) "Masquer la personnalisation Focus" else "Personnaliser Focus",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f)
-                    )
-                }
-
-                AnimatedVisibility(
-                    visible = focusUniverseExpanded,
-                    enter = fadeIn() + expandVertically(),
-                    exit = fadeOut() + shrinkVertically()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        FocusVisualCustomizationPicker(
-                            selectedIllustrationId = appSettings.focusIllustrationId,
-                            selectedThemeId = appSettings.focusThemeId,
-                            onSelectIllustration = onSelectFocusIllustration,
-                            onSelectTheme = onSelectFocusTheme,
-                            focusTheme = activeFocusTheme
-                        )
-                        FocusAudioCard(
-                            audioState = audioState,
-                            onSelectTrack = onSelectAudioTrack,
-                            onTogglePlayPause = onToggleAudioPlayPause,
-                            onVolumeChange = onAudioVolumeChange,
-                            onToggleAutoPlay = onUpdateAutoPlayAudioWithFocus,
-                            accentColor = activeFocusTheme.accentColor,
-                            softContainerColor = activeFocusTheme.containerColor
-                        )
-                    }
-                }
+                SettingsNavigationRow(
+                    icon = Icons.Outlined.Palette,
+                    title = "Univers & audio Focus",
+                    valueText = focusIllustrationTitle(appSettings.focusIllustrationId),
+                    onClick = { onOpenFocusUniverse?.invoke() },
+                    testTag = "settings_focus_universe_row"
+                )
             }
         }
 
@@ -551,164 +485,23 @@ fun SettingsScreen(
 
                 SettingsInsetDivider()
 
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = LightTouchTarget.minimum)
-                        .clickable { themesExpanded = !themesExpanded }
-                        .padding(horizontal = LightSpacing.two, vertical = LightSpacing.oneAndHalf)
-                        .testTag("settings_expand_themes"),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(LightSpacing.oneAndHalf)
-                ) {
-                    SettingsLeadingIconBox(icon = Icons.Outlined.ColorLens)
-                    Text(
-                        text = "Palettes classiques",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Surface(
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f)
-                    ) {
-                        Text(
-                            text = activeColorTheme?.name ?: "Dégradé",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                        )
-                    }
-                    Icon(
-                        imageVector = if (themesExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                        contentDescription = if (themesExpanded) "Masquer les palettes" else "Afficher les palettes",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f)
-                    )
-                }
-
-                AnimatedVisibility(
-                    visible = themesExpanded,
-                    enter = fadeIn() + expandVertically(),
-                    exit = fadeOut() + shrinkVertically()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        themeRows.forEach { pair ->
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                pair.forEach { preset ->
-                                    val selected = appSettings.selectedThemeId == preset.id
-                                    Surface(
-                                        onClick = { onSelectTheme(preset.id) },
-                                        shape = RoundedCornerShape(16.dp),
-                                        color = MaterialTheme.colorScheme.surface,
-                                        border = BorderStroke(
-                                            if (selected) 2.dp else 0.8.dp,
-                                            if (selected) preset.primary else MaterialTheme.colorScheme.outlineVariant
-                                        ),
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .testTag("theme_preset_${preset.id}")
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                        ) {
-                                            Surface(
-                                                shape = CircleShape,
-                                                color = preset.primary,
-                                                modifier = Modifier.size(18.dp)
-                                            ) {}
-                                            Column(modifier = Modifier.weight(1f)) {
-                                                Text(preset.name, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
-                                                Text(preset.audience, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                            }
-                                        }
-                                    }
-                                }
-                                if (pair.size == 1) Spacer(modifier = Modifier.weight(1f))
-                            }
-                        }
-                    }
-                }
+                SettingsNavigationRow(
+                    icon = Icons.Outlined.ColorLens,
+                    title = "Palettes classiques",
+                    valueText = activeColorTheme?.name ?: "Dégradé",
+                    onClick = { onOpenThemes?.invoke() },
+                    testTag = "settings_themes_row"
+                )
 
                 SettingsInsetDivider()
 
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = LightTouchTarget.minimum)
-                        .clickable { gradientsExpanded = !gradientsExpanded }
-                        .padding(horizontal = LightSpacing.two, vertical = LightSpacing.oneAndHalf)
-                        .testTag("settings_expand_gradients"),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(LightSpacing.oneAndHalf)
-                ) {
-                    SettingsLeadingIconBox(icon = Icons.Outlined.Palette)
-                    Text(
-                        text = "Studio dégradés",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Surface(
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f)
-                    ) {
-                        Text(
-                            text = if (appSettings.selectedThemeId == "gradient") activeGradient.name else "${LightGradients.all.size} palettes",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                        )
-                    }
-                    Icon(
-                        imageVector = if (gradientsExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                        contentDescription = if (gradientsExpanded) "Masquer les dégradés" else "Afficher les dégradés",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f)
-                    )
-                }
-
-                AnimatedVisibility(
-                    visible = gradientsExpanded,
-                    enter = fadeIn() + expandVertically(),
-                    exit = fadeOut() + shrinkVertically()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        LightGradients.all.chunked(2).forEach { pair ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                pair.forEach { preset ->
-                                    GradientSwatchCard(
-                                        preset = preset,
-                                        isSelected = appSettings.selectedThemeId == "gradient" && preset.id == selectedGradientId,
-                                        onClick = {
-                                            onSelectTheme("gradient")
-                                            onSelectGradient(preset.id)
-                                        },
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                }
-                                if (pair.size == 1) Spacer(modifier = Modifier.weight(1f))
-                            }
-                        }
-                    }
-                }
+                SettingsNavigationRow(
+                    icon = Icons.Outlined.Palette,
+                    title = "Studio dégradés",
+                    valueText = if (appSettings.selectedThemeId == "gradient") activeGradient.name else "${LightGradients.all.size} palettes",
+                    onClick = { onOpenGradients?.invoke() },
+                    testTag = "settings_gradients_row"
+                )
             }
         }
 
@@ -728,449 +521,31 @@ fun SettingsScreen(
                     icon = Icons.Outlined.Book,
                     title = adapt.workspaceSectionTitle,
                     valueText = "${courses.size} actif(s)",
-                    onClick = { showCoursesSheet = true },
+                    onClick = { onOpenCourses?.invoke() },
                     testTag = "settings_courses_row"
                 )
 
                 SettingsInsetDivider()
 
-                if (isGoogleAuthPaused) {
-                    SettingsNavigationRow(
-                        icon = Icons.Outlined.CloudOff,
-                        title = "Connexion Google Cloud",
-                        valueText = "Mode Test actif",
-                        onClick = onResumeGoogleSignIn,
-                        testTag = "resume_google_signin_button"
-                    )
-                } else {
-                    SettingsNavigationRow(
-                        icon = Icons.Outlined.CloudDone,
-                        title = "Passer en Mode Test",
-                        valueText = "Local",
-                        onClick = onPauseGoogleSignIn,
-                        testTag = "pause_google_signin_button"
-                    )
-
-                    SettingsInsetDivider()
-
-                    SettingsNavigationRow(
-                        icon = Icons.AutoMirrored.Rounded.Logout,
-                        title = "Déconnexion",
-                        titleColor = AppleRose,
-                        iconTint = AppleRose,
-                        onClick = onSignOut,
-                        testTag = "sign_out_button"
-                    )
-                }
-            }
-        }
-    }
-
-    // Bottom Sheet: Notification Frequency
-    if (showNotifFreqSheet) {
-        ModalBottomSheet(onDismissRequest = { showNotifFreqSheet = false }) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-                    .padding(bottom = 28.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = "Fréquence des rappels",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 4.dp)
+                SettingsNavigationRow(
+                    icon = Icons.Outlined.CloudDone,
+                    title = "Compte connecté",
+                    valueText = "Cloud Firestore",
+                    onClick = {},
+                    testTag = "cloud_account_row"
                 )
-                NotificationFrequency.entries.forEach { freq ->
-                    val selected = if (!notifEnabled) freq == NotificationFrequency.OFF else currentFreq == freq
-                    SettingsSheetOptionRow(
-                        label = freq.label,
-                        selected = selected,
-                        accentColor = gradient.accentColor,
-                        onClick = {
-                            val willEnable = freq != NotificationFrequency.OFF
-                            if (willEnable && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                                !LightNotificationHelper.hasNotificationPermission(context)
-                            ) {
-                                notifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                            } else {
-                                onUpdateNotifications(willEnable, freq)
-                            }
-                            showNotifFreqSheet = false
-                        },
-                        testTag = "settings_notif_freq_${freq.key}"
-                    )
-                }
-            }
-        }
-    }
 
-    // Bottom Sheet: Default Calendar View
-    if (showCalendarViewSheet) {
-        ModalBottomSheet(onDismissRequest = { showCalendarViewSheet = false }) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-                    .padding(bottom = 28.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = "Vue Calendrier par défaut",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 4.dp)
-                )
-                CalendarViewMode.entries.forEach { mode ->
-                    SettingsSheetOptionRow(
-                        label = mode.label,
-                        selected = appSettings.defaultCalendarView == mode.key,
-                        accentColor = gradient.accentColor,
-                        onClick = {
-                            onUpdateDefaultCalendarView(mode.key)
-                            showCalendarViewSheet = false
-                        },
-                        testTag = "settings_default_view_${mode.key}"
-                    )
-                }
-            }
-        }
-    }
+                SettingsInsetDivider()
 
-    // Bottom Sheet: Appearance Mode
-    if (showAppearanceSheet) {
-        ModalBottomSheet(onDismissRequest = { showAppearanceSheet = false }) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-                    .padding(bottom = 28.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = "Style d'affichage",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 4.dp)
-                )
-                AppearanceMode.entries.forEach { mode ->
-                    SettingsSheetOptionRow(
-                        label = mode.label,
-                        subtitle = mode.description,
-                        selected = appSettings.appearanceMode == mode.key,
-                        accentColor = gradient.accentColor,
-                        onClick = {
-                            onSelectAppearanceMode(mode.key)
-                            showAppearanceSheet = false
-                        },
-                        testTag = "appearance_mode_${mode.key}"
-                    )
-                }
-            }
-        }
-    }
-
-    // Bottom Sheet: Timer Durations
-    if (showTimerDurationsSheet) {
-        ModalBottomSheet(onDismissRequest = { showTimerDurationsSheet = false }) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-                    .padding(bottom = 28.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text(
-                    text = "Durées du minuteur",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-                DurationStepperRow(
-                    label = "Pomodoro standard",
-                    minutes = appSettings.pomodoroMinutes,
-                    accentColor = gradient.accentColor,
-                    onDecrease = {
-                        onUpdateTimerDurations(
-                            (appSettings.pomodoroMinutes - 5).coerceAtLeast(10),
-                            appSettings.deepCodeMinutes,
-                            appSettings.shortBreakMinutes
-                        )
-                    },
-                    onIncrease = {
-                        onUpdateTimerDurations(
-                            (appSettings.pomodoroMinutes + 5).coerceAtMost(90),
-                            appSettings.deepCodeMinutes,
-                            appSettings.shortBreakMinutes
-                        )
-                    }
-                )
-                DurationStepperRow(
-                    label = "Deep Code",
-                    minutes = appSettings.deepCodeMinutes,
-                    accentColor = gradient.accentColor,
-                    onDecrease = {
-                        onUpdateTimerDurations(
-                            appSettings.pomodoroMinutes,
-                            (appSettings.deepCodeMinutes - 5).coerceAtLeast(20),
-                            appSettings.shortBreakMinutes
-                        )
-                    },
-                    onIncrease = {
-                        onUpdateTimerDurations(
-                            appSettings.pomodoroMinutes,
-                            (appSettings.deepCodeMinutes + 5).coerceAtMost(120),
-                            appSettings.shortBreakMinutes
-                        )
-                    }
-                )
-                DurationStepperRow(
-                    label = "Pause courte",
-                    minutes = appSettings.shortBreakMinutes,
-                    accentColor = AppleEmerald,
-                    onDecrease = {
-                        onUpdateTimerDurations(
-                            appSettings.pomodoroMinutes,
-                            appSettings.deepCodeMinutes,
-                            (appSettings.shortBreakMinutes - 1).coerceAtLeast(3)
-                        )
-                    },
-                    onIncrease = {
-                        onUpdateTimerDurations(
-                            appSettings.pomodoroMinutes,
-                            appSettings.deepCodeMinutes,
-                            (appSettings.shortBreakMinutes + 1).coerceAtMost(30)
-                        )
-                    }
+                SettingsNavigationRow(
+                    icon = Icons.AutoMirrored.Rounded.Logout,
+                    title = "Déconnexion",
+                    titleColor = AppleRose,
+                    iconTint = AppleRose,
+                    onClick = onSignOut,
+                    testTag = "sign_out_button"
                 )
             }
-        }
-    }
-
-    // Bottom Sheet: Manage Courses
-    if (showCoursesSheet) {
-        ModalBottomSheet(onDismissRequest = { showCoursesSheet = false }) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-                    .padding(bottom = 28.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = adapt.workspaceSectionTitle,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Button(
-                        onClick = {
-                            showCoursesSheet = false
-                            showAddCourseSheet = true
-                        },
-                        shape = CircleShape,
-                        colors = ButtonDefaults.buttonColors(containerColor = gradient.accentColor)
-                    ) {
-                        Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("Ajouter")
-                    }
-                }
-                if (courses.isEmpty()) {
-                    Text(
-                        text = "Aucune matière enregistrée pour le moment.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                } else {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 360.dp)
-                            .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        courses.forEach { course ->
-                            Surface(
-                                shape = RoundedCornerShape(16.dp),
-                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    Surface(
-                                        shape = RoundedCornerShape(10.dp),
-                                        color = catalogIconColor(course.colorIndex).copy(alpha = 0.14f),
-                                        modifier = Modifier.size(36.dp)
-                                    ) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            CatalogIcon(
-                                                iconKey = course.iconKey,
-                                                contentDescription = null,
-                                                tint = catalogIconColor(course.colorIndex),
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                        }
-                                    }
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = "${course.code} · ${course.title}",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = FontWeight.SemiBold,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                        Text(
-                                            text = course.professor.ifBlank { "Module actif" },
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            maxLines = 1
-                                        )
-                                    }
-                                    IconButton(
-                                        onClick = { onDeleteCourse(course.id) },
-                                        modifier = Modifier.testTag("course_actions_${course.id}")
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.DeleteOutline,
-                                            contentDescription = "Supprimer ${course.title}",
-                                            tint = AppleRose
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // Bottom Sheet: Edit Profile
-    // Bottom Sheet: Add Course
-    if (showAddCourseSheet) {
-        var code by remember { mutableStateOf("GL-307") }
-        var title by remember { mutableStateOf("") }
-        var professor by remember { mutableStateOf("") }
-        var targetHours by remember { mutableStateOf("20") }
-        var iconKey by remember { mutableStateOf("book") }
-        var colorIndex by remember { mutableLongStateOf((courses.size % 7).toLong()) }
-        var showIconPicker by remember { mutableStateOf(false) }
-
-        ModalBottomSheet(onDismissRequest = { showAddCourseSheet = false }) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 560.dp)
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp)
-                    .padding(bottom = 28.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Text(
-                    text = "Nouvelle matière",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-                OutlinedTextField(
-                    value = code,
-                    onValueChange = { code = it },
-                    label = { Text("Code (ex: GL-307)") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text("Intitulé du module") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = professor,
-                    onValueChange = { professor = it },
-                    label = { Text("Professeur") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = targetHours,
-                    onValueChange = { targetHours = it.filter { ch -> ch.isDigit() } },
-                    label = { Text("Objectif d'heures") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = catalogIconColor(colorIndex).copy(alpha = 0.14f),
-                        modifier = Modifier.size(42.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            CatalogIcon(iconKey, null, catalogIconColor(colorIndex), Modifier.size(22.dp))
-                        }
-                    }
-                    OutlinedButton(onClick = { showIconPicker = true }) {
-                        Text("Choisir une icône")
-                    }
-                }
-                Text("Couleur", style = MaterialTheme.typography.labelMedium)
-                CatalogColorPicker(
-                    selectedIndex = colorIndex,
-                    onColorSelected = { colorIndex = it },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End)
-                ) {
-                    TextButton(onClick = { showAddCourseSheet = false }) {
-                        Text("Annuler")
-                    }
-                    Button(
-                        onClick = {
-                            if (title.isNotBlank() && code.isNotBlank()) {
-                                onCreateCourse(
-                                    code,
-                                    title,
-                                    professor,
-                                    colorIndex,
-                                    targetHours.toIntOrNull() ?: 20,
-                                    15.0,
-                                    iconKey
-                                )
-                                showAddCourseSheet = false
-                            }
-                        },
-                        enabled = title.isNotBlank() && code.isNotBlank(),
-                        colors = ButtonDefaults.buttonColors(containerColor = gradient.accentColor)
-                    ) {
-                        Text("Ajouter", color = Color.White)
-                    }
-                }
-            }
-        }
-        if (showIconPicker) {
-            CatalogIconPickerSheet(
-                selectedIconKey = iconKey,
-                selectedColor = catalogIconColor(colorIndex),
-                onIconSelected = { iconKey = it },
-                onDismiss = { showIconPicker = false }
-            )
         }
     }
 }

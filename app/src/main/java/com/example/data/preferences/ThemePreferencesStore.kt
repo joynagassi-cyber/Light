@@ -72,7 +72,7 @@ private val FOCUS_ILLUSTRATION_IDS = setOf(
     "student", "coder", "planner", "desk_writer", "book_reader", "flashcards",
     "lab_student", "music_student", "math_student", "group_study", "tablet_notes", "speech_practice"
 )
-private val FOCUS_THEME_IDS = setOf("lunar", "ocean", "forest", "desk", "nebula", "mountain")
+private val FOCUS_THEME_IDS = setOf("lunar", "focusly_dusk", "cyberpunk_night", "aurora_borealis", "ocean", "forest", "desk", "nebula", "mountain", "premium")
 
 class ThemePreferencesStore(private val context: Context) {
     private val gradientKey = stringPreferencesKey("selected_gradient_id")
@@ -87,7 +87,7 @@ class ThemePreferencesStore(private val context: Context) {
     private val autoPlayAudioKey = booleanPreferencesKey("auto_play_audio_with_focus")
     private val notificationsEnabledKey = booleanPreferencesKey("notifications_enabled")
     private val notificationFrequencyKey = stringPreferencesKey("notification_frequency")
-    private val googleAuthPausedKey = booleanPreferencesKey("google_auth_paused_for_testing")
+    // Test mode removed — paused key kept for migration only, no longer used
     private val selectedThemeKey = stringPreferencesKey("selected_theme_id")
     private val appearanceModeKey = stringPreferencesKey("appearance_mode")
     private val glassEnabledKey = booleanPreferencesKey("glass_enabled")
@@ -115,9 +115,8 @@ class ThemePreferencesStore(private val context: Context) {
         prefs[gradientKey] ?: "aurore_lavande"
     }
 
-    val googleAuthPausedForTesting: Flow<Boolean> = context.lightDataStore.data.map { prefs ->
-        prefs[googleAuthPausedKey] ?: true
-    }
+    @Deprecated("Test mode removed")
+    val googleAuthPausedForTesting: Flow<Boolean> = context.lightDataStore.data.map { false }
 
     val appSettings: Flow<StudyAppSettings> = context.lightDataStore.data.map { prefs ->
         val savedAppearance = prefs[appearanceModeKey] ?: "light"
@@ -135,7 +134,7 @@ class ThemePreferencesStore(private val context: Context) {
             autoPlayAudioWithFocus = prefs[autoPlayAudioKey] ?: false,
             notificationsEnabled = prefs[notificationsEnabledKey] ?: true,
             notificationFrequency = prefs[notificationFrequencyKey] ?: "daily",
-            googleAuthPausedForTesting = prefs[googleAuthPausedKey] ?: true,
+            googleAuthPausedForTesting = false,
             selectedThemeId = prefs[selectedThemeKey] ?: "gradient",
             appearanceMode = savedAppearance.takeUnless { it == "glass" } ?: "light",
             glassEnabled = prefs[glassEnabledKey] ?: (savedAppearance == "glass"),
@@ -373,11 +372,8 @@ class ThemePreferencesStore(private val context: Context) {
         }.getOrDefault(emptyList())
     }
 
-    suspend fun updateGoogleAuthPausedForTesting(paused: Boolean) {
-        context.lightDataStore.edit { prefs ->
-            prefs[googleAuthPausedKey] = paused
-        }
-    }
+    @Deprecated("Test mode removed")
+    suspend fun updateGoogleAuthPausedForTesting(paused: Boolean) { /* no-op */ }
 
     suspend fun updateSearchSettings(provider: String, enabled: Boolean) {
         context.lightDataStore.edit { prefs ->

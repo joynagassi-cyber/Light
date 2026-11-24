@@ -1518,3 +1518,153 @@ private fun AuthenticatedStudyShell(
         }
     }
 }
+
+@Composable
+private fun NotificationFrequencyPage(
+    currentFrequency: com.example.data.model.NotificationFrequency,
+    notifEnabled: Boolean,
+    onUpdateNotifications: (Boolean, com.example.data.model.NotificationFrequency) -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        com.example.ui.screens.SettingsPageHeader("Fréquence des rappels", onBack)
+        Text("Actuel: ${currentFrequency.label}")
+        com.example.data.model.NotificationFrequency.entries.forEach { freq ->
+            androidx.compose.material3.TextButton(onClick = { onUpdateNotifications(freq != com.example.data.model.NotificationFrequency.OFF, freq); onBack() }) { Text(freq.label) }
+        }
+    }
+}
+
+@Composable
+private fun CalendarViewPage(
+    currentViewKey: String,
+    onUpdateDefaultCalendarView: (String) -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        com.example.ui.screens.SettingsPageHeader("Vue Calendrier", onBack)
+        Text("Actuel: $currentViewKey")
+        androidx.compose.material3.TextButton(onClick = { onUpdateDefaultCalendarView("week"); onBack() }) { Text("Semaine") }
+        androidx.compose.material3.TextButton(onClick = { onUpdateDefaultCalendarView("month"); onBack() }) { Text("Mois") }
+    }
+}
+
+@Composable
+private fun AppearancePage(
+    currentModeKey: String,
+    onSelectAppearanceMode: (String) -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        com.example.ui.screens.SettingsPageHeader("Apparence", onBack)
+        Text("Actuel: $currentModeKey")
+        androidx.compose.material3.TextButton(onClick = { onSelectAppearanceMode("light"); onBack() }) { Text("Clair") }
+        androidx.compose.material3.TextButton(onClick = { onSelectAppearanceMode("oled"); onBack() }) { Text("OLED") }
+    }
+}
+
+@Composable
+private fun TimerDurationsPage(
+    appSettings: com.example.data.preferences.StudyAppSettings,
+    onUpdateTimerDurations: (Int, Int, Int) -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        com.example.ui.screens.SettingsPageHeader("Durées du minuteur", onBack)
+        Text("Pomodoro: ${appSettings.pomodoroMinutes} min, Deep: ${appSettings.deepCodeMinutes}, Pause: ${appSettings.shortBreakMinutes}")
+        androidx.compose.material3.Button(onClick = onBack) { Text("Fermer") }
+    }
+}
+
+@Composable
+private fun CoursesPage(
+    courses: List<com.example.data.model.Course>,
+    onDeleteCourse: (String) -> Unit,
+    onAddCourse: () -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        com.example.ui.screens.SettingsPageHeader("Matières", onBack)
+        Text("${courses.size} matière(s)")
+        androidx.compose.material3.Button(onClick = onAddCourse) { Text("Ajouter") }
+        courses.forEach { c ->
+            androidx.compose.foundation.layout.Row(Modifier.fillMaxWidth().padding(8.dp)) {
+                Text("${c.code} · ${c.title}", modifier = Modifier.weight(1f))
+                androidx.compose.material3.TextButton(onClick = { onDeleteCourse(c.id) }) { Text("Supprimer") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AddCoursePage(
+    courses: List<com.example.data.model.Course>,
+    onCreateCourse: (String, String, String, Long, Int, Double, String) -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        com.example.ui.screens.SettingsPageHeader("Nouvelle matière", onBack)
+        var code by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("GL-307") }
+        var title by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
+        androidx.compose.material3.OutlinedTextField(value = code, onValueChange = { code = it }, label = { Text("Code") }, modifier = Modifier.fillMaxWidth())
+        androidx.compose.material3.OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Intitulé") }, modifier = Modifier.fillMaxWidth())
+        androidx.compose.material3.Button(onClick = { if (title.isNotBlank() && code.isNotBlank()) { onCreateCourse(code, title, "", 0, 20, 15.0, "book"); onBack() } }, enabled = title.isNotBlank() && code.isNotBlank()) { Text("Ajouter") }
+    }
+}
+
+@Composable
+private fun FocusUniversePage(
+    appSettings: com.example.data.preferences.StudyAppSettings,
+    audioState: com.example.ui.FocusAudioUiState,
+    onSelectIllustration: (String) -> Unit,
+    onSelectTheme: (String) -> Unit,
+    onSelectAudioTrack: (com.example.audio.FocusAudioTrack) -> Unit,
+    onToggleAudioPlayPause: () -> Unit,
+    onAudioVolumeChange: (Float) -> Unit,
+    onToggleAutoPlayAudio: (Boolean) -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        com.example.ui.screens.SettingsPageHeader("Univers & audio Focus", onBack)
+        Text("Illustration: ${appSettings.focusIllustrationId}")
+        Text("Thème: ${appSettings.focusThemeId}")
+    }
+}
+
+@Composable
+private fun ThemesPage(
+    selectedThemeId: String,
+    onSelectTheme: (String) -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        com.example.ui.screens.SettingsPageHeader("Palettes classiques", onBack)
+        Text("Actuel: $selectedThemeId")
+        androidx.compose.material3.TextButton(onClick = { onSelectTheme("paper"); onBack() }) { Text("Papier") }
+        androidx.compose.material3.TextButton(onClick = { onSelectTheme("ocean"); onBack() }) { Text("Océan") }
+    }
+}
+
+@Composable
+private fun GradientsPage(
+    selectedGradientId: String,
+    selectedThemeId: String,
+    onSelectGradient: (String) -> Unit,
+    onSelectTheme: (String) -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        com.example.ui.screens.SettingsPageHeader("Studio dégradés", onBack)
+        Text("Actuel: $selectedGradientId")
+        androidx.compose.material3.TextButton(onClick = { onSelectTheme("gradient"); onSelectGradient("aurore_lavande"); onBack() }) { Text("Aurore Lavande") }
+    }
+}

@@ -44,29 +44,31 @@ jobs:
           exit 1
       - name: Post failure details to PR (for arena debugging)
         if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
           echo "Collecting failure details..."
           {
             echo "### Test failures for ${{ github.sha }}"
             echo '```'
-            for f in app/build/test-results/testDebugUnitTest/TEST-*.xml; do [ -f "$f" ] || continue; if grep -q 'failures="[^0]\|errors="[^0]' "$f"; then echo "=== $f ==="; cat "$f" | tr '\n' '\n' | head -200; echo "---END $f---"; fi; done
+            for f in app/build/test-results/testDebugUnitTest/TEST-*.xml; do [ -f "$f" ] || continue; if grep -q 'failures="[^0]\|errors="[^0]' "$f"; then echo "=== $f ==="; cat "$f" | head -300; echo "---END $f---"; fi; done
             echo '```'
             echo "Gradle log tail:"
             echo '```'
-            tail -200 "$RUNNER_TEMP/light-gradle.log" | head -100
+            tail -300 "$RUNNER_TEMP/light-gradle.log" | head -150
             echo '```'
           } > /tmp/failure.md
           cat /tmp/failure.md
-          # Commit failure report to branch so arena can fetch via API
-          if [ "${{ github.event_name }}" != "pull_request" ]; then
-            git config user.email "ci@light.local"
-            git config user.name "Light CI"
-            cp /tmp/failure.md ci-failure.md
-            git add ci-failure.md
-            git commit -m "ci: failure report ${{ github.sha }}" || true
-            git push origin HEAD:${{ github.ref_name }} || true
+          # Upload failure report via API so arena can fetch (allowed host api.github.com)
+          CONTENT_B64=$(base64 -w0 /tmp/failure.md)
+          EXISTING_SHA=$(gh api repos/${{ github.repository }}/contents/ci-failure.md --jq .sha 2>/dev/null || echo "")
+          if [ -n "$EXISTING_SHA" ]; then
+            gh api repos/${{ github.repository }}/contents/ci-failure.md -X PUT -f message="ci: failure report ${{ github.sha }}" -f content="$CONTENT_B64" -f sha="$EXISTING_SHA" --jq .content.sha || true
+          else
+            gh api repos/${{ github.repository }}/contents/ci-failure.md -X PUT -f message="ci: failure report ${{ github.sha }}" -f content="$CONTENT_B64" --jq .content.sha || true
           fi
+          echo "Uploaded ci-failure.md via API"
       - name: Upload test reports
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v6

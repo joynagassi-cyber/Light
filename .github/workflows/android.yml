@@ -39,8 +39,8 @@ jobs:
           fi
           # Keep compiler diagnostics and test failures visible even when the CI log archive is unavailable.
           awk '/^e: .*\.kt:/ || /FAILED/ || /AssertionFailedError/ || /expected:/ || /but was:/ || /^> Could not / || /org.junit/ { printf "::error::%s\n", substr($0, 1, 600); if (++n >= 40) exit }' "$RUNNER_TEMP/light-gradle.log"
-          # Dump failing test XMLs directly (combine each failure into one annotation)
-          for f in app/build/test-results/testDebugUnitTest/TEST-*.xml; do [ -f "$f" ] || continue; if grep -q 'failures="[^0]\|errors="[^0]' "$f"; then echo "::error::FAILFILE $f"; awk 'BEGIN{buf=""} /<failure/{flag=1; buf=""} {if(flag) buf=buf" "$0} /<\/failure>/{flag=0; printf "::error file=%s::%s\n", FILENAME, substr(buf,1,900); buf=""}' "$f"; fi; done
+          # Dump failing test XMLs directly (combine each failure/error into one annotation)
+          for f in app/build/test-results/testDebugUnitTest/TEST-*.xml; do [ -f "$f" ] || continue; if grep -q 'failures="[^0]\|errors="[^0]' "$f"; then echo "::error::FAILFILE $f"; awk 'BEGIN{buf=""} /<(failure|error)/{flag=1; buf=""} {if(flag) buf=buf" "$0} /<\/(failure|error)>/{flag=0; printf "::error file=%s::%s\n", FILENAME, substr(buf,1,1200); buf=""}' "$f"; fi; done
           exit 1
       - name: Upload test reports
         if: ${{ !cancelled() }}

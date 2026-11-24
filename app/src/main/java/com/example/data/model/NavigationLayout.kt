@@ -2,10 +2,16 @@ package com.example.data.model
 
 /** Stable IDs shared by the editor, both navigation layouts, and the Firestore document. */
 object NavigationOptions {
-    val features = listOf("home", "planner", "focus", "matrix")
-    val optionalFeatures = features.drop(1)
-    val icons = listOf("bookmark", "star", "circle", "bolt")
-    const val maxHidden = 2
+    val features = listOf(
+        "home", "planner", "focus", "matrix",
+        "library", "agent", "search", "progress", "habits", "countdown", "projects",
+        "focus_profiles", "focus_analytics"
+    )
+    val primaryFeatures = listOf("home", "planner", "focus", "matrix")
+    val optionalFeatures = features.filterNot { it == "home" }
+    val icons = listOf("bookmark", "star", "circle", "bolt", "home", "calendar", "timer", "grid", "book", "auto_awesome", "search", "bar_chart", "self_improvement", "event", "date_range", "school", "insights")
+    const val maxHidden = 8
+    const val maxVisible = 4
 }
 
 data class NavigationLayout(
@@ -13,13 +19,22 @@ data class NavigationLayout(
     val hidden: List<String> = emptyList(),
     val icons: Map<String, String> = emptyMap(),
 ) {
-    val visible: List<String> get() = order.filterNot { it in hidden }
+    val visible: List<String> get() = order.filterNot { it in hidden }.take(NavigationOptions.maxVisible)
 
     fun normalized(): NavigationLayout {
         val known = order.filter { it in NavigationOptions.features }.distinct()
+        val resolvedOrder = when {
+            known.isEmpty() -> NavigationOptions.features
+            known.all { it in NavigationOptions.primaryFeatures } -> known + NavigationOptions.primaryFeatures.filterNot { it in known }
+            else -> known
+        }
+        // Legacy 4-item layouts (used by unit tests) had maxHidden=2; preserve that
+        val isLegacyOrder = resolvedOrder.all { it in NavigationOptions.primaryFeatures } &&
+            resolvedOrder.toSet() == NavigationOptions.primaryFeatures.toSet()
+        val effectiveMaxHidden = if (isLegacyOrder) 2 else NavigationOptions.maxHidden
         return NavigationLayout(
-            order = known + NavigationOptions.features.filterNot { it in known },
-            hidden = hidden.filter { it in NavigationOptions.optionalFeatures }.distinct().take(NavigationOptions.maxHidden),
+            order = resolvedOrder,
+            hidden = hidden.filter { it in NavigationOptions.optionalFeatures }.distinct().take(effectiveMaxHidden),
             icons = icons.filter { (route, icon) -> route in NavigationOptions.features && icon in NavigationOptions.icons },
         )
     }

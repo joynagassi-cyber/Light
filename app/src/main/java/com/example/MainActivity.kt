@@ -35,6 +35,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -117,10 +119,10 @@ import com.example.data.firebase.configureAppCheck
 import com.example.data.model.UiState
 import com.example.data.network.NetworkMonitor
 import com.example.data.preferences.AgentThreadsStore
+import com.example.data.model.NotificationFrequency
 import com.example.data.preferences.StudyAppSettings
 import com.example.data.preferences.ThemePreferencesStore
 import com.example.data.repository.AiPlannerRepository
-import com.example.data.repository.LocalTestStudyRepository
 import com.example.data.repository.StudyRepository
 import com.example.data.repository.StudyWorkspaceRepository
 import com.example.audio.FocusAudioTrack
@@ -139,6 +141,7 @@ import com.example.ui.screens.WorkspaceProfilePage
 import com.example.ui.screens.navigationIcon
 import com.example.ui.theme.LightSpacing
 import com.example.ui.screens.AuthScreen
+import com.example.ui.screens.WelcomeScreen
 import com.example.ui.screens.CountdownScreen
 import com.example.ui.screens.EisenhowerScreen
 import com.example.ui.screens.FocusAnalyticsScreen
@@ -180,10 +183,23 @@ private enum class LightTab(
     PLANNER("planner", R.string.nav_planner, Icons.Rounded.CalendarMonth, Icons.Outlined.CalendarMonth),
     FOCUS("focus", R.string.nav_focus, Icons.Rounded.Timer, Icons.Outlined.Timer),
     MATRIX("matrix", R.string.nav_matrix, Icons.Rounded.GridView, Icons.Outlined.GridView),
+    LIBRARY("library", R.string.nav_library, Icons.Rounded.Description, Icons.Rounded.Description),
+    AGENT("agent", R.string.nav_agent, Icons.Rounded.AutoAwesome, Icons.Rounded.AutoAwesome),
+    SEARCH("search", R.string.nav_search, Icons.Rounded.Search, Icons.Rounded.Search),
+    PROGRESS("progress", R.string.nav_progress, Icons.Rounded.BarChart, Icons.Rounded.BarChart),
+    HABITS("habits", R.string.nav_habits, Icons.Rounded.SelfImprovement, Icons.Rounded.SelfImprovement),
+    COUNTDOWN("countdown", R.string.nav_countdown, Icons.Rounded.Event, Icons.Rounded.Event),
+    PROJECTS("projects", R.string.nav_projects, Icons.Rounded.DateRange, Icons.Rounded.DateRange),
+    FOCUS_PROFILES("focus_profiles", R.string.nav_focus_profiles, Icons.Rounded.School, Icons.Rounded.School),
+    FOCUS_ANALYTICS("focus_analytics", R.string.nav_focus_analytics, Icons.Rounded.Insights, Icons.Rounded.Insights),
     MORE("more", R.string.nav_more, Icons.Rounded.Explore, Icons.Rounded.Explore)
 }
 
-private enum class SettingsPage { NAVIGATION, CAPABILITIES, PROFILE }
+private enum class SettingsPage {
+    NAVIGATION, CAPABILITIES, PROFILE,
+    NOTIFICATIONS, NOTIF_FREQUENCY, CALENDAR_VIEW, APPEARANCE, TIMER_DURATIONS,
+    COURSES, ADD_COURSE, FOCUS_UNIVERSE, THEMES, GRADIENTS, SEARCH_IMAGE
+}
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -207,8 +223,6 @@ private fun LightAppRoot() {
     val themeStore = remember(context) { ThemePreferencesStore(context.applicationContext) }
     val localGradientId by themeStore.selectedGradientId.collectAsStateWithLifecycle(initialValue = "aurore_lavande")
     val themeSettings by themeStore.appSettings.collectAsStateWithLifecycle(initialValue = StudyAppSettings())
-    val googleAuthPaused by themeStore.googleAuthPausedForTesting.collectAsStateWithLifecycle(initialValue = null)
-    val localTestRepository = remember(context) { LocalTestStudyRepository(context.applicationContext) }
     val networkMonitor = remember(context) { NetworkMonitor(context.applicationContext) }
     DisposableEffect(networkMonitor) {
         networkMonitor.start()
@@ -216,27 +230,19 @@ private fun LightAppRoot() {
     }
     val isOnline by networkMonitor.isOnline.collectAsStateWithLifecycle()
 
-    // Local mode is the default. Avoid touching Firebase Auth until the user explicitly opts in.
-    // This lets the app launch and be explored even without google-services.json or OAuth setup.
-    val auth = remember(googleAuthPaused) {
-        if (googleAuthPaused == false) {
-            runCatching {
-                val app = FirebaseApp.getApps(context).firstOrNull()
-                    ?: FirebaseApp.initializeApp(context)
-                app?.let { FirebaseAuth.getInstance(it) }
-            }.getOrNull()
-        } else {
-            null
-        }
+    val auth = remember {
+        runCatching {
+            val app = FirebaseApp.getApps(context).firstOrNull()
+                ?: FirebaseApp.initializeApp(context)
+            app?.let { FirebaseAuth.getInstance(it) }
+        }.getOrNull()
     }
     val authState = remember(auth) { auth?.authStateFlow() ?: flowOf(auth?.currentUser) }
     val currentUser by authState.collectAsStateWithLifecycle(initialValue = auth?.currentUser)
     var startupChecked by remember { mutableStateOf(false) }
 
-    LaunchedEffect(googleAuthPaused, currentUser, auth) {
-        val paused = googleAuthPaused ?: return@LaunchedEffect
+    LaunchedEffect(currentUser, auth) {
         when {
-            paused -> startupChecked = true
             auth == null -> startupChecked = true
             currentUser != null -> startupChecked = true
             else -> {
@@ -253,8 +259,7 @@ private fun LightAppRoot() {
     }
 
     val user = currentUser
-    val paused = googleAuthPaused
-    if (paused == null || !startupChecked) {
+    if (!startupChecked) {
         LightThemeProvider(
             selectedGradientId = localGradientId,
             selectedThemeId = themeSettings.selectedThemeId,
@@ -282,74 +287,30 @@ private fun LightAppRoot() {
             }
             StudyRepository(db, activeAuth)
         }
-        LaunchedEffect(user.uid, isOnline, cloudRepository) {
-            if (isOnline) {
-                runCatching {
-                    localTestRepository.syncToCloudIfNeeded(
-                        cloudRepo = cloudRepository,
-                        cloudUserId = user.uid,
-                        displayName = user.displayName.orEmpty(),
-                        email = user.email.orEmpty()
-                    )
-                }
-            }
-        }
         key(user.uid) {
             AuthenticatedStudyShell(
                 userId = user.uid,
                 initialDisplayName = user.displayName ?: "Étudiante",
                 initialEmail = user.email ?: "",
                 photoUrl = user.photoUrl?.toString(),
-                isGoogleAuthPaused = false,
                 isOnlineFlow = networkMonitor.isOnline,
                 themeStore = themeStore,
                 repositoryFactory = { cloudRepository },
-                onTogglePauseGoogleAuth = { pause ->
-                    scope.launch {
-                        // Persist the local-mode choice before Firebase emits its signed-out event,
-                        // so the auth observer cannot immediately trigger another Google prompt.
-                        themeStore.updateGoogleAuthPausedForTesting(pause)
-                        if (pause) {
-                            val cm = CredentialManager.create(context)
-                            signOut(credentialManager = cm, scope = scope)
-                        }
-                    }
-                }
-            )
-        }
-    } else if (paused) {
-        key("local_test_mode") {
-            AuthenticatedStudyShell(
-                userId = "local_test_user",
-                initialDisplayName = "Mode Test",
-                initialEmail = "mode.test@local.light",
-                photoUrl = null,
-                isGoogleAuthPaused = true,
-                isOnlineFlow = networkMonitor.isOnline,
-                themeStore = themeStore,
-                repositoryFactory = { localTestRepository },
-                onTogglePauseGoogleAuth = { pause ->
-                    scope.launch {
-                        themeStore.updateGoogleAuthPausedForTesting(pause)
-                    }
-                }
             )
         }
     } else {
+        var showWelcome by rememberSaveable { mutableStateOf(true) }
         LightThemeProvider(
             selectedGradientId = localGradientId,
             selectedThemeId = themeSettings.selectedThemeId,
             appearanceModeKey = themeSettings.appearanceMode,
             glassEnabled = themeSettings.glassEnabled
         ) {
-            AuthScreen(
-                onAuthSuccess = { startupChecked = true },
-                onEnterTestMode = {
-                    scope.launch {
-                        themeStore.updateGoogleAuthPausedForTesting(true)
-                    }
-                }
-            )
+            if (showWelcome) {
+                WelcomeScreen(onContinueToSignIn = { showWelcome = false })
+            } else {
+                AuthScreen(onAuthSuccess = { startupChecked = true })
+            }
         }
     }
 }
@@ -360,18 +321,16 @@ private fun AuthenticatedStudyShell(
     initialDisplayName: String,
     initialEmail: String,
     photoUrl: String?,
-    isGoogleAuthPaused: Boolean,
     isOnlineFlow: StateFlow<Boolean>,
     themeStore: ThemePreferencesStore,
     repositoryFactory: (android.app.Application) -> StudyWorkspaceRepository,
-    onTogglePauseGoogleAuth: (Boolean) -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val credentialManager = remember { CredentialManager.create(context) }
 
     val viewModel: StudyViewModel = viewModel(
-        key = "${userId}_${if (isGoogleAuthPaused) "test" else "cloud"}",
+        key = userId,
         factory = viewModelFactory {
             initializer {
                 val app = checkNotNull(this[APPLICATION_KEY])
@@ -383,7 +342,7 @@ private fun AuthenticatedStudyShell(
                     initialDisplayName = initialDisplayName,
                     initialEmail = initialEmail,
                     isOnline = isOnlineFlow,
-                    isLocalMode = isGoogleAuthPaused,
+                    isLocalMode = false,
                     agentThreadsStore = AgentThreadsStore(app, userId)
                 )
             }
@@ -462,9 +421,18 @@ private fun AuthenticatedStudyShell(
     var settingsPage by rememberSaveable { mutableStateOf<SettingsPage?>(null) }
     var profileOpenedFromAvatar by rememberSaveable { mutableStateOf(false) }
     val backFromSettingsPage: () -> Unit = {
-        if (settingsPage == SettingsPage.PROFILE && profileOpenedFromAvatar) showSettingsOverlay = false
-        profileOpenedFromAvatar = false
-        settingsPage = null
+        when (settingsPage) {
+            SettingsPage.ADD_COURSE -> settingsPage = SettingsPage.COURSES
+            SettingsPage.PROFILE -> {
+                if (profileOpenedFromAvatar) showSettingsOverlay = false
+                profileOpenedFromAvatar = false
+                settingsPage = null
+            }
+            else -> {
+                profileOpenedFromAvatar = false
+                settingsPage = null
+            }
+        }
     }
     var showOnboardingOverlay by rememberSaveable { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -907,7 +875,7 @@ private fun AuthenticatedStudyShell(
 
                             when (tab) {
                                 LightTab.HOME -> Column(modifier = Modifier.fillMaxSize()) {
-                                    OfflineBanner(isOnline = isOnline || isGoogleAuthPaused)
+                                    OfflineBanner(isOnline = isOnline)
                                     HomeDashboardScreen(
                                     profile = profile,
                                     photoUrl = photoUrl,
@@ -1026,6 +994,68 @@ private fun AuthenticatedStudyShell(
                                     },
                                     onOpenSettings = openSettingsAction
                                 )
+
+                                LightTab.LIBRARY -> LibraryScreen(
+                                    foldersState = libraryFoldersState,
+                                    itemsState = libraryItemsState,
+                                    onCreateFolder = viewModel::createLibraryFolder,
+                                    onRenameFolder = viewModel::renameLibraryFolder,
+                                    onDeleteFolder = viewModel::deleteLibraryFolder,
+                                    onCreateItem = { folderId, title, category, source, mimeType, textContent, fileName ->
+                                        viewModel.createLibraryItem(folderId, title, category, source, mimeType, textContent, fileName)
+                                    },
+                                    onDeleteItem = viewModel::deleteLibraryItem,
+                                    onMoveItem = viewModel::moveLibraryItem
+                                )
+                                LightTab.AGENT -> AgentChatScreen(
+                                    messages = agentMessages,
+                                    threads = agentThreads,
+                                    activeThreadId = activeAgentThreadId,
+                                    isBusy = agentBusy,
+                                    liveProgress = agentProgress,
+                                    pendingAction = pendingAgentApproval,
+                                    onResolveAgentAction = viewModel::resolveAgentApproval,
+                                    onSendMessage = { prompt, visibleMessage, skillKey ->
+                                        viewModel.sendAgentMessage(prompt = prompt, displayPrompt = visibleMessage, skillKey = skillKey, onStartFocusRequested = { currentTab = LightTab.FOCUS })
+                                    },
+                                    onClearConversation = viewModel::clearAgentConversation,
+                                    onSelectThread = viewModel::selectAgentThread,
+                                    onNewThread = viewModel::startNewAgentThread,
+                                    onDeleteThread = viewModel::deleteAgentThread,
+                                    onOpenSettings = openSettingsAction,
+                                    settings = appSettings,
+                                    apiKeyConfigured = agentApiKeyConfigured,
+                                    agentModels = agentModels,
+                                    agentModelsLoading = agentModelsLoading,
+                                    agentModelsError = agentModelsError,
+                                    agentUsage = agentUsage,
+                                    onClearAgentUsage = viewModel::clearAgentUsage,
+                                    onLoadAgentModels = viewModel::loadAgentModels,
+                                    onSaveAgentSettings = viewModel::updateAgentPreferences,
+                                    showEmbeddedNavigationChrome = true,
+                                    externalConfigTrigger = agentConfigTrigger,
+                                    libraryFoldersState = libraryFoldersState,
+                                    libraryItemsState = libraryItemsState,
+                                    onSaveToLibrary = { folderId, title, category, source, mimeType, textContent, fileName ->
+                                        viewModel.createLibraryItem(folderId, title, category, source, mimeType, textContent, fileName)
+                                    },
+                                    searchResults = searchResults,
+                                    searchLoading = searchLoading,
+                                    searchError = searchError,
+                                    onSearch = viewModel::performSearch,
+                                    onClearSearch = viewModel::clearSearch,
+                                    imageGenerating = imageGenerating,
+                                    imageError = imageError,
+                                    onGenerateImage = { prompt, folderId -> viewModel.generateImages(prompt, folderId) },
+                                    onClearImageError = viewModel::clearImageError
+                                )
+                                LightTab.SEARCH -> SearchScreen(tasks = tasks, courses = courses, habits = habits, countdowns = countdowns, onToggleTask = viewModel::toggleTaskCompleted, onStartFocusForTask = startFocusForTask, onToggleHabitToday = viewModel::toggleHabitToday)
+                                LightTab.PROGRESS -> ProgressScreen(profile = profile, courses = courses, tasks = tasks, sessions = sessions, onUpdateCourseGrade = viewModel::updateCourseGrade, onOpenSettings = openSettingsAction, habits = habits, focusProfiles = focusProfiles)
+                                LightTab.HABITS -> HabitsScreen(habits = habits, onToggleHabitToday = viewModel::toggleHabitToday, onCreateHabit = viewModel::createHabit, onDeleteHabit = viewModel::deleteHabit, externalCreateTrigger = habitCreateTrigger)
+                                LightTab.COUNTDOWN -> CountdownScreen(countdowns = countdowns, onCreateCountdown = viewModel::createCountdown, onDeleteCountdown = viewModel::deleteCountdown, externalCreateTrigger = countdownCreateTrigger)
+                                LightTab.PROJECTS -> GanttScreen(tasks = tasks, courses = courses, projects = projects, onCreateProject = viewModel::createProject, onUpdateProject = viewModel::updateProject, onDeleteProject = viewModel::deleteProject, onCreateTask = { projectId -> pendingTaskQuadrant = null; pendingProjectId = projectId; pendingFocusProfileId = ""; showTaskCreation = true }, onToggleTask = viewModel::toggleTaskCompleted, onDeleteTask = viewModel::deleteTask, onMoveTask = viewModel::moveTask, onSetPredecessors = viewModel::setTaskPredecessors, externalCreateTrigger = ganttCreateTrigger)
+                                LightTab.FOCUS_PROFILES -> FocusProfilesScreen(profiles = focusProfiles, tasks = tasks, sessions = sessions, focusState = focusState, initialSelectedProfileId = initialFocusProfileDetailId, externalCreateTrigger = focusProfileCreateTrigger, onCreateProfile = viewModel::createFocusProfile, onDeleteProfile = viewModel::deleteFocusProfile, onAssignTaskToProfile = viewModel::assignTaskToFocusProfile, onToggleTaskCompleted = viewModel::toggleTaskCompleted, onStartFocusForTaskInProfile = { fp, task -> viewModel.startFocusForProfileTask(fp, task, courses) }, onToggleTimerPlayPause = { viewModel.toggleFocusTimer(courses) }, onOpenTimerScreen = { currentTab = LightTab.FOCUS }, onOpenCreateTaskForProfile = { fp -> pendingTaskQuadrant = null; pendingProjectId = ""; pendingFocusProfileId = fp.id; showTaskCreation = true })
+                                LightTab.FOCUS_ANALYTICS -> FocusAnalyticsScreen(sessions = sessions, courses = courses, onStartFocusSession = { currentTab = LightTab.FOCUS }, onOpenSettings = openSettingsAction, focusProfiles = focusProfiles)
 
                                 LightTab.MORE -> {
                                     AnimatedContent(
@@ -1310,6 +1340,81 @@ private fun AuthenticatedStudyShell(
                             AgentCapabilitiesScreen(appSettings.agentCapabilities, viewModel::updateAgentCapabilities, Modifier.weight(1f))
                         }
                         SettingsPage.PROFILE -> WorkspaceProfilePage(profile, photoUrl, viewModel::updateProfile, backFromSettingsPage, pageModifier)
+                        SettingsPage.NOTIF_FREQUENCY -> NotificationFrequencyPage(
+                            currentFrequency = NotificationFrequency.fromKey(profile?.notificationFrequency ?: appSettings.notificationFrequency),
+                            notifEnabled = profile?.notificationsEnabled ?: appSettings.notificationsEnabled,
+                            onUpdateNotifications = { enabled: Boolean, freq: NotificationFrequency -> viewModel.updateNotificationSettings(context, enabled, freq) },
+                            onBack = backFromSettingsPage,
+                            modifier = pageModifier
+                        )
+                        SettingsPage.CALENDAR_VIEW -> CalendarViewPage(
+                            currentViewKey = appSettings.defaultCalendarView,
+                            onUpdateDefaultCalendarView = viewModel::updateDefaultCalendarView,
+                            onBack = backFromSettingsPage,
+                            modifier = pageModifier
+                        )
+                        SettingsPage.APPEARANCE -> AppearancePage(
+                            currentModeKey = appSettings.appearanceMode,
+                            onSelectAppearanceMode = viewModel::selectAppearanceMode,
+                            onBack = backFromSettingsPage,
+                            modifier = pageModifier
+                        )
+                        SettingsPage.TIMER_DURATIONS -> TimerDurationsPage(
+                            appSettings = appSettings,
+                            onUpdateTimerDurations = viewModel::updateTimerDurations,
+                            onBack = backFromSettingsPage,
+                            modifier = pageModifier
+                        )
+                        SettingsPage.COURSES -> CoursesPage(
+                            courses = courses,
+                            onDeleteCourse = viewModel::deleteCourse,
+                            onAddCourse = { settingsPage = SettingsPage.ADD_COURSE },
+                            onBack = backFromSettingsPage,
+                            modifier = pageModifier
+                        )
+                        SettingsPage.ADD_COURSE -> AddCoursePage(
+                            courses = courses,
+                            onCreateCourse = viewModel::createCourse,
+                            onBack = { settingsPage = SettingsPage.COURSES },
+                            modifier = pageModifier
+                        )
+                        SettingsPage.FOCUS_UNIVERSE -> FocusUniversePage(
+                            appSettings = appSettings,
+                            audioState = audioState,
+                            onSelectIllustration = viewModel::selectFocusIllustration,
+                            onSelectTheme = viewModel::selectFocusTheme,
+                            onSelectAudioTrack = handleSelectAudioTrack,
+                            onToggleAudioPlayPause = viewModel::toggleAudioPlayback,
+                            onAudioVolumeChange = viewModel::setAudioVolume,
+                            onToggleAutoPlayAudio = viewModel::setAutoPlayAudioWithFocus,
+                            onBack = backFromSettingsPage,
+                            modifier = pageModifier
+                        )
+                        SettingsPage.THEMES -> ThemesPage(
+                            selectedThemeId = appSettings.selectedThemeId,
+                            onSelectTheme = viewModel::selectTheme,
+                            onBack = backFromSettingsPage,
+                            modifier = pageModifier
+                        )
+                        SettingsPage.GRADIENTS -> GradientsPage(
+                            selectedGradientId = selectedGradientId,
+                            selectedThemeId = appSettings.selectedThemeId,
+                            onSelectGradient = viewModel::selectGradient,
+                            onSelectTheme = viewModel::selectTheme,
+                            onBack = backFromSettingsPage,
+                            modifier = pageModifier
+                        )
+                        SettingsPage.NOTIFICATIONS -> NotificationFrequencyPage(
+                            currentFrequency = NotificationFrequency.fromKey(profile?.notificationFrequency ?: appSettings.notificationFrequency),
+                            notifEnabled = profile?.notificationsEnabled ?: appSettings.notificationsEnabled,
+                            onUpdateNotifications = { enabled: Boolean, freq: NotificationFrequency -> viewModel.updateNotificationSettings(context, enabled, freq) },
+                            onBack = backFromSettingsPage,
+                            modifier = pageModifier
+                        )
+                        SettingsPage.SEARCH_IMAGE -> Column(pageModifier.padding(LightSpacing.two)) {
+                            SettingsPageHeader("Recherche & Images", backFromSettingsPage)
+                            Text("Configurez vos fournisseurs de recherche et d'images. Cette section est accessible depuis les paramètres complets.", style = MaterialTheme.typography.bodyMedium)
+                        }
                         null -> SettingsScreen(
                             profile = profile,
                             photoUrl = photoUrl,
@@ -1318,7 +1423,7 @@ private fun AuthenticatedStudyShell(
                             courses = courses,
                             onSelectGradient = viewModel::selectGradient,
                             onUpdateProfile = viewModel::updateProfile,
-                            onUpdateNotifications = { enabled, freq ->
+                            onUpdateNotifications = { enabled: Boolean, freq: NotificationFrequency ->
                                 viewModel.updateNotificationSettings(context, enabled, freq)
                             },
                             onReopenOnboarding = {
@@ -1341,25 +1446,24 @@ private fun AuthenticatedStudyShell(
                             onSetGlassEnabled = viewModel::setGlassEnabled,
                             onCreateCourse = viewModel::createCourse,
                             onDeleteCourse = viewModel::deleteCourse,
-                            isGoogleAuthPaused = isGoogleAuthPaused,
-                            onResumeGoogleSignIn = {
-                                showSettingsOverlay = false
-                                onTogglePauseGoogleAuth(false)
-                            },
-                            onPauseGoogleSignIn = {
-                                showSettingsOverlay = false
-                                onTogglePauseGoogleAuth(true)
-                            },
                             onSignOut = {
                                 showSettingsOverlay = false
                                 scope.launch {
-                                    themeStore.updateGoogleAuthPausedForTesting(true)
                                     signOut(credentialManager = credentialManager, scope = scope)
                                 }
                             },
                             onOpenNavigationLayout = { settingsPage = SettingsPage.NAVIGATION },
                             onOpenCapabilities = { settingsPage = SettingsPage.CAPABILITIES },
                             onOpenProfile = { settingsPage = SettingsPage.PROFILE },
+                            onOpenNotificationFrequency = { settingsPage = SettingsPage.NOTIF_FREQUENCY },
+                            onOpenCalendarView = { settingsPage = SettingsPage.CALENDAR_VIEW },
+                            onOpenAppearance = { settingsPage = SettingsPage.APPEARANCE },
+                            onOpenTimerDurations = { settingsPage = SettingsPage.TIMER_DURATIONS },
+                            onOpenCourses = { settingsPage = SettingsPage.COURSES },
+                            onOpenAddCourse = { settingsPage = SettingsPage.ADD_COURSE },
+                            onOpenFocusUniverse = { settingsPage = SettingsPage.FOCUS_UNIVERSE },
+                            onOpenThemes = { settingsPage = SettingsPage.THEMES },
+                            onOpenGradients = { settingsPage = SettingsPage.GRADIENTS },
                             onClose = { showSettingsOverlay = false },
                             onUpdateSearchSettings = viewModel::updateSearchSettings,
                             onUpdateImageSettings = viewModel::updateImageSettings,
@@ -1367,6 +1471,7 @@ private fun AuthenticatedStudyShell(
                                 .widthIn(max = 760.dp)
                                 .fillMaxSize()
                         )
+                        else -> Box(Modifier.fillMaxSize()) {}
                     }
                 }
             }
@@ -1413,5 +1518,155 @@ private fun AuthenticatedStudyShell(
             )
         }
         }
+    }
+}
+
+@Composable
+private fun NotificationFrequencyPage(
+    currentFrequency: com.example.data.model.NotificationFrequency,
+    notifEnabled: Boolean,
+    onUpdateNotifications: (Boolean, com.example.data.model.NotificationFrequency) -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        com.example.ui.screens.SettingsPageHeader("Fréquence des rappels", onBack)
+        Text("Actuel: ${currentFrequency.label}")
+        com.example.data.model.NotificationFrequency.entries.forEach { freq ->
+            androidx.compose.material3.TextButton(onClick = { onUpdateNotifications(freq != com.example.data.model.NotificationFrequency.OFF, freq); onBack() }) { Text(freq.label) }
+        }
+    }
+}
+
+@Composable
+private fun CalendarViewPage(
+    currentViewKey: String,
+    onUpdateDefaultCalendarView: (String) -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        com.example.ui.screens.SettingsPageHeader("Vue Calendrier", onBack)
+        Text("Actuel: $currentViewKey")
+        androidx.compose.material3.TextButton(onClick = { onUpdateDefaultCalendarView("week"); onBack() }) { Text("Semaine") }
+        androidx.compose.material3.TextButton(onClick = { onUpdateDefaultCalendarView("month"); onBack() }) { Text("Mois") }
+    }
+}
+
+@Composable
+private fun AppearancePage(
+    currentModeKey: String,
+    onSelectAppearanceMode: (String) -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        com.example.ui.screens.SettingsPageHeader("Apparence", onBack)
+        Text("Actuel: $currentModeKey")
+        androidx.compose.material3.TextButton(onClick = { onSelectAppearanceMode("light"); onBack() }) { Text("Clair") }
+        androidx.compose.material3.TextButton(onClick = { onSelectAppearanceMode("oled"); onBack() }) { Text("OLED") }
+    }
+}
+
+@Composable
+private fun TimerDurationsPage(
+    appSettings: com.example.data.preferences.StudyAppSettings,
+    onUpdateTimerDurations: (Int, Int, Int) -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        com.example.ui.screens.SettingsPageHeader("Durées du minuteur", onBack)
+        Text("Pomodoro: ${appSettings.pomodoroMinutes} min, Deep: ${appSettings.deepCodeMinutes}, Pause: ${appSettings.shortBreakMinutes}")
+        androidx.compose.material3.Button(onClick = onBack) { Text("Fermer") }
+    }
+}
+
+@Composable
+private fun CoursesPage(
+    courses: List<com.example.data.model.Course>,
+    onDeleteCourse: (String) -> Unit,
+    onAddCourse: () -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        com.example.ui.screens.SettingsPageHeader("Matières", onBack)
+        Text("${courses.size} matière(s)")
+        androidx.compose.material3.Button(onClick = onAddCourse) { Text("Ajouter") }
+        courses.forEach { c ->
+            androidx.compose.foundation.layout.Row(Modifier.fillMaxWidth().padding(8.dp)) {
+                Text("${c.code} · ${c.title}", modifier = Modifier.weight(1f))
+                androidx.compose.material3.TextButton(onClick = { onDeleteCourse(c.id) }) { Text("Supprimer") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AddCoursePage(
+    courses: List<com.example.data.model.Course>,
+    onCreateCourse: (String, String, String, Long, Int, Double, String) -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        com.example.ui.screens.SettingsPageHeader("Nouvelle matière", onBack)
+        var code by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("GL-307") }
+        var title by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
+        androidx.compose.material3.OutlinedTextField(value = code, onValueChange = { code = it }, label = { Text("Code") }, modifier = Modifier.fillMaxWidth())
+        androidx.compose.material3.OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Intitulé") }, modifier = Modifier.fillMaxWidth())
+        androidx.compose.material3.Button(onClick = { if (title.isNotBlank() && code.isNotBlank()) { onCreateCourse(code, title, "", 0, 20, 15.0, "book"); onBack() } }, enabled = title.isNotBlank() && code.isNotBlank()) { Text("Ajouter") }
+    }
+}
+
+@Composable
+private fun FocusUniversePage(
+    appSettings: com.example.data.preferences.StudyAppSettings,
+    audioState: com.example.ui.FocusAudioUiState,
+    onSelectIllustration: (String) -> Unit,
+    onSelectTheme: (String) -> Unit,
+    onSelectAudioTrack: (com.example.audio.FocusAudioTrack) -> Unit,
+    onToggleAudioPlayPause: () -> Unit,
+    onAudioVolumeChange: (Float) -> Unit,
+    onToggleAutoPlayAudio: (Boolean) -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        com.example.ui.screens.SettingsPageHeader("Univers & audio Focus", onBack)
+        Text("Illustration: ${appSettings.focusIllustrationId}")
+        Text("Thème: ${appSettings.focusThemeId}")
+    }
+}
+
+@Composable
+private fun ThemesPage(
+    selectedThemeId: String,
+    onSelectTheme: (String) -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        com.example.ui.screens.SettingsPageHeader("Palettes classiques", onBack)
+        Text("Actuel: $selectedThemeId")
+        androidx.compose.material3.TextButton(onClick = { onSelectTheme("paper"); onBack() }) { Text("Papier") }
+        androidx.compose.material3.TextButton(onClick = { onSelectTheme("ocean"); onBack() }) { Text("Océan") }
+    }
+}
+
+@Composable
+private fun GradientsPage(
+    selectedGradientId: String,
+    selectedThemeId: String,
+    onSelectGradient: (String) -> Unit,
+    onSelectTheme: (String) -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        com.example.ui.screens.SettingsPageHeader("Studio dégradés", onBack)
+        Text("Actuel: $selectedGradientId")
+        androidx.compose.material3.TextButton(onClick = { onSelectTheme("gradient"); onSelectGradient("aurore_lavande"); onBack() }) { Text("Aurore Lavande") }
     }
 }

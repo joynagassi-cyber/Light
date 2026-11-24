@@ -1,0 +1,159 @@
+/* tokens.css — UX/UI Playbook, minimal version that covers 90% of projects.
+   Every value below is contrast-checked against WCAG 2.2 AA on the surface it is
+   used on. Change the values, keep the names. */
+
+:root{
+  /* ---------- colour ---------- */
+  --color-bg:            #FFFFFF;
+  --color-surface:       #F4F1EA;
+  --color-surface-2:     #EAE6DC;
+  --color-text:          #101319;   /* 16.6:1 on bg */
+  --color-text-2:        #343A46;   /* 10.4:1 on bg */
+  --color-muted:         #5B6170;   /*  5.9:1 on bg, 5.5:1 on surface */
+  --color-line:          #E3DFD6;
+  --color-accent:        #F0512B;
+  --color-on-accent:     #101319;   /*  5.3:1 on accent — never white */
+  --color-accent-ink:    #B93314;
+  --color-accent-pressed:#A02C10;
+  --color-accent-soft:   #FDE9E3;
+  --color-success:       #0E7C6B;
+  --color-danger:        #C62828;
+
+  /* ---------- space: 4 inside a component, 8 between components ---------- */
+  --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
+  --space-6: 24px; --space-8: 32px; --space-12: 48px; --space-16: 64px;
+
+  /* ---------- type: one scale, seven sizes ---------- */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-display: 'Sora', var(--font-sans);
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --text-sm: 14px;  --text-base: 16px; --text-lg: 20px;  --text-xl: 24px;
+  --text-2xl: 32px; --text-3xl: 40px; --text-4xl: 64px;
+  --leading-tight: 1.1; --leading-snug: 1.3; --leading-base: 1.6;
+
+  /* ---------- radius, shadow, motion ---------- */
+  --radius-sm: 6px; --radius-md: 10px; --radius-lg: 16px; --radius-full: 999px;
+  --shadow-sm: 0 1px 2px rgba(16,19,25,.06);
+  --shadow-md: 0 6px 20px rgba(16,19,25,.10);
+  --duration-fast: 120ms; --duration-base: 200ms;
+  --ease: cubic-bezier(.2,.6,.2,1);
+}
+
+/* ---------- dark mode: semantic values, no mechanical inversion ---------- */
+@media (prefers-color-scheme: dark){
+  :root{
+    color-scheme: dark;
+    --color-bg:         #101319;
+    --color-surface:    #1A1F28;
+    --color-surface-2:  #222833;
+    --color-text:       #F4F1EA;
+    --color-text-2:     #C9CDD6;
+    --color-muted:      #9AA0AE;
+    --color-line:       #2C3240;
+    --color-accent-soft:#3A1B12;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.4);
+    --shadow-md: 0 8px 24px rgba(0,0,0,.5);
+  }
+}
+
+/* ---------- the wireframe class: structure only, no branding ---------- */
+.wire, .wire *{
+  font-family: system-ui, sans-serif !important;
+  color: #2B2B2B !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+.wire{ background:#fff; }
+.wire img, .wire .media{ background:#D9D9D9 !important; color:transparent !important; }
+.wire a, .wire button{ color:#2B2B2B !important; background:#E6E6E6 !important; border:1px solid #9A9A9A !important; }
+
+/* ---------- base ---------- */
+*{ box-sizing:border-box; }
+body{
+  margin:0; background:var(--color-bg); color:var(--color-text-2);
+  font-family:var(--font-sans); font-size:var(--text-base); line-height:var(--leading-base);
+}
+h1,h2,h3{ font-family:var(--font-display); color:var(--color-text); line-height:var(--leading-tight); margin:0 0 var(--space-3); }
+h1{ font-size:var(--text-3xl); } h2{ font-size:var(--text-2xl); } h3{ font-size:var(--text-lg); }
+p{ margin:0 0 var(--space-4); }
+a{ color:var(--color-accent-ink); }
+
+/* ---------- one button component, every state ---------- */
+.btn{
+  display:inline-flex; align-items:center; gap:var(--space-2);
+  min-height:44px; padding:0 var(--space-4);
+  background:var(--color-accent); color:var(--color-on-accent);
+  border:0; border-radius:var(--radius-md);
+  font:600 var(--text-base)/1 var(--font-sans); cursor:pointer;
+  transition:background var(--duration-fast) var(--ease);
+}
+.btn:hover{ background:var(--color-accent-ink); color:#fff; }
+.btn:active{ background:var(--color-accent-pressed); }
+.btn:focus-visible{ outline:2px solid var(--color-text); outline-offset:2px; }
+.btn:disabled,[aria-disabled="true"]{ opacity:.5; cursor:not-allowed; }
+.btn--ghost{ background:transparent; color:var(--color-text); border:1px solid var(--color-line); }
+.btn--danger{ background:var(--color-danger); color:#fff; }
+
+/* ======================================================================
+   MOTION — durations and curves (playbook §57)
+   Conventions from Material 3 motion tokens, not laws. Respect the user
+   setting: reduce, do not remove.
+   ====================================================================== */
+:root{
+  --duration-fast: 120ms;   /* hover, press */
+  --duration-base: 250ms;   /* appear, disappear */
+  --duration-slow: 400ms;   /* screen change */
+  --ease-out: cubic-bezier(.16, 1, .3, 1);
+  --ease-in:  cubic-bezier(.4, 0, 1, 1);
+  --ease-in-out: cubic-bezier(.2, 0, 0, 1);
+}
+@media (prefers-reduced-motion: reduce){
+  *, *::before, *::after{
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Only transform and opacity. Nothing that triggers layout. */
+.card-enter{ animation: card-in var(--duration-base) var(--ease-out) both; }
+@keyframes card-in{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:none; } }
+
+/* ======================================================================
+   DARK MODE — a mode of the semantic tokens, never an inversion (§56)
+   #121212 base, elevation by lightness, accent desaturated one step.
+   ====================================================================== */
+:root{
+  --color-bg: #FFFFFF;     --color-surface: #F4F1EA;   --color-elevated: #FBFAF7;
+  --color-text: #101319;   --color-text-2: #343A46;    --color-muted: #5B6170;
+  --color-line: #E3DFD6;   --color-accent: #F0512B;    --color-on-accent: #101319;
+  --color-accent-ink: #B93314; --color-accent-pressed: #A02C10;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --color-bg: #121212;      --color-surface: #1A1A1A;   --color-elevated: #232323;
+    --color-text: #F2F2F2;    --color-text-2: #D6D9DE;    --color-muted: #A8AFBA;
+    --color-line: #333333;    --color-accent: #FF7A55;    --color-on-accent: #14161B;
+    --color-accent-ink: #FF9B7D; --color-accent-pressed: #E9663F;
+    color-scheme: dark;
+  }
+  /* Shadows vanish on dark surfaces: depth is carried by lightness instead. */
+  .card, .panel{ box-shadow:none; border:1px solid var(--color-line); }
+}
+/* Explicit opt-in / opt-out for the reader, on top of the system setting. */
+html[data-theme="dark"]{
+  --color-bg: #121212; --color-surface: #1A1A1A; --color-elevated: #232323;
+  --color-text: #F2F2F2; --color-text-2: #D6D9DE; --color-muted: #A8AFBA;
+  --color-line: #333333; --color-accent: #FF7A55; --color-on-accent: #14161B;
+  --color-accent-ink: #FF9B7D; --color-accent-pressed: #E9663F; color-scheme: dark;
+}
+
+/* ======================================================================
+   DIRECTION — logical properties only (§58). Never margin-left.
+   One stylesheet serves LTR and RTL: set dir on <html>.
+   ====================================================================== */
+.card{ padding-inline: var(--space-4); padding-block: var(--space-3);
+       border-inline-start: 2px solid var(--color-line); text-align: start; }
+.icon-directional:dir(rtl){ transform: scaleX(-1); }

@@ -59,7 +59,6 @@ import com.example.ui.theme.LocalLightGradient
 @Composable
 fun AuthScreen(
     onAuthSuccess: () -> Unit,
-    onEnterTestMode: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -203,29 +202,6 @@ fun AuthScreen(
                             fontWeight = FontWeight.SemiBold
                         )
                     }
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                OutlinedButton(
-                    onClick = onEnterTestMode,
-                    enabled = !isLoading,
-                    shape = RoundedCornerShape(18.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.2.dp, gradient.accentColor.copy(alpha = 0.45f)),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        contentColor = gradient.accentColor
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp)
-                        .testTag("pause_google_test_mode_button")
-                ) {
-                    Text(
-                        text = "Tester Light sans compte",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold
-                    )
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))

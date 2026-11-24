@@ -217,17 +217,20 @@ service cloud.firestore {
 
       match /preferences/navigation {
         // Account-wide UI data only: no credentials, arbitrary routes or settings in the bar.
+        // Supports legacy 4-item and expanded 13-item orders for bottom-nav customization.
         allow get: if isOwner(userId);
         allow create, update: if isOwner(userId) &&
           incoming().keys().hasAll(['order', 'hidden', 'icons', 'updatedAt']) &&
           incoming().keys().hasOnly(['order', 'hidden', 'icons', 'updatedAt']) &&
-          incoming().order is list && incoming().order.size() == 4 &&
-          incoming().order.toSet() == ['home', 'planner', 'focus', 'matrix'].toSet() &&
-          incoming().hidden is list && incoming().hidden.size() <= 2 &&
+          incoming().order is list && incoming().order.size() >= 4 && incoming().order.size() <= 13 &&
+          incoming().order.toSet().size() == incoming().order.size() &&
+          incoming().order.toSet().hasOnly(['home', 'planner', 'focus', 'matrix', 'library', 'agent', 'search', 'progress', 'habits', 'countdown', 'projects', 'focus_profiles', 'focus_analytics']) &&
+          incoming().order.hasAll(['home', 'planner', 'focus', 'matrix']) &&
+          incoming().hidden is list && incoming().hidden.size() <= 8 &&
           incoming().hidden.toSet().size() == incoming().hidden.size() &&
-          incoming().hidden.hasOnly(['planner', 'focus', 'matrix']) &&
-          incoming().icons is map && incoming().icons.keys().hasOnly(['home', 'planner', 'focus', 'matrix']) &&
-          incoming().icons.values().hasOnly(['bookmark', 'star', 'circle', 'bolt']) &&
+          incoming().hidden.hasOnly(['planner', 'focus', 'matrix', 'library', 'agent', 'search', 'progress', 'habits', 'countdown', 'projects', 'focus_profiles', 'focus_analytics']) &&
+          incoming().icons is map && incoming().icons.keys().hasOnly(['home', 'planner', 'focus', 'matrix', 'library', 'agent', 'search', 'progress', 'habits', 'countdown', 'projects', 'focus_profiles', 'focus_analytics']) &&
+          incoming().icons.values().hasOnly(['bookmark', 'star', 'circle', 'bolt', 'home', 'calendar', 'timer', 'grid', 'book', 'auto_awesome', 'search', 'bar_chart', 'self_improvement', 'event', 'date_range', 'school', 'insights']) &&
           incoming().updatedAt == request.time;
       }
 

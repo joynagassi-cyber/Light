@@ -9,12 +9,16 @@
     <string name="nav_planner">Calendrier</string>
     <string name="nav_focus">Focus</string>
     <string name="nav_matrix">Matrice</string>
+    <string name="nav_library">Bibliothèque</string>
     <string name="nav_more">Explorer</string>
     <string name="nav_agent">Agent IA</string>
     <string name="nav_progress">Progrès</string>
     <string name="nav_habits">Habitudes</string>
     <string name="nav_countdown">À rebours</string>
     <string name="nav_search">Rechercher</string>
+    <string name="nav_projects">Projets</string>
+    <string name="nav_focus_profiles">Profils Focus</string>
+    <string name="nav_focus_analytics">Analytics</string>
     <string name="nav_settings">Paramètres</string>
     <string name="nav_profile">Profil</string>
     <string name="sync_active">Sync Cloud active</string>

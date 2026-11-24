@@ -73,6 +73,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import com.example.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -1095,15 +1096,71 @@ internal fun ImmersiveFocusSession(focusState: FocusTimerState, onExit: () -> Un
         onDispose { view.keepScreenOn = previous }
     }
     val seconds = if (focusState.kind == FocusKind.STOPWATCH) focusState.elapsedSeconds else focusState.remainingSeconds
-    Box(Modifier.fillMaxSize().focusSessionInsets()) {
-        AppleCard(modifier = Modifier.align(Alignment.Center).padding(LightSpacing.three).widthInFocus()) {
-            Column(Modifier.fillMaxWidth().padding(LightSpacing.three), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(focusState.selectedTaskTitle.ifBlank { "Session Focus" }, style = MaterialTheme.typography.titleMedium)
-                Text(formatClockSeconds(seconds), style = MaterialTheme.typography.displayLarge, modifier = Modifier.testTag("immersive_focus_clock"))
-            }
+    val progress = when {
+        focusState.kind == FocusKind.STOPWATCH -> 1f
+        focusState.totalSeconds <= 0 -> 0f
+        else -> (focusState.totalSeconds - focusState.remainingSeconds).toFloat() / focusState.totalSeconds.toFloat()
+    }
+    val infiniteTransition = rememberInfiniteTransition(label = "focusRotate")
+    val rotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(animation = tween(4000, easing = FastOutSlowInEasing), repeatMode = RepeatMode.Restart),
+        label = "focusRotation"
+    )
+    val isRunning = focusState.isRunning
+    Box(Modifier.fillMaxSize()) {
+        // Fullscreen background using premium image + gradient overlay
+        Image(
+            painter = painterResource(id = R.drawable.focus_bg_premium),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.15f), Color.Black.copy(alpha = 0.45f)))
+            )
+        )
+        IconButton(onClick = onExit, modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(12.dp).testTag("exit_immersive_focus")) {
+            Icon(Icons.Rounded.Close, contentDescription = "Quitter le plein écran", tint = Color.White, modifier = Modifier.size(28.dp))
         }
-        IconButton(onClick = onExit, modifier = Modifier.align(Alignment.TopEnd).testTag("exit_immersive_focus")) {
-            Icon(Icons.Rounded.Close, contentDescription = "Quitter le plein écran", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column(Modifier.align(Alignment.Center).padding(LightSpacing.three), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            // Circular rotating card
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.size(280.dp)) {
+                androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
+                    val stroke = 10.dp.toPx()
+                    drawCircle(color = Color.White.copy(alpha = 0.18f), style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke))
+                    val sweep = if (focusState.kind == FocusKind.STOPWATCH) 270f else progress * 360f
+                    val startAngle = if (isRunning) rotation - 90f else -90f
+                    drawArc(
+                        color = Color.White,
+                        startAngle = startAngle,
+                        sweepAngle = sweep,
+                        useCenter = false,
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                    )
+                    if (isRunning) {
+                        drawArc(
+                            color = Color.White.copy(alpha = 0.35f),
+                            startAngle = rotation + 120f,
+                            sweepAngle = 40f,
+                            useCenter = false,
+                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 4.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                        )
+                    }
+                }
+                Surface(shape = CircleShape, color = Color.White.copy(alpha = 0.92f), shadowElevation = 12.dp, modifier = Modifier.size(220.dp).testTag("immersive_focus_card")) {
+                    Column(Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                        Text(focusState.selectedTaskTitle.ifBlank { "Session Focus" }, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = Color(0xFF101319), maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                        Spacer(Modifier.height(6.dp))
+                        Text(formatClockSeconds(seconds), style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Bold, color = Color(0xFF101319), modifier = Modifier.testTag("immersive_focus_clock"))
+                        Spacer(Modifier.height(4.dp))
+                        Text(if (isRunning) "En cours" else "En pause", style = MaterialTheme.typography.labelMedium, color = Color(0xFF5B6170))
+                    }
+                }
+            }
+            Text("Touchez ✕ pour quitter le mode immersif", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.85f))
         }
     }
 }

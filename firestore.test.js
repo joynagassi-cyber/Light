@@ -492,7 +492,7 @@ test("Navigation syncs between devices, including an offline edit, and rejects s
   for (const bad of [
     { order: ["home", "planner", "focus", "settings"] },
     { order: ["home", "home", "focus", "matrix"] },
-    { hidden: ["home"] }, { hidden: ["focus", "matrix", "planner"] },
+    { hidden: ["home"] }, { hidden: ["focus", "matrix", "planner", "library", "agent", "search", "progress", "habits", "countdown"] },
     { icons: { home: "unsupported" } }, { apiKey: "fixture" },
   ]) await assertFails(nav(a).set({ ...layout, ...bad, updatedAt: updatedAt() }));
 });

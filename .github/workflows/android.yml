@@ -9,7 +9,8 @@ on:
   workflow_call:
 
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
 
 concurrency:
   group: android-ci-${{ github.workflow }}-${{ github.ref }}
@@ -37,9 +38,37 @@ jobs:
           if ./gradlew :app:assembleDebug :app:assembleRelease :app:testDebugUnitTest --console=plain 2>&1 | tee "$RUNNER_TEMP/light-gradle.log"; then
             exit 0
           fi
-          # Keep compiler diagnostics visible even when the CI log archive is unavailable.
-          awk '/^e: .*\.kt:/ || /^> .*FAILED/ || /^> Could not / { printf "::error::%s\n", substr($0, 1, 600); if (++n >= 12) exit }' "$RUNNER_TEMP/light-gradle.log"
+          # Keep compiler diagnostics and test failures visible even when the CI log archive is unavailable.
+          awk '/^e: .*\.kt:/ || /FAILED/ || /AssertionFailedError/ || /expected:/ || /but was:/ || /^> Could not / || /org.junit/ { printf "::error::%s\n", substr($0, 1, 600); if (++n >= 40) exit }' "$RUNNER_TEMP/light-gradle.log"
+          for f in app/build/test-results/testDebugUnitTest/TEST-*.xml; do [ -f "$f" ] || continue; if grep -q 'failures="[^0]\|errors="[^0]' "$f"; then echo "::error::FAILFILE $f"; grep -a "failure\|error" "$f" | head -20 | while IFS= read -r line; do echo "::error::$line" | cut -c1-900; done; cat "$f" | tr '\n' ' ' | grep -o "message=[^>]*" | head -10 | while IFS= read -r line; do echo "::error::$line" | cut -c1-900; done; fi; done
           exit 1
+      - name: Post failure details to PR (for arena debugging)
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          echo "Collecting failure details..."
+          {
+            echo "### Test failures for ${{ github.sha }}"
+            echo '```'
+            for f in app/build/test-results/testDebugUnitTest/TEST-*.xml; do [ -f "$f" ] || continue; if grep -q 'failures="[^0]\|errors="[^0]' "$f"; then echo "=== $f ==="; cat "$f" | head -300; echo "---END $f---"; fi; done
+            echo '```'
+            echo "Gradle log tail:"
+            echo '```'
+            tail -300 "$RUNNER_TEMP/light-gradle.log" | head -150
+            echo '```'
+          } > /tmp/failure.md
+          cat /tmp/failure.md
+          # Upload failure report via API so arena can fetch (allowed host api.github.com)
+          CONTENT_B64=$(base64 -w0 /tmp/failure.md)
+          EXISTING_SHA=$(gh api repos/${{ github.repository }}/contents/ci-failure.md --jq .sha 2>/dev/null || echo "")
+          if [ -n "$EXISTING_SHA" ]; then
+            gh api repos/${{ github.repository }}/contents/ci-failure.md -X PUT -f message="ci: failure report ${{ github.sha }}" -f content="$CONTENT_B64" -f sha="$EXISTING_SHA" --jq .content.sha || true
+          else
+            gh api repos/${{ github.repository }}/contents/ci-failure.md -X PUT -f message="ci: failure report ${{ github.sha }}" -f content="$CONTENT_B64" --jq .content.sha || true
+          fi
+          echo "Uploaded ci-failure.md via API"
       - name: Upload test reports
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v6

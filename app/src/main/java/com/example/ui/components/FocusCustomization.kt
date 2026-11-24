@@ -170,6 +170,16 @@ val focusThemes: List<FocusThemeStyle> = listOf(
         accentColor = Color(0xFF385B98),
         containerColor = Color(0xFFE1EAF7),
         trackColor = Color(0xFFD8E2F2)
+    ),
+    FocusThemeStyle(
+        id = "premium",
+        title = "Premium Neomorphic",
+        subtitle = "Élégance serein — plein écran",
+        imageRes = R.drawable.focus_bg_premium,
+        gradientColors = listOf(Color(0xFFF4F1EA), Color(0xFFEAE6DC), Color(0xFFF0512B)),
+        accentColor = Color(0xFFF0512B),
+        containerColor = Color(0xFFFDE9E3),
+        trackColor = Color(0xFFF4F1EA)
     )
 )
 

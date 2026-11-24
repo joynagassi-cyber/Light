@@ -117,6 +117,7 @@ import com.example.data.firebase.configureAppCheck
 import com.example.data.model.UiState
 import com.example.data.network.NetworkMonitor
 import com.example.data.preferences.AgentThreadsStore
+import com.example.data.model.NotificationFrequency
 import com.example.data.preferences.StudyAppSettings
 import com.example.data.preferences.ThemePreferencesStore
 import com.example.data.repository.AiPlannerRepository
@@ -1340,7 +1341,7 @@ private fun AuthenticatedStudyShell(
                         SettingsPage.NOTIF_FREQUENCY -> NotificationFrequencyPage(
                             currentFrequency = NotificationFrequency.fromKey(profile?.notificationFrequency ?: appSettings.notificationFrequency),
                             notifEnabled = profile?.notificationsEnabled ?: appSettings.notificationsEnabled,
-                            onUpdateNotifications = { enabled, freq -> viewModel.updateNotificationSettings(context, enabled, freq) },
+                            onUpdateNotifications = { enabled: Boolean, freq: NotificationFrequency -> viewModel.updateNotificationSettings(context, enabled, freq) },
                             onBack = backFromSettingsPage,
                             modifier = pageModifier
                         )
@@ -1401,6 +1402,17 @@ private fun AuthenticatedStudyShell(
                             onBack = backFromSettingsPage,
                             modifier = pageModifier
                         )
+                        SettingsPage.NOTIFICATIONS -> NotificationFrequencyPage(
+                            currentFrequency = NotificationFrequency.fromKey(profile?.notificationFrequency ?: appSettings.notificationFrequency),
+                            notifEnabled = profile?.notificationsEnabled ?: appSettings.notificationsEnabled,
+                            onUpdateNotifications = { enabled: Boolean, freq: NotificationFrequency -> viewModel.updateNotificationSettings(context, enabled, freq) },
+                            onBack = backFromSettingsPage,
+                            modifier = pageModifier
+                        )
+                        SettingsPage.SEARCH_IMAGE -> Column(pageModifier.padding(LightSpacing.two)) {
+                            SettingsPageHeader("Recherche & Images", backFromSettingsPage)
+                            Text("Configurez vos fournisseurs de recherche et d'images. Cette section est accessible depuis les paramètres complets.", style = MaterialTheme.typography.bodyMedium)
+                        }
                         null -> SettingsScreen(
                             profile = profile,
                             photoUrl = photoUrl,
@@ -1409,7 +1421,7 @@ private fun AuthenticatedStudyShell(
                             courses = courses,
                             onSelectGradient = viewModel::selectGradient,
                             onUpdateProfile = viewModel::updateProfile,
-                            onUpdateNotifications = { enabled, freq ->
+                            onUpdateNotifications = { enabled: Boolean, freq: NotificationFrequency ->
                                 viewModel.updateNotificationSettings(context, enabled, freq)
                             },
                             onReopenOnboarding = {

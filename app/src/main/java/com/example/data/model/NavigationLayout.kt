@@ -25,14 +25,11 @@ data class NavigationLayout(
         val known = order.filter { it in NavigationOptions.features }.distinct()
         val resolvedOrder = when {
             known.isEmpty() -> NavigationOptions.features
-            known.size == 4 && known.toSet() == NavigationOptions.primaryFeatures.toSet() -> known
-            known.size == NavigationOptions.primaryFeatures.size && known.all { it in NavigationOptions.primaryFeatures } -> known
+            known.all { it in NavigationOptions.primaryFeatures } -> known + NavigationOptions.primaryFeatures.filterNot { it in known }
             else -> known
         }
         // Legacy 4-item layouts (used by unit tests) had maxHidden=2; preserve that
-        // to keep LocalTestStudyRepositoryTest.green after expansion to 13 items.
-        val isLegacyOrder = resolvedOrder.size == NavigationOptions.primaryFeatures.size &&
-            resolvedOrder.all { it in NavigationOptions.primaryFeatures } &&
+        val isLegacyOrder = resolvedOrder.all { it in NavigationOptions.primaryFeatures } &&
             resolvedOrder.toSet() == NavigationOptions.primaryFeatures.toSet()
         val effectiveMaxHidden = if (isLegacyOrder) 2 else NavigationOptions.maxHidden
         return NavigationLayout(

@@ -2,7 +2,6 @@ package com.example.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -28,12 +27,9 @@ fun NotificationFrequencyPage(
 ) {
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SettingsPageHeader("Fréquence des rappels", onBack)
-        Text("Actuel: ${currentFrequency.label} — ${if (notifEnabled) "activé" else "désactivé"}")
+        Text("Actuel: ${currentFrequency.label}")
         NotificationFrequency.entries.forEach { freq ->
-            Row(Modifier.fillMaxWidth().padding(8.dp)) {
-                Text(freq.label, modifier = Modifier.weight(1f))
-                androidx.compose.material3.TextButton(onClick = { onUpdateNotifications(freq != NotificationFrequency.OFF, freq); onBack() }) { Text(if (freq == currentFrequency) "✓" else "Choisir") }
-            }
+            androidx.compose.material3.TextButton(onClick = { onUpdateNotifications(freq != NotificationFrequency.OFF, freq); onBack() }) { Text(freq.label) }
         }
     }
 }
@@ -48,12 +44,8 @@ fun CalendarViewPage(
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SettingsPageHeader("Vue Calendrier", onBack)
         Text("Actuel: $currentViewKey")
-        com.example.ui.components.CalendarViewMode.entries.forEach { mode ->
-            Row(Modifier.fillMaxWidth().padding(8.dp)) {
-                Text(mode.label, modifier = Modifier.weight(1f))
-                androidx.compose.material3.TextButton(onClick = { onUpdateDefaultCalendarView(mode.key); onBack() }) { Text(if (mode.key == currentViewKey) "✓" else "Choisir") }
-            }
-        }
+        androidx.compose.material3.TextButton(onClick = { onUpdateDefaultCalendarView("week"); onBack() }) { Text("Semaine") }
+        androidx.compose.material3.TextButton(onClick = { onUpdateDefaultCalendarView("month"); onBack() }) { Text("Mois") }
     }
 }
 
@@ -67,12 +59,8 @@ fun AppearancePage(
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SettingsPageHeader("Apparence", onBack)
         Text("Actuel: $currentModeKey")
-        com.example.ui.theme.AppearanceMode.entries.forEach { mode ->
-            Row(Modifier.fillMaxWidth().padding(8.dp)) {
-                Text(mode.label, modifier = Modifier.weight(1f))
-                androidx.compose.material3.TextButton(onClick = { onSelectAppearanceMode(mode.key); onBack() }) { Text(if (mode.key == currentModeKey) "✓" else "Choisir") }
-            }
-        }
+        androidx.compose.material3.TextButton(onClick = { onSelectAppearanceMode("light"); onBack() }) { Text("Clair") }
+        androidx.compose.material3.TextButton(onClick = { onSelectAppearanceMode("oled"); onBack() }) { Text("OLED") }
     }
 }
 
@@ -85,10 +73,8 @@ fun TimerDurationsPage(
 ) {
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SettingsPageHeader("Durées du minuteur", onBack)
-        Text("Pomodoro: ${appSettings.pomodoroMinutes} min")
-        Text("Deep Code: ${appSettings.deepCodeMinutes} min")
-        Text("Pause: ${appSettings.shortBreakMinutes} min")
-        androidx.compose.material3.Button(onClick = { onUpdateTimerDurations(appSettings.pomodoroMinutes, appSettings.deepCodeMinutes, appSettings.shortBreakMinutes); onBack() }) { Text("Confirmer") }
+        Text("Pomodoro: ${appSettings.pomodoroMinutes} min, Deep: ${appSettings.deepCodeMinutes}, Pause: ${appSettings.shortBreakMinutes}")
+        androidx.compose.material3.Button(onClick = onBack) { Text("Fermer") }
     }
 }
 
@@ -105,7 +91,7 @@ fun CoursesPage(
         Text("${courses.size} matière(s)")
         androidx.compose.material3.Button(onClick = onAddCourse) { Text("Ajouter") }
         courses.forEach { c ->
-            Row(Modifier.fillMaxWidth().padding(8.dp)) {
+            androidx.compose.foundation.layout.Row(Modifier.fillMaxWidth().padding(8.dp)) {
                 Text("${c.code} · ${c.title}", modifier = Modifier.weight(1f))
                 androidx.compose.material3.TextButton(onClick = { onDeleteCourse(c.id) }) { Text("Supprimer") }
             }
@@ -147,7 +133,6 @@ fun FocusUniversePage(
         SettingsPageHeader("Univers & audio Focus", onBack)
         Text("Illustration: ${appSettings.focusIllustrationId}")
         Text("Thème: ${appSettings.focusThemeId}")
-        Text("Audio: ${audioState.selectedTrack.title}")
     }
 }
 
@@ -161,12 +146,8 @@ fun ThemesPage(
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SettingsPageHeader("Palettes classiques", onBack)
         Text("Actuel: $selectedThemeId")
-        com.example.ui.theme.LightColorThemes.all.forEach { preset ->
-            Row(Modifier.fillMaxWidth().padding(8.dp)) {
-                Text(preset.name, modifier = Modifier.weight(1f))
-                androidx.compose.material3.TextButton(onClick = { onSelectTheme(preset.id); onBack() }) { Text(if (preset.id == selectedThemeId) "✓" else "Choisir") }
-            }
-        }
+        androidx.compose.material3.TextButton(onClick = { onSelectTheme("paper"); onBack() }) { Text("Papier") }
+        androidx.compose.material3.TextButton(onClick = { onSelectTheme("ocean"); onBack() }) { Text("Océan") }
     }
 }
 
@@ -181,12 +162,7 @@ fun GradientsPage(
 ) {
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SettingsPageHeader("Studio dégradés", onBack)
-        Text("Actuel: $selectedGradientId (${selectedThemeId})")
-        com.example.ui.theme.LightGradients.all.forEach { preset ->
-            Row(Modifier.fillMaxWidth().padding(8.dp)) {
-                Text(preset.name, modifier = Modifier.weight(1f))
-                androidx.compose.material3.TextButton(onClick = { onSelectTheme("gradient"); onSelectGradient(preset.id); onBack() }) { Text(if (preset.id == selectedGradientId && selectedThemeId == "gradient") "✓" else "Choisir") }
-            }
-        }
+        Text("Actuel: $selectedGradientId")
+        androidx.compose.material3.TextButton(onClick = { onSelectTheme("gradient"); onSelectGradient("aurore_lavande"); onBack() }) { Text("Aurore Lavande") }
     }
 }

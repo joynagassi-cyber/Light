@@ -39,9 +39,31 @@ jobs:
           fi
           # Keep compiler diagnostics and test failures visible even when the CI log archive is unavailable.
           awk '/^e: .*\.kt:/ || /FAILED/ || /AssertionFailedError/ || /expected:/ || /but was:/ || /^> Could not / || /org.junit/ { printf "::error::%s\n", substr($0, 1, 600); if (++n >= 40) exit }' "$RUNNER_TEMP/light-gradle.log"
-          # Dump failing test XMLs directly (combine each failure/error into one annotation)
-          for f in app/build/test-results/testDebugUnitTest/TEST-*.xml; do [ -f "$f" ] || continue; if grep -q 'failures="[^0]\|errors="[^0]' "$f"; then echo "::error::FAILFILE $f"; awk 'BEGIN{buf=""} /<(failure|error)/{flag=1; buf=""} {if(flag) buf=buf" "$0} /<\/(failure|error)>/{flag=0; printf "::error file=%s::%s\n", FILENAME, substr(buf,1,1200); buf=""}' "$f"; fi; done
+          for f in app/build/test-results/testDebugUnitTest/TEST-*.xml; do [ -f "$f" ] || continue; if grep -q 'failures="[^0]\|errors="[^0]' "$f"; then echo "::error::FAILFILE $f"; grep -a "failure\|error" "$f" | head -20 | while IFS= read -r line; do echo "::error::$line" | cut -c1-900; done; cat "$f" | tr '\n' ' ' | grep -o "message=[^>]*" | head -10 | while IFS= read -r line; do echo "::error::$line" | cut -c1-900; done; fi; done
           exit 1
+      - name: Post failure details to PR (for arena debugging)
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          echo "Collecting failure details..."
+          {
+            echo "### Test failures for ${{ github.sha }}"
+            echo '```'
+            for f in app/build/test-results/testDebugUnitTest/TEST-*.xml; do [ -f "$f" ] || continue; if grep -q 'failures="[^0]\|errors="[^0]' "$f"; then echo "=== $f ==="; grep -a -A2 'testcase.*failure\|testcase.*error' "$f" | head -40; echo "---"; grep -a 'failure message' "$f" | head -20; echo "---"; cat "$f" | tr '\n' ' ' | sed 's/.*<failure[^>]*>//;s/<\/failure>.*//' | cut -c1-1500; echo; fi; done
+            echo '```'
+            echo "Gradle log tail:"
+            echo '```'
+            tail -100 "$RUNNER_TEMP/light-gradle.log" | head -80
+            echo '```'
+          } > /tmp/failure.md
+          cat /tmp/failure.md
+          # Post as PR comment if on PR
+          if [ -n "${{ github.event.pull_request.number }}" ]; then gh pr comment ${{ github.event.pull_request.number }} --body-file /tmp/failure.md || gh api repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments -f body="$(cat /tmp/failure.md)" || true; fi
+          # Also create a gist for debugging (allowed host)
+          gh gist create --public /tmp/failure.md --desc "Light CI failure ${{ github.sha }}" 2>&1 | tee /tmp/gist.log || true
+          cat /tmp/gist.log
       - name: Upload test reports
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v6

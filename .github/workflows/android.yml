@@ -37,8 +37,11 @@ jobs:
           if ./gradlew :app:assembleDebug :app:assembleRelease :app:testDebugUnitTest --console=plain 2>&1 | tee "$RUNNER_TEMP/light-gradle.log"; then
             exit 0
           fi
-          # Keep compiler diagnostics visible even when the CI log archive is unavailable.
-          awk '/^e: .*\.kt:/ || /^> .*FAILED/ || /^> Could not / { printf "::error::%s\n", substr($0, 1, 600); if (++n >= 12) exit }' "$RUNNER_TEMP/light-gradle.log"
+          # Keep compiler diagnostics and test failures visible even when the CI log archive is unavailable.
+          awk '/^e: .*\.kt:/ || /FAILED/ || /AssertionFailedError/ || /expected:/ || /but was:/ || /^> Could not / { printf "::error::%s\n", substr($0, 1, 600); if (++n >= 40) exit }' "$RUNNER_TEMP/light-gradle.log"
+          # Also dump test result XMLs for visibility
+          for f in $(find app/build/test-results -name "*.xml" 2>/dev/null | head -20); do echo "::error::--- $f"; grep -a "testsuite\|testcase.*failure\|failure message" "$f" | head -40 | while IFS= read -r line; do echo "::error::$line" | cut -c1-600; done; done
+          for f in $(find app/build/reports -name "*.html" 2>/dev/null | head -5); do echo "::error::report $f"; done
           exit 1
       - name: Upload test reports
         if: ${{ !cancelled() }}

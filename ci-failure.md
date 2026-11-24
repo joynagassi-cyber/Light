@@ -1,12 +1,12 @@
-### Test failures for cc029e871d01df7f84018c58b7d90861354a86f9
+### Test failures for 9e89509ab608b1e2279df80edd918506a4f02195
 ```
 === app/build/test-results/testDebugUnitTest/TEST-com.example.ExampleRobolectricTest.xml ===
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.example.ExampleRobolectricTest" tests="3" skipped="0" failures="1" errors="0" timestamp="2026-11-24T13:29:19.359Z" hostname="runnervmeozm8" time="8.843">
+<testsuite name="com.example.ExampleRobolectricTest" tests="3" skipped="0" failures="1" errors="0" timestamp="2026-11-24T13:30:30.145Z" hostname="runnervmeozm8" time="10.911">
   <properties/>
-  <testcase name="focus illustration and background selections persist" classname="com.example.ExampleRobolectricTest" time="5.083"/>
-  <testcase name="read string from context" classname="com.example.ExampleRobolectricTest" time="0.076"/>
-  <testcase name="Google sign in is paused by default for local testing" classname="com.example.ExampleRobolectricTest" time="0.101">
+  <testcase name="focus illustration and background selections persist" classname="com.example.ExampleRobolectricTest" time="6.006"/>
+  <testcase name="read string from context" classname="com.example.ExampleRobolectricTest" time="0.175"/>
+  <testcase name="Google sign in is paused by default for local testing" classname="com.example.ExampleRobolectricTest" time="0.158">
     <failure message="java.lang.AssertionError" type="java.lang.AssertionError">java.lang.AssertionError
 	at org.junit.Assert.fail(Assert.java:87)
 	at org.junit.Assert.assertTrue(Assert.java:42)
@@ -54,16 +54,16 @@
 ---END app/build/test-results/testDebugUnitTest/TEST-com.example.ExampleRobolectricTest.xml---
 === app/build/test-results/testDebugUnitTest/TEST-com.example.ui.screens.AgentChatAndSettingsUiTest.xml ===
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.example.ui.screens.AgentChatAndSettingsUiTest" tests="2" skipped="0" failures="1" errors="0" timestamp="2026-11-24T13:29:45.467Z" hostname="runnervmeozm8" time="2.861">
+<testsuite name="com.example.ui.screens.AgentChatAndSettingsUiTest" tests="2" skipped="0" failures="1" errors="0" timestamp="2026-11-24T13:31:00.262Z" hostname="runnervmeozm8" time="3.275">
   <properties/>
-  <testcase name="agentChat_menuUsesSkillForOneMessage_andDrawerListsThreads" classname="com.example.ui.screens.AgentChatAndSettingsUiTest" time="1.528"/>
-  <testcase name="settingsScreen_themesAndGradientsAreCollapsedUntilExpanded" classname="com.example.ui.screens.AgentChatAndSettingsUiTest" time="1.325">
-    <failure message="java.lang.AssertionError: No node found that matches TestTag = 'settings_expand_themes' in scrollable container&#10;Semantics of the node:&#10;Node #413 at (l=0.0, t=0.0, r=320.0, b=470.0)px, Tag: 'settings_list'&#10;IsTraversalGroup = 'true'&#10;VerticalScrollAxisRange = 'ScrollAxisRange(value=3051.0, maxValue=3051.0, reverseScrolling=false)'&#10;CollectionInfo = 'androidx.compose.ui.semantics.CollectionInfo@3d3811dc'&#10;Actions = [ScrollBy, ScrollByOffset, IndexForKey, ScrollToIndex, GetScrollViewportLength]&#10;Has 4 children&#10;Selector used: (TestTag = 'settings_list')&#10;" type="java.lang.AssertionError">java.lang.AssertionError: No node found that matches TestTag = 'settings_expand_themes' in scrollable container
+  <testcase name="agentChat_menuUsesSkillForOneMessage_andDrawerListsThreads" classname="com.example.ui.screens.AgentChatAndSettingsUiTest" time="1.907"/>
+  <testcase name="settingsScreen_themesAndGradientsAreCollapsedUntilExpanded" classname="com.example.ui.screens.AgentChatAndSettingsUiTest" time="1.357">
+    <failure message="java.lang.AssertionError: No node found that matches TestTag = 'settings_expand_themes' in scrollable container&#10;Semantics of the node:&#10;Node #413 at (l=0.0, t=0.0, r=320.0, b=470.0)px, Tag: 'settings_list'&#10;IsTraversalGroup = 'true'&#10;VerticalScrollAxisRange = 'ScrollAxisRange(value=3051.0, maxValue=3051.0, reverseScrolling=false)'&#10;CollectionInfo = 'androidx.compose.ui.semantics.CollectionInfo@117c7296'&#10;Actions = [ScrollBy, ScrollByOffset, IndexForKey, ScrollToIndex, GetScrollViewportLength]&#10;Has 4 children&#10;Selector used: (TestTag = 'settings_list')&#10;" type="java.lang.AssertionError">java.lang.AssertionError: No node found that matches TestTag = 'settings_expand_themes' in scrollable container
 Semantics of the node:
 Node #413 at (l=0.0, t=0.0, r=320.0, b=470.0)px, Tag: 'settings_list'
 IsTraversalGroup = 'true'
 VerticalScrollAxisRange = 'ScrollAxisRange(value=3051.0, maxValue=3051.0, reverseScrolling=false)'
-CollectionInfo = 'androidx.compose.ui.semantics.CollectionInfo@3d3811dc'
+CollectionInfo = 'androidx.compose.ui.semantics.CollectionInfo@117c7296'
 Actions = [ScrollBy, ScrollByOffset, IndexForKey, ScrollToIndex, GetScrollViewportLength]
 Has 4 children
 Selector used: (TestTag = 'settings_list')
@@ -124,11 +124,11 @@ Selector used: (TestTag = 'settings_list')
 ---END app/build/test-results/testDebugUnitTest/TEST-com.example.ui.screens.AgentChatAndSettingsUiTest.xml---
 === app/build/test-results/testDebugUnitTest/TEST-com.example.ui.screens.FocusAnalyticsAndSettingsUiTest.xml ===
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.example.ui.screens.FocusAnalyticsAndSettingsUiTest" tests="8" skipped="0" failures="1" errors="0" timestamp="2026-11-24T13:29:48.341Z" hostname="runnervmeozm8" time="3.452">
+<testsuite name="com.example.ui.screens.FocusAnalyticsAndSettingsUiTest" tests="8" skipped="0" failures="1" errors="0" timestamp="2026-11-24T13:31:03.549Z" hostname="runnervmeozm8" time="3.856">
   <properties/>
-  <testcase name="progressScreen_preservesExistingChartsAndAddsHeatmapRadarVelocityAndMatrix" classname="com.example.ui.screens.FocusAnalyticsAndSettingsUiTest" time="0.828"/>
-  <testcase name="focusAnalyticsScreen_displaysLineChartKpisAndSwitchesTimeWindows" classname="com.example.ui.screens.FocusAnalyticsAndSettingsUiTest" time="0.619"/>
-  <testcase name="redesignedSettingsScreen_displaysGroupedCardsAndOpensDetailSheets" classname="com.example.ui.screens.FocusAnalyticsAndSettingsUiTest" time="0.424">
+  <testcase name="progressScreen_preservesExistingChartsAndAddsHeatmapRadarVelocityAndMatrix" classname="com.example.ui.screens.FocusAnalyticsAndSettingsUiTest" time="0.753"/>
+  <testcase name="focusAnalyticsScreen_displaysLineChartKpisAndSwitchesTimeWindows" classname="com.example.ui.screens.FocusAnalyticsAndSettingsUiTest" time="0.513"/>
+  <testcase name="redesignedSettingsScreen_displaysGroupedCardsAndOpensDetailSheets" classname="com.example.ui.screens.FocusAnalyticsAndSettingsUiTest" time="0.601">
     <failure message="java.lang.AssertionError: Assert failed: The component is not displayed!" type="java.lang.AssertionError">java.lang.AssertionError: Assert failed: The component is not displayed!
 	at androidx.compose.ui.test.AssertionsKt.assertIsDisplayed(Assertions.kt:34)
 	at com.example.ui.screens.FocusAnalyticsAndSettingsUiTest.redesignedSettingsScreen_displaysGroupedCardsAndOpensDetailSheets(FocusAnalyticsAndSettingsUiTest.kt:178)
@@ -180,26 +180,26 @@ Selector used: (TestTag = 'settings_list')
 	at java.base/java.lang.Thread.run(Thread.java:840)
 </failure>
   </testcase>
-  <testcase name="moreHubScreen_exposesFocusAnalyticsNavigationEntry" classname="com.example.ui.screens.FocusAnalyticsAndSettingsUiTest" time="0.204"/>
-  <testcase name="premiumChartAggregations_computeHeatmapStackedModesRadarAndMatrixAccurately" classname="com.example.ui.screens.FocusAnalyticsAndSettingsUiTest" time="0.113"/>
-  <testcase name="settingsScreen_rendersCleanlyInOledAndGlassDesignSystem" classname="com.example.ui.screens.FocusAnalyticsAndSettingsUiTest" time="0.472"/>
-  <testcase name="focusAnalyticsScreen_displaysPremiumHeatmapStackedRadarAndDepthCharts" classname="com.example.ui.screens.FocusAnalyticsAndSettingsUiTest" time="0.667"/>
-  <testcase name="aggregateDailyFocusPoints_andComputeStreak_excludeBreaksAndSumCorrectly" classname="com.example.ui.screens.FocusAnalyticsAndSettingsUiTest" time="0.106"/>
+  <testcase name="moreHubScreen_exposesFocusAnalyticsNavigationEntry" classname="com.example.ui.screens.FocusAnalyticsAndSettingsUiTest" time="0.321"/>
+  <testcase name="premiumChartAggregations_computeHeatmapStackedModesRadarAndMatrixAccurately" classname="com.example.ui.screens.FocusAnalyticsAndSettingsUiTest" time="0.135"/>
+  <testcase name="settingsScreen_rendersCleanlyInOledAndGlassDesignSystem" classname="com.example.ui.screens.FocusAnalyticsAndSettingsUiTest" time="0.621"/>
+  <testcase name="focusAnalyticsScreen_displaysPremiumHeatmapStackedRadarAndDepthCharts" classname="com.example.ui.screens.FocusAnalyticsAndSettingsUiTest" time="0.705"/>
+  <testcase name="aggregateDailyFocusPoints_andComputeStreak_excludeBreaksAndSumCorrectly" classname="com.example.ui.screens.FocusAnalyticsAndSettingsUiTest" time="0.189"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>
 ---END app/build/test-results/testDebugUnitTest/TEST-com.example.ui.screens.FocusAnalyticsAndSettingsUiTest.xml---
 === app/build/test-results/testDebugUnitTest/TEST-com.example.ui.screens.FocusAndDrawerUiTest.xml ===
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.example.ui.screens.FocusAndDrawerUiTest" tests="3" skipped="0" failures="1" errors="0" timestamp="2026-11-24T13:29:51.806Z" hostname="runnervmeozm8" time="3.012">
+<testsuite name="com.example.ui.screens.FocusAndDrawerUiTest" tests="3" skipped="0" failures="1" errors="0" timestamp="2026-11-24T13:31:07.432Z" hostname="runnervmeozm8" time="3.72">
   <properties/>
-  <testcase name="settingsScreen_containsCollapsibleFocusUniverseAndAudioSection" classname="com.example.ui.screens.FocusAndDrawerUiTest" time="0.466">
-    <failure message="java.lang.AssertionError: No node found that matches TestTag = 'settings_expand_focus_universe' in scrollable container&#10;Semantics of the node:&#10;Node #1774 at (l=0.0, t=0.0, r=1233.0, b=2745.0)px, Tag: 'settings_list'&#10;IsTraversalGroup = 'true'&#10;VerticalScrollAxisRange = 'ScrollAxisRange(value=2497.0, maxValue=2497.0, reverseScrolling=false)'&#10;CollectionInfo = 'androidx.compose.ui.semantics.CollectionInfo@66a4377c'&#10;Actions = [ScrollBy, ScrollByOffset, IndexForKey, ScrollToIndex, GetScrollViewportLength]&#10;Has 6 children&#10;Selector used: (TestTag = 'settings_list')&#10;" type="java.lang.AssertionError">java.lang.AssertionError: No node found that matches TestTag = 'settings_expand_focus_universe' in scrollable container
+  <testcase name="settingsScreen_containsCollapsibleFocusUniverseAndAudioSection" classname="com.example.ui.screens.FocusAndDrawerUiTest" time="0.542">
+    <failure message="java.lang.AssertionError: No node found that matches TestTag = 'settings_expand_focus_universe' in scrollable container&#10;Semantics of the node:&#10;Node #1774 at (l=0.0, t=0.0, r=1233.0, b=2745.0)px, Tag: 'settings_list'&#10;IsTraversalGroup = 'true'&#10;VerticalScrollAxisRange = 'ScrollAxisRange(value=2497.0, maxValue=2497.0, reverseScrolling=false)'&#10;CollectionInfo = 'androidx.compose.ui.semantics.CollectionInfo@7a79fc26'&#10;Actions = [ScrollBy, ScrollByOffset, IndexForKey, ScrollToIndex, GetScrollViewportLength]&#10;Has 6 children&#10;Selector used: (TestTag = 'settings_list')&#10;" type="java.lang.AssertionError">java.lang.AssertionError: No node found that matches TestTag = 'settings_expand_focus_universe' in scrollable container
 Semantics of the node:
 Node #1774 at (l=0.0, t=0.0, r=1233.0, b=2745.0)px, Tag: 'settings_list'
 IsTraversalGroup = 'true'
 VerticalScrollAxisRange = 'ScrollAxisRange(value=2497.0, maxValue=2497.0, reverseScrolling=false)'
-CollectionInfo = 'androidx.compose.ui.semantics.CollectionInfo@66a4377c'
+CollectionInfo = 'androidx.compose.ui.semantics.CollectionInfo@7a79fc26'
 Actions = [ScrollBy, ScrollByOffset, IndexForKey, ScrollToIndex, GetScrollViewportLength]
 Has 6 children
 Selector used: (TestTag = 'settings_list')
@@ -254,8 +254,8 @@ Selector used: (TestTag = 'settings_list')
 	at java.base/java.lang.Thread.run(Thread.java:840)
 </failure>
   </testcase>
-  <testcase name="focusScreen_heroCardClean_andCustomizationSeparatedInOverflowMenu" classname="com.example.ui.screens.FocusAndDrawerUiTest" time="2.086"/>
-  <testcase name="scaffoldTopBarAndLeftNavigationDrawer_switchCreateAndDeleteThreads" classname="com.example.ui.screens.FocusAndDrawerUiTest" time="0.448"/>
+  <testcase name="focusScreen_heroCardClean_andCustomizationSeparatedInOverflowMenu" classname="com.example.ui.screens.FocusAndDrawerUiTest" time="2.65"/>
+  <testcase name="scaffoldTopBarAndLeftNavigationDrawer_switchCreateAndDeleteThreads" classname="com.example.ui.screens.FocusAndDrawerUiTest" time="0.52"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>
@@ -263,6 +263,8 @@ Selector used: (TestTag = 'settings_list')
 ```
 Gradle log tail:
 ```
+  (Discouraged, but can be used to keep binary compatibility).
+
 To learn more, see the documentation of the '@ConsistentCopyVisibility' and '@ExposedCopyVisibility' annotations.
 
 This will become an error in language version 2.3.
@@ -271,8 +273,6 @@ w: file:///home/runner/work/Light/Light/app/src/main/java/com/example/ui/screens
 w: file:///home/runner/work/Light/Light/app/src/main/java/com/example/ui/screens/LibraryScreen.kt:621:45 'fun Modifier.menuAnchor(): Modifier' is deprecated. Use overload that takes MenuAnchorType and enabled parameters.
 w: file:///home/runner/work/Light/Light/app/src/main/java/com/example/ui/screens/LibraryScreen.kt:641:45 'fun Modifier.menuAnchor(): Modifier' is deprecated. Use overload that takes MenuAnchorType and enabled parameters.
 w: file:///home/runner/work/Light/Light/app/src/main/java/com/example/ui/screens/LibraryScreen.kt:657:45 'fun Modifier.menuAnchor(): Modifier' is deprecated. Use overload that takes MenuAnchorType and enabled parameters.
-
-> Task :app:compileDebugJavaWithJavac
 
 > Task :app:compileReleaseKotlin
 w: file:///home/runner/work/Light/Light/app/src/main/java/com/example/MainActivity.kt:1474:25 'when' is exhaustive so 'else' is redundant here.
@@ -295,6 +295,7 @@ w: file:///home/runner/work/Light/Light/app/src/main/java/com/example/ui/screens
 w: file:///home/runner/work/Light/Light/app/src/main/java/com/example/ui/screens/LibraryScreen.kt:641:45 'fun Modifier.menuAnchor(): Modifier' is deprecated. Use overload that takes MenuAnchorType and enabled parameters.
 w: file:///home/runner/work/Light/Light/app/src/main/java/com/example/ui/screens/LibraryScreen.kt:657:45 'fun Modifier.menuAnchor(): Modifier' is deprecated. Use overload that takes MenuAnchorType and enabled parameters.
 
+> Task :app:compileDebugJavaWithJavac
 > Task :app:dexBuilderDebug
 > Task :app:processDebugJavaRes
 > Task :app:mergeDebugGlobalSynthetics
@@ -308,13 +309,12 @@ w: file:///home/runner/work/Light/Light/app/src/main/java/com/example/ui/screens
 > Task :app:packageDebug
 > Task :app:createDebugApkListingFileRedirect
 > Task :app:assembleDebug
-> Task :app:bundleDebugClassesToRuntimeJar
 > Task :app:mergeReleaseJavaResource
+> Task :app:bundleDebugClassesToRuntimeJar
 > Task :app:bundleDebugClassesToCompileJar
 > Task :app:mergeDexRelease
 > Task :app:compileReleaseArtProfile
 > Task :app:lintVitalAnalyzeRelease
-
 > Task :app:compileDebugUnitTestKotlin
 w: file:///home/runner/work/Light/Light/app/src/test/java/com/example/ExampleRobolectricTest.kt:29:47 'val googleAuthPausedForTesting: Flow<Boolean>' is deprecated. Test mode removed.
 

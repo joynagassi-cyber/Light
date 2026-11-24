@@ -23,9 +23,14 @@ data class NavigationLayout(
 
     fun normalized(): NavigationLayout {
         val known = order.filter { it in NavigationOptions.features }.distinct()
-        val fullOrder = known + NavigationOptions.features.filterNot { it in known }
+        val resolvedOrder = when {
+            known.isEmpty() -> NavigationOptions.features
+            known.size == 4 && known.toSet() == NavigationOptions.primaryFeatures.toSet() -> known
+            known.size == NavigationOptions.primaryFeatures.size && known.all { it in NavigationOptions.primaryFeatures } -> known
+            else -> known
+        }
         return NavigationLayout(
-            order = fullOrder,
+            order = resolvedOrder,
             hidden = hidden.filter { it in NavigationOptions.optionalFeatures }.distinct().take(NavigationOptions.maxHidden),
             icons = icons.filter { (route, icon) -> route in NavigationOptions.features && icon in NavigationOptions.icons },
         )

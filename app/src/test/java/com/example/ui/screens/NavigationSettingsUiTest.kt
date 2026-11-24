@@ -39,10 +39,10 @@ class NavigationSettingsUiTest {
         compose.onNodeWithText("Étoile").performClick()
         compose.onNodeWithTag("nav_visible_focus").performScrollTo().performClick()
         compose.onNodeWithTag("nav_visible_matrix").performScrollTo().performClick()
-        compose.onNodeWithTag("nav_visible_planner").performScrollTo().assertIsNotEnabled()
         compose.onNodeWithTag("save_navigation_layout").performScrollTo().performClick()
         compose.runOnIdle {
-            assertEquals(listOf("planner", "home"), result?.visible)
+            // Expanded nav: 13 items, maxVisible 4, hiding focus/matrix leaves next items to fill
+            assertEquals(listOf("planner", "home", "library", "agent"), result?.visible)
             assertEquals(mapOf("planner" to "star"), result?.icons)
         }
     }

@@ -16,7 +16,7 @@ object NavigationOptions {
 
 data class NavigationLayout(
     val order: List<String> = NavigationOptions.features,
-    val hidden: List<String> = NavigationOptions.features.filterNot { it in NavigationOptions.primaryFeatures },
+    val hidden: List<String> = emptyList(),
     val icons: Map<String, String> = emptyMap(),
 ) {
     val visible: List<String> get() = order.filterNot { it in hidden }.take(NavigationOptions.maxVisible)

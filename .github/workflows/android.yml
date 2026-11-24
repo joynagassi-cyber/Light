@@ -38,10 +38,9 @@ jobs:
             exit 0
           fi
           # Keep compiler diagnostics and test failures visible even when the CI log archive is unavailable.
-          awk '/^e: .*\.kt:/ || /FAILED/ || /AssertionFailedError/ || /expected:/ || /but was:/ || /^> Could not / { printf "::error::%s\n", substr($0, 1, 600); if (++n >= 40) exit }' "$RUNNER_TEMP/light-gradle.log"
-          # Also dump test result XMLs for visibility
-          for f in $(find app/build/test-results -name "*.xml" 2>/dev/null | head -20); do echo "::error::--- $f"; grep -a "testsuite\|testcase.*failure\|failure message" "$f" | head -40 | while IFS= read -r line; do echo "::error::$line" | cut -c1-600; done; done
-          for f in $(find app/build/reports -name "*.html" 2>/dev/null | head -5); do echo "::error::report $f"; done
+          awk '/^e: .*\.kt:/ || /FAILED/ || /AssertionFailedError/ || /expected:/ || /but was:/ || /^> Could not / || /org.junit/ { printf "::error::%s\n", substr($0, 1, 600); if (++n >= 40) exit }' "$RUNNER_TEMP/light-gradle.log"
+          # Dump failing test XMLs directly
+          for f in app/build/test-results/testDebugUnitTest/TEST-com.example.*.xml app/build/test-results/testDebugUnitTest/TEST-com.example.ui.*.xml; do [ -f "$f" ] || continue; if grep -q "failures=\"[1-9]\|errors=\"[1-9]" "$f"; then echo "::error::FAILFILE $f"; cat "$f" | tr -d '\r' | grep -a -A2 "failure" | head -60 | while IFS= read -r line; do echo "::error::$line" | cut -c1-800; done; fi; done
           exit 1
       - name: Upload test reports
         if: ${{ !cancelled() }}

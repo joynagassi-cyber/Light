@@ -111,8 +111,8 @@ class AgentChatAndSettingsUiTest {
 
         composeRule.onNodeWithTag("agent_attach_button").performClick()
         composeRule.waitForIdle()
-        composeRule.onNodeWithTag("agent_pick_skill_button").assertIsDisplayed()
-        composeRule.onNodeWithTag("agent_pick_skill_button").performClick()
+        val skillButtonNode = composeRule.onNodeWithTag("agent_pick_skill_button").fetchSemanticsNode()
+        throw AssertionError("PROBE boundsInRoot=${skillButtonNode.boundsInRoot} size=${skillButtonNode.size}")
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("agent_upload_tray").assertDoesNotExist()
         composeRule.onNodeWithText("Compétence du prochain message").assertExists()

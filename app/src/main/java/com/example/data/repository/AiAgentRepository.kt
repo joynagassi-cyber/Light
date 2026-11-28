@@ -145,8 +145,8 @@ Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
 
     private var chatSession: Chat? = null
     private var sessionFingerprint: String = ""
-    private val openAiHistory = mutableListOf<JsonObject>()
-    private val restoredHistoryPairs = mutableListOf<Pair<Boolean, String>>()
+    internal val openAiHistory = mutableListOf<JsonObject>()
+    internal val restoredHistoryPairs = mutableListOf<Pair<Boolean, String>>()
 
     fun resetConversation() {
         chatSession = null
@@ -189,7 +189,7 @@ Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
         return try {
             val result = withTimeout(60_000L) {
                 if (settings.agentProvider != AgentProvider.FIREBASE.id) {
-                    sendOpenAiCompatible(userPrompt, instructions, executor, settings, apiKey, executedActions, onActivity)
+                    sendOpenAiCompatible(userPrompt, instructions, executor, settings, apiKey, executedActions, onActivity, onTextUpdate)
                 } else {
                     sendFirebase(userPrompt, instructions, executor, settings, executedActions, onTextUpdate, onActivity)
                 }
@@ -282,9 +282,50 @@ Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
         apiKey: String?,
         executedActions: MutableList<AgentActionLog>,
         onActivity: (AgentActivity) -> Unit,
+        onTextUpdate: suspend (String) -> Unit,
     ): AgentTurnResult {
         require(!apiKey.isNullOrBlank()) { "Ajoutez une clé API dans les réglages de Light Agent pour utiliser ce fournisseur." }
         require(settings.agentModel.isNotBlank()) { "Indiquez le nom du modèle à utiliser." }
+        // Test seam: an injected transport (used by unit tests) keeps the manual HTTP path.
+        // Production (no transport injected) runs through the Koog agent loop with SSE streaming.
+        if (providerPost != null) {
+            return sendOpenAiCompatibleViaInjectedTransport(
+                userPrompt, instructions, executor, settings, apiKey, executedActions, onActivity,
+            )
+        }
+        // Koog orchestre la boucle d'agents et streame les tokens via SSE (agnes et tout fournisseur compatible OpenAI).
+        val (reply, usage) = runKoogOpenAiTurn(
+            userPrompt = userPrompt,
+            instructions = instructions,
+            executor = executor,
+            settings = settings,
+            apiKey = apiKey,
+            executedActions = executedActions,
+            onActivity = onActivity,
+            onTextUpdate = onTextUpdate,
+        )
+        currentCoroutineContext().ensureActive()
+        return AgentTurnResult(
+            includeActionOutcome(reply, executedActions),
+            executedActions.toList(),
+            usage.inputTokens,
+            usage.outputTokens,
+        )
+    }
+
+    /**
+     * Manual OpenAI-compatible loop, kept solely for tests that inject [providerPost]
+     * (see AgentTurnInstructionsTest). Production code never calls this — use the Koog path.
+     */
+    private suspend fun sendOpenAiCompatibleViaInjectedTransport(
+        userPrompt: String,
+        instructions: String,
+        executor: StudyAgentToolExecutor,
+        settings: StudyAppSettings,
+        apiKey: String?,
+        executedActions: MutableList<AgentActionLog>,
+        onActivity: (AgentActivity) -> Unit,
+    ): AgentTurnResult {
         val endpoint = compatibleEndpoint(settings.agentBaseUrl)
         val turnHistory = openAiHistory.ifEmpty {
             restoredHistoryPairs.map { (isUser, msgText) ->
@@ -308,7 +349,7 @@ Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
                 }
             }
             val post = providerPost ?: ::postProviderJson
-            val response = post(endpoint, apiKey, request, settings.agentProvider)
+            val response = post(endpoint, apiKey.orEmpty(), request, settings.agentProvider)
             val usage = response["usage"]?.jsonObject
             val promptCount = usage?.get("prompt_tokens")?.jsonPrimitive?.longOrNull
                 ?: usage?.get("input_tokens")?.jsonPrimitive?.longOrNull
@@ -464,7 +505,7 @@ Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
         }
     }
 
-    private fun summarizeActions(actions: List<AgentActionLog>): String = when {
+    internal fun summarizeActions(actions: List<AgentActionLog>): String = when {
         actions.all { it.succeeded } -> "C'est fait : ${actions.joinToString(", ") { it.label }}."
         actions.none { it.succeeded } -> "Aucune action n'a abouti : ${actions.joinToString(", ") { it.label }}."
         else -> "Résultat partiel : ${actions.joinToString(", ") { it.label }}."

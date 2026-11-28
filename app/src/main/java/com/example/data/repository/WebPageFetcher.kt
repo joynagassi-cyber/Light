@@ -8,6 +8,7 @@ import kotlinx.serialization.json.buildJsonObject
 import java.io.ByteArrayOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.nio.charset.Charset
 import java.util.zip.GZIPInputStream
 
 /**
@@ -109,7 +110,8 @@ object WebPageFetcher {
         } else bytes
         val charsetName = Regex("charset=([\\w.-]+)", RegexOption.IGNORE_CASE).find(contentType)
             ?.groupValues?.get(1) ?: "UTF-8"
-        return runCatching { String(payload, Charsets.forName(charsetName)) }
+        val charset = runCatching { Charset.forName(charsetName) }.getOrDefault(Charsets.UTF_8)
+        return runCatching { String(payload, charset) }
             .getOrElse { String(payload, Charsets.UTF_8) }
     }
 

@@ -1204,6 +1204,8 @@ private fun AuthenticatedStudyShell(
 
                                                         MoreSubPage.AGENT -> Unit
 
+                                                        MoreSubPage.CHAT -> Unit
+
                                                         MoreSubPage.FOCUS_PROFILES -> FocusProfilesScreen(
                                                             profiles = focusProfiles,
                                                             tasks = tasks,

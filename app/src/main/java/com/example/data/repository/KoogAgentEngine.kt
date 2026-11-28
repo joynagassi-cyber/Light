@@ -418,7 +418,7 @@ internal suspend fun AiAgentRepository.runKoogOpenAiTurn(
                 }
             }
             onAgentExecutionFailed { ctx ->
-                android.util.Log.w(TAG, "Koog agent execution failed", ctx.throwable)
+                android.util.Log.w(TAG, "Koog agent execution failed", ctx.error)
             }
         }
     }

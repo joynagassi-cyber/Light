@@ -109,8 +109,11 @@ class AgentChatAndSettingsUiTest {
         }
 
         composeRule.onNodeWithTag("agent_attach_button").performClick()
+        composeRule.waitForIdle()
         composeRule.onNodeWithTag("agent_pick_skill_button").performClick()
+        composeRule.waitForIdle()
         composeRule.onNodeWithTag("agent_skill_light:study").performClick()
+        composeRule.waitForIdle()
         composeRule.onNodeWithTag("agent_selected_skill").assertIsDisplayed()
         composeRule.onNodeWithTag("agent_chat_input").performTextInput("Les graphes")
         composeRule.onNodeWithTag("agent_send_button").performClick()

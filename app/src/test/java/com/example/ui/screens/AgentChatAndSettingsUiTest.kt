@@ -10,6 +10,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.unit.dp
 import android.os.Looper
 import org.robolectric.Shadows
 import com.example.data.preferences.AgentConversationThread
@@ -110,6 +111,8 @@ class AgentChatAndSettingsUiTest {
 
         composeRule.onNodeWithTag("agent_attach_button").performClick()
         composeRule.waitForIdle()
+        composeRule.onNodeWithTag("agent_pick_skill_button").assertIsDisplayed()
+        composeRule.onNodeWithTag("agent_pick_skill_button").assertHeightIsAtLeast(8.dp)
         composeRule.onNodeWithTag("agent_pick_skill_button").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("agent_upload_tray").assertDoesNotExist()

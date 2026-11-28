@@ -238,14 +238,12 @@ fun AgentChatScreen(
     val busyRef = rememberUpdatedState(isBusy)
     val sendRef = rememberUpdatedState(onSendMessage)
     val stopRef = rememberUpdatedState(onStopAgentTurn)
-    val skillRef = rememberUpdatedState(selectedSkillKey)
     val transport = remember {
         LightAgentTransport(
             snapshots = agentSnapshots,
             sendFn = { prompt, visible, skill -> sendRef.value(prompt, visible, skill) },
             busyProvider = { busyRef.value },
             stopFn = { stopRef.value() },
-            skillProvider = { skillRef.value },
         )
     }
     val approver = remember(onResolveAgentAction, scope) {
@@ -688,6 +686,7 @@ fun AgentChatScreen(
                                 val toSend = inputText.trim()
                                 inputText = ""
                                 transport.documentPrompt = null
+                                transport.pendingSkill = selectedSkillKey
                                 conversationState.send(toSend)
                                 selectedSkillKey = null
                                 showAttachmentTray = false
@@ -770,6 +769,7 @@ fun AgentChatScreen(
                 TextButton(enabled = !isBusy && attachedDocuments.isNotEmpty(), onClick = {
                     val agentPrompt = buildDocumentPrompt(inputText.trim(), attachedDocuments.toList())
                     transport.documentPrompt = agentPrompt to visibleSummary
+                    transport.pendingSkill = selectedSkillKey
                     conversationState.send(visibleSummary)
                     selectedSkillKey = null
                     showAttachmentTray = false

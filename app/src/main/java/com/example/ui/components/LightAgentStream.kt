@@ -172,7 +172,6 @@ internal class LightAgentTransport(
     private val sendFn: (prompt: String, visible: String, skillKey: String?) -> Unit,
     private val busyProvider: () -> Boolean,
     private val stopFn: () -> Unit,
-    private val skillProvider: () -> String?,
 ) : AIConversationTransport<LightAgentMessage> {
 
     /**
@@ -181,6 +180,14 @@ internal class LightAgentTransport(
      */
     @Volatile
     var documentPrompt: Pair<String, String>? = null
+
+    /**
+     * Set by the screen just before `AIConversationState.send` with the one-shot skill selected
+     * for the message, then cleared by [send]. Captured at click time, not when the request
+     * reaches the transport.
+     */
+    @Volatile
+    var pendingSkill: String? = null
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var connectJob: Job? = null
@@ -205,9 +212,11 @@ internal class LightAgentTransport(
         }
         val pending = documentPrompt
         documentPrompt = null
+        val skill = pendingSkill
+        pendingSkill = null
         val prompt = pending?.first ?: request.text
         val visible = pending?.second ?: request.text
-        sendFn(prompt, visible, skillProvider())
+        sendFn(prompt, visible, skill)
     }
 
     override suspend fun stop() {

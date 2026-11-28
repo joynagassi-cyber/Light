@@ -9,6 +9,9 @@ internal data class AgentSkillOption(
 
 /** Light-authored methods; no scripts, dependencies, tools or permissions are installed. */
 internal object AgentSkillCatalog {
+    /** Clé du skill intégré de recherche approfondie (timeout dédié + exécution Koog expérimentale). */
+    const val DEEP_RESEARCH_SKILL_KEY = "light:deep_research"
+
     private val builtIn = listOf(
         AgentSkillOption("light:study", "Réviser un cours", "Rappel actif, exercices et vérification.",
             "Pars de l’objectif d’apprentissage et du niveau indiqué. Propose quelques questions de rappel sans dévoiler aussitôt les réponses, puis un exercice d’application et des critères de réussite. Signale les prérequis manquants."),
@@ -20,7 +23,7 @@ internal object AgentSkillCatalog {
             "Sépare échéances fermes et préférences. Relève les dépendances, estime l’effort avec incertitude, propose un ordre exécutable et une prochaine action. N’invente pas de disponibilité ni de dates."),
         AgentSkillOption("light:design", "Critiquer une interface", "Hiérarchie, accessibilité et idées à tester.",
             "Décris d’abord le public et la tâche principale. Évalue ensuite la hiérarchie, la typographie, les états, le contraste et la navigation. Donne des modifications concrètes et un moyen de vérifier chaque recommandation. Ne prétends pas avoir rendu ou testé une interface que tu n’as pas observée."),
-        AgentSkillOption("light:deep_research", "Recherche approfondie", "Planifier, chercher sur le web et arXiv, croiser, citer.",
+        AgentSkillOption(DEEP_RESEARCH_SKILL_KEY, "Recherche approfondie", "Planifier, chercher sur le web et arXiv, croiser, citer.",
             "Mène une recherche structurée. 1) Reformule l’objectif et les critères de réussite en une phrase. 2) Établis un plan de 3 à 6 sous-questions avant de chercher. 3) Utilise web_search (web général, nécessite l’activation dans Réglages), academic_search (publications arXiv, sans clé) et fetch_page (lire une page précise) ; cite l’URL de chaque fait important. 4) Croise au moins deux sources quand c’est possible ; signale les contradictions au lieu de trancher en silence. 5) Distingue les faits établis, les hypothèses et ce que tu n’as pas trouvé. N’invente jamais une référence : si un outil est indisponible ou insuffisant, dis-le clairement. 6) Conclus par une synthèse courte : réponse, sources, limites et prochaines vérifications. Réponds en français."),
     )
 

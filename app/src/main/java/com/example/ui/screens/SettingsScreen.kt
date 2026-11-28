@@ -165,6 +165,7 @@ fun SettingsScreen(
     onSignOut: () -> Unit,
     onUpdateSearchSettings: (String, Boolean, String?, Boolean) -> Unit = { _, _, _, _ -> },
     onUpdateImageSettings: (String, Boolean, String, String?, Boolean) -> Unit = { _, _, _, _, _ -> },
+    onUpdateAgentGrounding: (Boolean) -> Unit = {},
     onOpenNavigationLayout: (() -> Unit)? = null,
     onOpenCapabilities: (() -> Unit)? = null,
     onOpenProfile: (() -> Unit)? = null,
@@ -511,6 +512,8 @@ fun SettingsScreen(
                 SearchSettingsSection(settings = appSettings, onUpdateSearch = onUpdateSearchSettings)
                 SettingsInsetDivider()
                 ImageSettingsSection(settings = appSettings, onUpdateImage = onUpdateImageSettings)
+                SettingsInsetDivider()
+                GroundingSettingsSection(settings = appSettings, onUpdateGrounding = onUpdateAgentGrounding)
             }
         }
 

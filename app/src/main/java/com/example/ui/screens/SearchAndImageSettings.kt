@@ -76,6 +76,26 @@ fun SearchSettingsSection(
 }
 
 @Composable
+fun GroundingSettingsSection(
+    settings: StudyAppSettings,
+    onUpdateGrounding: (Boolean) -> Unit
+) {
+    var enabled by remember(settings.agentGroundingEnabled) { mutableStateOf(settings.agentGroundingEnabled) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(16.dp)) {
+        Text("Grounding Google (Firebase)", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+        Text(
+            "Expérimental, désactivé par défaut. Le modèle Gemini appuie ses réponses sur Google Search, côté fournisseur. Nécessite que le grounding soit disponible pour votre projet Firebase (quota et conditions Gemini). Selon le modèle, la combinaison avec les outils Light peut être refusée par l'API — auquel cas les messages de l'agent afficheront l'erreur correspondante.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Activer le grounding Google", modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+            Switch(checked = enabled, onCheckedChange = { enabled = it; onUpdateGrounding(it) }, modifier = Modifier.testTag("agent_grounding_switch"))
+        }
+    }
+}
+
+@Composable
 fun ImageSettingsSection(
     settings: StudyAppSettings,
     onUpdateImage: (provider: String, enabled: Boolean, size: String, apiKey: String?, clearKey: Boolean) -> Unit

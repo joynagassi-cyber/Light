@@ -1482,6 +1482,7 @@ private fun AuthenticatedStudyShell(
                             onClose = { showSettingsOverlay = false },
                             onUpdateSearchSettings = viewModel::updateSearchSettings,
                             onUpdateImageSettings = viewModel::updateImageSettings,
+                            onUpdateAgentGrounding = viewModel::updateAgentGrounding,
                             modifier = Modifier
                                 .widthIn(max = 760.dp)
                                 .fillMaxSize()

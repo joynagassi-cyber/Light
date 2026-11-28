@@ -1981,6 +1981,14 @@ class StudyViewModel(
         }
     }
 
+    fun updateAgentGrounding(enabled: Boolean) {
+        viewModelScope.launch { themePreferencesStore.updateAgentGrounding(enabled) }
+    }
+
+    fun updateAgentKoogResearch(enabled: Boolean) {
+        viewModelScope.launch { themePreferencesStore.updateAgentKoogResearch(enabled) }
+    }
+
     fun updateImageSettings(provider: String, enabled: Boolean, size: String, apiKey: String? = null, clearKey: Boolean = false) {
         viewModelScope.launch {
             themePreferencesStore.updateImageSettings(provider, enabled, size)

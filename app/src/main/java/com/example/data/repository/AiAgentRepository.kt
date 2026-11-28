@@ -11,6 +11,7 @@ import com.google.firebase.ai.type.Tool
 import com.google.firebase.ai.type.content
 import com.example.data.model.AgentProvider
 import com.example.data.model.AgentReflection
+import com.example.data.model.AgentSkillCatalog
 import com.example.data.model.TaskCategory
 import com.example.data.model.HabitCategory
 import com.example.data.model.CountdownCategory
@@ -44,6 +45,8 @@ import kotlinx.coroutines.withContext
 import kotlin.time.TimeSource
 
 private const val TAG = "AiAgentRepo"
+private const val DEFAULT_TURN_TIMEOUT_MS = 60_000L
+private const val RESEARCH_TURN_TIMEOUT_MS = 240_000L
 
 data class AgentActionLog(
     val toolName: String,
@@ -193,8 +196,12 @@ Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
             systemPrompt(LocalDate.now().toString(), settings, contextSnapshot), skillKey, settings.agentSkills,
         )
         val executedActions = mutableListOf<AgentActionLog>()
+        val isResearchTurn = skillKey == AgentSkillCatalog.DEEP_RESEARCH_SKILL_KEY
+        // Une recherche approfondie enchaîne plusieurs appels d'outils (web, arXiv, pages) :
+        // on lui laisse un budget plus long que le tour standard.
+        val turnTimeoutMs = if (isResearchTurn) RESEARCH_TURN_TIMEOUT_MS else DEFAULT_TURN_TIMEOUT_MS
         return try {
-            val result = withTimeout(60_000L) {
+            val result = withTimeout(turnTimeoutMs) {
                 if (settings.agentProvider != AgentProvider.FIREBASE.id) {
                     sendOpenAiCompatible(userPrompt, instructions, executor, settings, apiKey, executedActions, onActivity, onTextUpdate)
                 } else {
@@ -205,7 +212,7 @@ Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
             result
         } catch (e: TimeoutCancellationException) {
             Log.e(TAG, "Agent turn timed out", e)
-            throw IllegalStateException("L'agent IA a mis trop de temps à répondre (60 s). Réessayez.")
+            throw IllegalStateException("L'agent IA a mis trop de temps à répondre (${turnTimeoutMs / 1000} s). Réessayez.")
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -224,9 +231,15 @@ Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
         onActivity: (AgentActivity) -> Unit,
     ): AgentTurnResult {
         val declarations = AgentToolContract.enabled(settings.agentCapabilities).map { it.firebaseDeclaration() }
+        val tools = mutableListOf<Tool>().apply {
+            if (declarations.isNotEmpty()) add(Tool.functionDeclarations(declarations))
+            // Grounding Google : expérimental, nécessite l'activation côté projet Firebase.
+            // Selon le modèle, le SDK peut refuser la combinaison outils de fonction + grounding.
+            if (settings.agentGroundingEnabled) add(Tool.googleSearch())
+        }
         val model = Firebase.ai.generativeModel(
             modelName = settings.agentModel.trim().also { require(it.isNotEmpty()) { "Sélectionnez le modèle actif dans Paramètres." } },
-            tools = if (declarations.isEmpty()) emptyList() else listOf(Tool.functionDeclarations(declarations)),
+            tools = tools.toList(),
             systemInstruction = content { text(instructions) }
         )
         val chat = model.startChat(

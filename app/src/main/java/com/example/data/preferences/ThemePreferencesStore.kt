@@ -65,7 +65,10 @@ data class StudyAppSettings(
     val searchEnabled: Boolean = false,
     val imageProvider: String = "none",
     val imageEnabled: Boolean = false,
-    val imageSize: String = "1024x1024"
+    val imageSize: String = "1024x1024",
+    // Recherche avancée (expérimental, désactivé par défaut)
+    val agentGroundingEnabled: Boolean = false,
+    val agentKoogResearchEnabled: Boolean = false
 )
 
 private val FOCUS_ILLUSTRATION_IDS = setOf(
@@ -111,6 +114,8 @@ class ThemePreferencesStore(private val context: Context) {
     private val searchProviderKey = stringPreferencesKey("search_provider")
     private val searchEnabledKey = booleanPreferencesKey("search_enabled")
     private val imageProviderKey = stringPreferencesKey("image_provider")
+    private val agentGroundingEnabledKey = booleanPreferencesKey("agent_grounding_enabled")
+    private val agentKoogResearchEnabledKey = booleanPreferencesKey("agent_koog_research_enabled")
     private val imageEnabledKey = booleanPreferencesKey("image_enabled")
     private val imageSizeKey = stringPreferencesKey("image_size")
     private fun searchApiKeyStore(providerId: String) = AgentApiKeyStore(context.applicationContext, "search_${providerId}")
@@ -156,6 +161,8 @@ class ThemePreferencesStore(private val context: Context) {
             searchProvider = prefs[searchProviderKey] ?: "none",
             searchEnabled = prefs[searchEnabledKey] ?: false,
             imageProvider = prefs[imageProviderKey] ?: "none",
+            agentGroundingEnabled = prefs[agentGroundingEnabledKey] ?: false,
+            agentKoogResearchEnabled = prefs[agentKoogResearchEnabledKey] ?: false,
             imageEnabled = prefs[imageEnabledKey] ?: false,
             imageSize = prefs[imageSizeKey] ?: "1024x1024"
         )
@@ -385,6 +392,14 @@ class ThemePreferencesStore(private val context: Context) {
             prefs[searchProviderKey] = provider.trim().take(20)
             prefs[searchEnabledKey] = enabled
         }
+    }
+
+    suspend fun updateAgentGrounding(enabled: Boolean) {
+        context.lightDataStore.edit { prefs -> prefs[agentGroundingEnabledKey] = enabled }
+    }
+
+    suspend fun updateAgentKoogResearch(enabled: Boolean) {
+        context.lightDataStore.edit { prefs -> prefs[agentKoogResearchEnabledKey] = enabled }
     }
 
     suspend fun saveSearchApiKey(providerId: String, apiKey: String) {

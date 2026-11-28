@@ -41,6 +41,8 @@ jobs:
           # Keep compiler diagnostics and test failures visible even when the CI log archive is unavailable.
           awk '/^e: .*\.kt:/ || /FAILED/ || /AssertionFailedError/ || /expected:/ || /but was:/ || /^> Could not / || /org.junit/ { printf "::error::%s\n", substr($0, 1, 600); if (++n >= 40) exit }' "$RUNNER_TEMP/light-gradle.log"
           for f in app/build/test-results/testDebugUnitTest/TEST-*.xml; do [ -f "$f" ] || continue; if grep -q 'failures="[^0]\|errors="[^0]' "$f"; then echo "::error::FAILFILE $f"; grep -a "failure\|error" "$f" | head -20 | while IFS= read -r line; do echo "::error::$line" | cut -c1-900; done; cat "$f" | tr '\n' ' ' | grep -o "message=[^>]*" | head -10 | while IFS= read -r line; do echo "::error::$line" | cut -c1-900; done; fi; done
+          agentchat=app/build/test-results/testDebugUnitTest/TEST-com.example.ui.screens.AgentChatAndSettingsUiTest.xml
+          if [ -f "$agentchat" ]; then grep -a -o 'message="[^"]*"' "$agentchat" | cut -c1-900 | while IFS= read -r line; do echo "::error::AGENTCHAT $line"; done; grep -a -oE '(assertEquals|AssertionError|expected:|but was:)[^<]{0,500}' "$agentchat" | cut -c1-900 | while IFS= read -r line; do echo "::error::AGENTCHAT2 $line"; done; fi
           exit 1
       - name: Collect failure details
         if: failure()

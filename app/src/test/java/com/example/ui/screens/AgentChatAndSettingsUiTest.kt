@@ -108,6 +108,7 @@ class AgentChatAndSettingsUiTest {
         composeRule.onNodeWithTag("agent_selected_skill").assertDoesNotExist()
         composeRule.onNodeWithTag("agent_chat_input").performTextInput("Et ensuite ?")
         composeRule.onNodeWithTag("agent_send_button").performClick()
+        composeRule.waitForIdle()
         assertEquals(listOf("Les graphes" to "light:study", "Et ensuite ?" to null), sent)
 
         // Clicking top-left menu button opens the conversation threads drawer

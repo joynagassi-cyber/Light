@@ -10,6 +10,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performScrollToNode
+import android.os.Looper
+import org.robolectric.Shadows
 import com.example.data.preferences.AgentConversationThread
 import com.example.data.preferences.StudyAppSettings
 import com.example.data.repository.AgentChatMessage
@@ -28,6 +30,13 @@ class AgentChatAndSettingsUiTest {
 
     @get:Rule
     val composeRule = createComposeRule()
+
+    /** Flush Compose idle state and any pending main-looper posts (the send goes through a coroutine). */
+    private fun flushMainLooper() {
+        composeRule.waitForIdle()
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+        composeRule.waitForIdle()
+    }
 
     @Test
     fun agentChat_menuUsesSkillForOneMessage_andDrawerListsThreads() {
@@ -105,10 +114,11 @@ class AgentChatAndSettingsUiTest {
         composeRule.onNodeWithTag("agent_selected_skill").assertIsDisplayed()
         composeRule.onNodeWithTag("agent_chat_input").performTextInput("Les graphes")
         composeRule.onNodeWithTag("agent_send_button").performClick()
+        flushMainLooper()
         composeRule.onNodeWithTag("agent_selected_skill").assertDoesNotExist()
         composeRule.onNodeWithTag("agent_chat_input").performTextInput("Et ensuite ?")
         composeRule.onNodeWithTag("agent_send_button").performClick()
-        composeRule.waitForIdle()
+        flushMainLooper()
         assertEquals(listOf("Les graphes" to "light:study", "Et ensuite ?" to null), sent)
 
         // Clicking top-left menu button opens the conversation threads drawer

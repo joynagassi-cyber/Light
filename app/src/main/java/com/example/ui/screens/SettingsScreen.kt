@@ -167,6 +167,9 @@ fun SettingsScreen(
     onUpdateImageSettings: (String, Boolean, String, String?, Boolean) -> Unit = { _, _, _, _, _ -> },
     onUpdateAgentGrounding: (Boolean) -> Unit = {},
     onUpdateAgentKoogResearch: (Boolean) -> Unit = {},
+    onUpdateComposio: (Boolean, Boolean, Boolean, String?, Boolean) -> Unit = { _, _, _, _, _ -> },
+    onRefreshComposio: () -> Unit = {},
+    composioStatus: String? = null,
     onOpenNavigationLayout: (() -> Unit)? = null,
     onOpenCapabilities: (() -> Unit)? = null,
     onOpenProfile: (() -> Unit)? = null,
@@ -518,7 +521,19 @@ fun SettingsScreen(
             }
         }
 
-        // Section 6 : Matières & Cloud
+        // Section 6 : Connecteurs (Composio)
+        item {
+            SettingsSectionBlock(title = "Connecteurs (Composio)") {
+                ComposioSettingsSection(
+                    settings = appSettings,
+                    status = composioStatus,
+                    onUpdateComposio = onUpdateComposio,
+                    onRefreshComposio = onRefreshComposio
+                )
+            }
+        }
+
+        // Section 7 : Matières & Cloud
         item {
             SettingsSectionBlock(title = "Matières & Cloud") {
                 SettingsNavigationRow(

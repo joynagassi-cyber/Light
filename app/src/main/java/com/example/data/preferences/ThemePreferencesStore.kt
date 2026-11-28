@@ -30,6 +30,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 private val Context.lightDataStore: DataStore<Preferences> by preferencesDataStore(name = "elan_prefs")
@@ -68,7 +69,14 @@ data class StudyAppSettings(
     val imageSize: String = "1024x1024",
     // Recherche avancée (expérimental, désactivé par défaut)
     val agentGroundingEnabled: Boolean = false,
-    val agentKoogResearchEnabled: Boolean = false
+    val agentKoogResearchEnabled: Boolean = false,
+    // Connecteurs Composio (expérimental, off par défaut, clé locale chiffrée)
+    val composioEnabled: Boolean = false,
+    val composioGoogleSuperEnabled: Boolean = false,
+    val composioNotionEnabled: Boolean = false,
+    val composioGoogleSuperAccount: String = "",
+    val composioNotionAccount: String = "",
+    val composioUserId: String = ""
 )
 
 private val FOCUS_ILLUSTRATION_IDS = setOf(
@@ -116,10 +124,17 @@ class ThemePreferencesStore(private val context: Context) {
     private val imageProviderKey = stringPreferencesKey("image_provider")
     private val agentGroundingEnabledKey = booleanPreferencesKey("agent_grounding_enabled")
     private val agentKoogResearchEnabledKey = booleanPreferencesKey("agent_koog_research_enabled")
+    private val composioEnabledKey = booleanPreferencesKey("composio_enabled")
+    private val composioGoogleSuperEnabledKey = booleanPreferencesKey("composio_googlesuper_enabled")
+    private val composioNotionEnabledKey = booleanPreferencesKey("composio_notion_enabled")
+    private val composioGoogleSuperAccountKey = stringPreferencesKey("composio_googlesuper_account")
+    private val composioNotionAccountKey = stringPreferencesKey("composio_notion_account")
+    private val composioUserIdKey = stringPreferencesKey("composio_user_id")
     private val imageEnabledKey = booleanPreferencesKey("image_enabled")
     private val imageSizeKey = stringPreferencesKey("image_size")
     private fun searchApiKeyStore(providerId: String) = AgentApiKeyStore(context.applicationContext, "search_${providerId}")
     private fun imageApiKeyStore(providerId: String) = AgentApiKeyStore(context.applicationContext, "image_${providerId}")
+    private val composioApiKeyStore by lazy { AgentApiKeyStore(context.applicationContext, "composio") }
 
     val selectedGradientId: Flow<String> = context.lightDataStore.data.map { prefs ->
         prefs[gradientKey] ?: "aurore_lavande"
@@ -163,6 +178,12 @@ class ThemePreferencesStore(private val context: Context) {
             imageProvider = prefs[imageProviderKey] ?: "none",
             agentGroundingEnabled = prefs[agentGroundingEnabledKey] ?: false,
             agentKoogResearchEnabled = prefs[agentKoogResearchEnabledKey] ?: false,
+            composioEnabled = prefs[composioEnabledKey] ?: false,
+            composioGoogleSuperEnabled = prefs[composioGoogleSuperEnabledKey] ?: false,
+            composioNotionEnabled = prefs[composioNotionEnabledKey] ?: false,
+            composioGoogleSuperAccount = prefs[composioGoogleSuperAccountKey] ?: "",
+            composioNotionAccount = prefs[composioNotionAccountKey] ?: "",
+            composioUserId = prefs[composioUserIdKey] ?: "",
             imageEnabled = prefs[imageEnabledKey] ?: false,
             imageSize = prefs[imageSizeKey] ?: "1024x1024"
         )
@@ -401,6 +422,35 @@ class ThemePreferencesStore(private val context: Context) {
     suspend fun updateAgentKoogResearch(enabled: Boolean) {
         context.lightDataStore.edit { prefs -> prefs[agentKoogResearchEnabledKey] = enabled }
     }
+
+    suspend fun updateComposioSettings(enabled: Boolean, googleSuperEnabled: Boolean, notionEnabled: Boolean) {
+        context.lightDataStore.edit { prefs ->
+            prefs[composioEnabledKey] = enabled
+            prefs[composioGoogleSuperEnabledKey] = googleSuperEnabled
+            prefs[composioNotionEnabledKey] = notionEnabled
+        }
+    }
+
+    suspend fun saveComposioAccount(toolkit: String, accountId: String?) {
+        val key = if (toolkit == "googlesuper") composioGoogleSuperAccountKey else composioNotionAccountKey
+        context.lightDataStore.edit { prefs -> prefs[key] = accountId.orEmpty().trim().take(80) }
+    }
+
+    /** Identifiant utilisateur Composio stable : Firebase-indépendant, généré une fois. */
+    suspend fun composioUserId(): String {
+        val current = context.lightDataStore.data.map { prefs -> prefs[composioUserIdKey] }.first().orEmpty()
+        if (current.isNotBlank()) return current
+        val generated = UUID.randomUUID().toString()
+        context.lightDataStore.edit { prefs ->
+            if (prefs[composioUserIdKey].isNullOrBlank()) prefs[composioUserIdKey] = generated
+        }
+        return generated
+    }
+
+    suspend fun saveComposioApiKey(apiKey: String) { withContext(Dispatchers.IO) { composioApiKeyStore.save(apiKey.trim()) } }
+    suspend fun readComposioApiKey(): String? = withContext(Dispatchers.IO) { composioApiKeyStore.read() }
+    suspend fun hasComposioApiKey(): Boolean = withContext(Dispatchers.IO) { composioApiKeyStore.read()?.isNotBlank() == true }
+    suspend fun clearComposioApiKey() { withContext(Dispatchers.IO) { composioApiKeyStore.clear() } }
 
     suspend fun saveSearchApiKey(providerId: String, apiKey: String) {
         withContext(Dispatchers.IO) { searchApiKeyStore(providerId).save(apiKey.trim()) }

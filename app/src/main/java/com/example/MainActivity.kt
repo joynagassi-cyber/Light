@@ -353,6 +353,7 @@ private fun AuthenticatedStudyShell(
 
     val selectedGradientId by viewModel.selectedGradientId.collectAsStateWithLifecycle()
     val appSettings by viewModel.appSettings.collectAsStateWithLifecycle()
+    val composioStatus by viewModel.composioStatus.collectAsStateWithLifecycle()
     val profileState by viewModel.profileState.collectAsStateWithLifecycle()
     val coursesState by viewModel.coursesState.collectAsStateWithLifecycle()
     val tasksState by viewModel.tasksState.collectAsStateWithLifecycle()
@@ -1484,6 +1485,9 @@ private fun AuthenticatedStudyShell(
                             onUpdateImageSettings = viewModel::updateImageSettings,
                             onUpdateAgentGrounding = viewModel::updateAgentGrounding,
                             onUpdateAgentKoogResearch = viewModel::updateAgentKoogResearch,
+                            onUpdateComposio = viewModel::updateComposio,
+                            onRefreshComposio = viewModel::refreshComposioConnections,
+                            composioStatus = composioStatus,
                             modifier = Modifier
                                 .widthIn(max = 760.dp)
                                 .fillMaxSize()

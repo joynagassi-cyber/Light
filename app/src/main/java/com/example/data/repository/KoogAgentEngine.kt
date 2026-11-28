@@ -301,6 +301,27 @@ internal class LightKoogTools(
     ): String = delegate("fetch_page", args("url" to text(url)))
 
     @Tool
+    @LLMDescription("Découvrir les outils Composio disponibles (Google Super, Notion) et leurs schémas. Sans effet de bord.")
+    suspend fun composio_search_tools(
+        @LLMDescription("Ce que vous voulez faire (ex. 'lire une page Notion')")
+        query: String,
+        @LLMDescription("Sous-ensemble : 'all', 'googlesuper' ou 'notion'")
+        toolkit: String = "all",
+    ): String = delegate("composio_search_tools", args("query" to text(query), "toolkit" to text(toolkit)))
+
+    @Tool
+    @LLMDescription("Exécuter un outil Composio (Google Super, Notion). Demande toujours une confirmation avant exécution.")
+    suspend fun composio_execute(
+        @LLMDescription("Slug de l'outil (ex. NOTION_SEARCH_NOTION_PAGE)")
+        toolSlug: String,
+        @LLMDescription("Arguments de l'outil, objet JSON sérialisé")
+        argumentsJson: String = "{}",
+    ): String = delegate("composio_execute", args(
+        "toolSlug" to JsonPrimitive(toolSlug.trim().uppercase().take(80)),
+        "argumentsJson" to JsonPrimitive(argumentsJson.ifBlank { "{}" }.take(4000)),
+    ))
+
+    @Tool
     @LLMDescription("Ajouter une échéance à la liste. Demande toujours une confirmation avant exécution.")
     suspend fun create_countdown(
         @LLMDescription("Nom de l'échéance (100 caractères maximum)")

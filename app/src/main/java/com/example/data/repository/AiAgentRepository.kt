@@ -124,6 +124,8 @@ interface StudyAgentToolExecutor {
     suspend fun webSearch(query: String, maxResults: Int): JsonObject
     suspend fun fetchPage(url: String): JsonObject
     suspend fun academicSearch(query: String, maxResults: Int): JsonObject
+    suspend fun composioSearchTools(query: String, toolkit: String?): JsonObject
+    suspend fun composioExecute(toolSlug: String, argumentsJson: String): JsonObject
     suspend fun createCountdown(title: String, notes: String, targetDateIso: String, category: String): JsonObject
 }
 
@@ -538,9 +540,19 @@ Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
                 "Nom" to args.str("title", "Nouvelle échéance").trim().take(100), "Date" to args.str("targetDateIso", "").trim(),
                 "Catégorie" to CountdownCategory.sanitizeKey(args.str("category", "exam")), "Notes" to args.str("notes", "").trim().take(300)
             ))
+            "composio_execute" -> {
+                val slug = args.str("toolSlug", "").trim().uppercase().take(80)
+                val destructive = DESTRUCTIVE_SLUG_KEYWORDS.any { slug.contains(it) }
+                AgentActionApproval(toolName = name, title = "Exécuter un outil Composio", details = details(
+                    "Outil" to slug,
+                    "Arguments" to args.str("argumentsJson", "").trim().take(600)
+                ), destructive = destructive)
+            }
             else -> null
         }
     }
+
+    private val DESTRUCTIVE_SLUG_KEYWORDS = listOf("DELETE", "REMOVE", "ARCHIVE", "TRASH", "SEND", "REVOKE")
 
     internal fun summarizeActions(actions: List<AgentActionLog>): String = when {
         actions.all { it.succeeded } -> "C'est fait : ${actions.joinToString(", ") { it.label }}."
@@ -750,6 +762,20 @@ Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
                 val maxResults = args.int("maxResults", 5).coerceIn(1, 8)
                 val res = executor.academicSearch(query, maxResults)
                 res to if (agentToolResultSucceeded(res)) "Publications recherchées" else "Recherche académique indisponible"
+            }
+
+            "composio_search_tools" -> {
+                val query = args.str("query", "").trim().take(300)
+                val toolkit = args.strOrNull("toolkit")?.takeIf { it in setOf("googlesuper", "notion") }
+                val res = executor.composioSearchTools(query, toolkit)
+                res to if (agentToolResultSucceeded(res)) "Outils Composio découverts" else "Connecteurs indisponibles"
+            }
+
+            "composio_execute" -> {
+                val slug = args.str("toolSlug", "").trim().uppercase().take(80)
+                val argumentsJson = args.str("argumentsJson", "").trim().take(4000)
+                val res = executor.composioExecute(slug, argumentsJson)
+                res to if (agentToolResultSucceeded(res)) "Outil Composio exécuté : $slug" else "Outil Composio en échec : $slug"
             }
 
             else -> JsonObject(mapOf("error" to JsonPrimitive("Outil inconnu: $name"))) to "Action inconnue"

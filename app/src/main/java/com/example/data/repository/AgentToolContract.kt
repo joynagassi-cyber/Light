@@ -7,6 +7,7 @@ import com.example.data.model.TaskCategory
 import com.google.firebase.ai.type.FunctionDeclaration
 import com.google.firebase.ai.type.Schema
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -18,7 +19,7 @@ import java.time.LocalTime
 
 internal val AGENT_GRADIENT_IDS = listOf("aurore_lavande", "lagon_boreal", "menthe_emeraude", "peche_solaire", "rose_quartz", "nebuleuse_douce", "matcha_azur", "sakura_velours")
 
-private enum class TextFormat { ANY, DATE, TIME }
+private enum class TextFormat { ANY, DATE, TIME, SLUG }
 
 internal sealed interface ToolValue {
     fun accepts(value: JsonElement): Boolean
@@ -38,6 +39,7 @@ private class ToolText(
         return when (format) {
             TextFormat.DATE -> DATE.matches(str) && str.take(4) != "0000" && runCatching { LocalDate.parse(str) }.isSuccess
             TextFormat.TIME -> TIME.matches(str) && runCatching { LocalTime.parse(str) }.isSuccess
+            TextFormat.SLUG -> SLUG.matches(str)
             TextFormat.ANY -> true
         }
     }
@@ -54,6 +56,7 @@ private class ToolText(
     private companion object {
         val DATE = Regex("[0-9]{4}-[0-9]{2}-[0-9]{2}")
         val TIME = Regex("[0-9]{2}:[0-9]{2}")
+        val SLUG = Regex("[A-Z0-9_]{3,80}")
     }
 }
 
@@ -110,6 +113,13 @@ internal data class AgentToolSpec(
         // Both strings are strict, calendar-validated ISO dates by this point.
         if (name == "create_project" && (args.getValue("startDateIso") as JsonPrimitive).content >
             (args.getValue("dueDateIso") as JsonPrimitive).content) return "dueDateIso"
+        if (name == "composio_execute") {
+            val raw = (args["argumentsJson"] as? JsonPrimitive)?.content?.trim().orEmpty()
+            if (raw.isNotEmpty()) {
+                val parsed = runCatching { Json.parseToJsonElement(raw) }.getOrNull()
+                if (parsed !is JsonObject) return "argumentsJson"
+            }
+        }
         return null
     }
 
@@ -168,6 +178,12 @@ internal object AgentToolContract {
             "url" to text("URL https:// de la page", 500))),
         AgentToolSpec("academic_search", AgentCapabilities.ACADEMIC_SEARCH, "Rechercher des publications sur arXiv (titre, auteurs, année, lien). Sans clé.", false, mapOf(
             "query" to text("Requête (2 à 300 caractères)", 300), "maxResults" to int("Nombre de résultats", 1..8, optional = true))),
+        AgentToolSpec("composio_search_tools", AgentCapabilities.USE_COMPOSIO, "Découvrir les outils Composio disponibles (Google Super, Notion) et leurs schémas d'arguments. Sans effet de bord.", false, mapOf(
+            "query" to text("Ce que vous voulez faire (ex. 'lire une page Notion')", 300),
+            "toolkit" to choices("Sous-ensemble", listOf("all", "googlesuper", "notion"), optional = true))),
+        mutation("composio_execute", AgentCapabilities.USE_COMPOSIO, "Exécuter un outil Composio (Google Super, Notion).",
+            "toolSlug" to ToolField(ToolText(80, format = TextFormat.SLUG), "Slug de l'outil (ex. NOTION_SEARCH_NOTION_PAGE)"),
+            "argumentsJson" to text("Arguments de l'outil, objet JSON sérialisé", 4000, blank = true)),
     )
     private val byName = tools.associateBy { it.name }
     operator fun get(name: String) = byName[name]

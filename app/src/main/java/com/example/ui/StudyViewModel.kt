@@ -50,6 +50,7 @@ import com.example.data.repository.AgentModelCatalogRepository
 import com.example.data.repository.AiPlannerRepository
 import com.example.data.repository.ImageGenerationRepository
 import com.example.data.repository.AcademicSearchRepository
+import com.example.data.repository.ComposioClient
 import com.example.data.repository.SearchRepository
 import com.example.data.repository.SearchResult
 import com.example.data.repository.WebPageFetcher
@@ -73,6 +74,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -138,7 +140,8 @@ class StudyViewModel(
     private val agentThreadsStore: AgentThreadsStore? = null,
     private val searchRepository: SearchRepository = SearchRepository(),
     private val imageGenerationRepository: ImageGenerationRepository = ImageGenerationRepository(),
-    private val academicSearchRepository: AcademicSearchRepository = AcademicSearchRepository()
+    private val academicSearchRepository: AcademicSearchRepository = AcademicSearchRepository(),
+    private val composioClient: ComposioClient = ComposioClient()
 ) : ViewModel() {
 
     private var timerJob: Job? = null
@@ -1637,6 +1640,52 @@ class StudyViewModel(
                 override suspend fun academicSearch(query: String, maxResults: Int): JsonObject =
                     academicSearchRepository.searchAsJson(query, maxResults)
 
+                override suspend fun composioSearchTools(query: String, toolkit: String?): JsonObject {
+                    if (!currentAgentSettings.composioEnabled) {
+                        return JsonObject(mapOf("success" to JsonPrimitive(false), "error" to JsonPrimitive("Connecteurs Composio désactivés : activez-les dans Réglages → Connecteurs (Composio).")))
+                    }
+                    val key = themePreferencesStore.readComposioApiKey()
+                    if (key.isNullOrBlank()) {
+                        return JsonObject(mapOf("success" to JsonPrimitive(false), "error" to JsonPrimitive("Clé API Composio manquante : ajoutez-la dans Réglages → Connecteurs (Composio).")))
+                    }
+                    return try {
+                        val userId = themePreferencesStore.composioUserId()
+                        composioClient.searchTools(key, userId, listOfNotNull(toolkit, query).joinToString(" ").trim().take(300))
+                    } catch (e: Exception) {
+                        JsonObject(mapOf("success" to JsonPrimitive(false), "error" to JsonPrimitive(e.message ?: "Découverte Composio impossible.")))
+                    }
+                }
+
+                override suspend fun composioExecute(toolSlug: String, argumentsJson: String): JsonObject {
+                    if (!currentAgentSettings.composioEnabled) {
+                        return JsonObject(mapOf("success" to JsonPrimitive(false), "error" to JsonPrimitive("Connecteurs Composio désactivés : activez-les dans Réglages → Connecteurs (Composio).")))
+                    }
+                    val toolkit = when {
+                        toolSlug.startsWith("NOTION_") -> "notion"
+                        toolSlug.startsWith("GOOGLESUPER_") -> "googlesuper"
+                        else -> return JsonObject(mapOf("success" to JsonPrimitive(false), "error" to JsonPrimitive("Slug « $toolSlug » hors des connecteurs autorisés (préfixes : NOTION_, GOOGLESUPER_).")))
+                    }
+                    val toolkitEnabled = if (toolkit == "notion") currentAgentSettings.composioNotionEnabled else currentAgentSettings.composioGoogleSuperEnabled
+                    if (!toolkitEnabled) {
+                        val label = if (toolkit == "notion") "Notion" else "Google Super"
+                        return JsonObject(mapOf("success" to JsonPrimitive(false), "error" to JsonPrimitive("Le connecteur $label n'est pas activé dans Réglages → Connecteurs (Composio).")))
+                    }
+                    val key = themePreferencesStore.readComposioApiKey()
+                    if (key.isNullOrBlank()) {
+                        return JsonObject(mapOf("success" to JsonPrimitive(false), "error" to JsonPrimitive("Clé API Composio manquante.")))
+                    }
+                    val accountId = if (toolkit == "notion") currentAgentSettings.composioNotionAccount else currentAgentSettings.composioGoogleSuperAccount
+                    val arguments = if (argumentsJson.isBlank()) JsonObject(emptyMap()) else runCatching {
+                        Json.parseToJsonElement(argumentsJson) as? JsonObject
+                    }.getOrNull() ?: return JsonObject(mapOf("success" to JsonPrimitive(false), "error" to JsonPrimitive("argumentsJson doit former un objet JSON.")))
+                    return try {
+                        val userId = themePreferencesStore.composioUserId()
+                        composioClient.executeTool(key, userId, toolSlug, arguments, accountId.ifBlank { null })
+                    } catch (e: Exception) {
+                        JsonObject(mapOf("success" to JsonPrimitive(false), "error" to JsonPrimitive(e.message ?: "Exécution Composio impossible.")))
+                    }
+                }
+
                 override suspend fun createTask(
                     title: String,
                     courseCode: String,
@@ -1987,6 +2036,43 @@ class StudyViewModel(
 
     fun updateAgentKoogResearch(enabled: Boolean) {
         viewModelScope.launch { themePreferencesStore.updateAgentKoogResearch(enabled) }
+    }
+
+    private val _composioStatus = MutableStateFlow<String?>(null)
+    val composioStatus: StateFlow<String?> = _composioStatus.asStateFlow()
+
+    fun updateComposio(enabled: Boolean, googleSuperEnabled: Boolean, notionEnabled: Boolean, apiKey: String? = null, clearKey: Boolean = false) {
+        viewModelScope.launch {
+            themePreferencesStore.updateComposioSettings(enabled, googleSuperEnabled, notionEnabled)
+            if (clearKey) themePreferencesStore.clearComposioApiKey()
+            else if (!apiKey.isNullOrBlank()) themePreferencesStore.saveComposioApiKey(apiKey)
+        }
+    }
+
+    /** Liste les comptes ACTIVE du user_id Composio et mémorise les identifiants par toolkit. */
+    fun refreshComposioConnections() {
+        viewModelScope.launch {
+            val key = themePreferencesStore.readComposioApiKey()
+            if (key.isNullOrBlank()) {
+                _composioStatus.value = "Ajoutez d'abord votre clé API Composio."
+                return@launch
+            }
+            _composioStatus.value = "Connexion à Composio…"
+            try {
+                val userId = themePreferencesStore.composioUserId()
+                val accounts = composioClient.listConnectedAccounts(key, userId)
+                val google = accounts.firstOrNull { it.toolkit.contains("googlesuper") }
+                val notion = accounts.firstOrNull { it.toolkit == "notion" }
+                themePreferencesStore.saveComposioAccount("googlesuper", google?.id)
+                themePreferencesStore.saveComposioAccount("notion", notion?.id)
+                _composioStatus.value = buildString {
+                    append("Google Super : ").append(google?.id?.let { "connecté (${it.take(12)}…)" } ?: "non connecté")
+                    append(" · Notion : ").append(notion?.id?.let { "connecté (${it.take(12)}…)" } ?: "non connecté")
+                }
+            } catch (e: Exception) {
+                _composioStatus.value = e.message ?: "Impossible de contacter Composio."
+            }
+        }
     }
 
     fun updateImageSettings(provider: String, enabled: Boolean, size: String, apiKey: String? = null, clearKey: Boolean = false) {

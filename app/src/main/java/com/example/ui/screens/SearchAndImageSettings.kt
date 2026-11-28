@@ -21,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -72,6 +73,74 @@ fun SearchSettingsSection(
             onClick = { onUpdateSearch(provider, enabled, apiKey.takeIf { it.isNotBlank() }, clearKey) },
             modifier = Modifier.testTag("search_save_button")
         ) { Text("Enregistrer la recherche") }
+    }
+}
+
+@Composable
+fun ComposioSettingsSection(
+    settings: StudyAppSettings,
+    status: String?,
+    onUpdateComposio: (enabled: Boolean, googleSuperEnabled: Boolean, notionEnabled: Boolean, apiKey: String?, clearKey: Boolean) -> Unit,
+    onRefreshComposio: () -> Unit,
+) {
+    var enabled by remember(settings.composioEnabled) { mutableStateOf(settings.composioEnabled) }
+    var googleSuper by remember(settings.composioGoogleSuperEnabled) { mutableStateOf(settings.composioGoogleSuperEnabled) }
+    var notion by remember(settings.composioNotionEnabled) { mutableStateOf(settings.composioNotionEnabled) }
+    var apiKey by remember { mutableStateOf("") }
+    var clearKey by remember { mutableStateOf(false) }
+    val uriHandler = LocalUriHandler.current
+
+    fun accountHint(account: String): String =
+        if (account.isBlank()) "Aucun compte détecté — touchez « Rafraîchir » après connexion." else "Compte : ${account.take(16)}…"
+
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(16.dp)) {
+        Text("Connecteurs (Composio)", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+        Text(
+            "Expérimental, désactivé par défaut. Light peut découvrir puis exécuter des outils Composio (https://composio.dev) pour deux connecteurs : Google Super (Calendar, Drive, Gmail, Docs…) et Notion. Clé API chiffrée sur l'appareil, jamais journalisée. Connectez vos comptes dans le tableau de bord Composio, puis touchez « Rafraîchir les connexions ». Chaque exécution d'outil par l'assistant exige votre confirmation explicite.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        OutlinedTextField(
+            value = apiKey, onValueChange = { apiKey = it; if (it.isNotBlank()) clearKey = false },
+            label = { Text("Clé API Composio") },
+            placeholder = { Text("collez votre clé Composio") },
+            supportingText = { Text("Chiffrée via Android Keystore. Jamais journalisée.") },
+            visualTransformation = PasswordVisualTransformation(),
+            singleLine = true, modifier = Modifier.fillMaxWidth().testTag("composio_apikey_input")
+        )
+        FilterChip(selected = clearKey, onClick = { clearKey = !clearKey; if (clearKey) apiKey = "" }, label = { Text("Effacer la clé enregistrée") }, modifier = Modifier.testTag("composio_clear_key"))
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Activer les connecteurs Composio", modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+            Switch(checked = enabled, onCheckedChange = { enabled = it }, modifier = Modifier.testTag("composio_enabled_switch"))
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Google Super", style = MaterialTheme.typography.bodyMedium)
+                Text(accountHint(settings.composioGoogleSuperAccount), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Switch(checked = googleSuper, onCheckedChange = { googleSuper = it }, modifier = Modifier.testTag("composio_googlesuper_switch"))
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Notion", style = MaterialTheme.typography.bodyMedium)
+                Text(accountHint(settings.composioNotionAccount), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Switch(checked = notion, onCheckedChange = { notion = it }, modifier = Modifier.testTag("composio_notion_switch"))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = onRefreshComposio, modifier = Modifier.testTag("composio_refresh_button")) { Text("Rafraîchir les connexions") }
+            TextButton(onClick = { runCatching { uriHandler.openUri("https://app.composio.dev") } }) { Text("Tableau de bord") }
+        }
+        if (!status.isNullOrBlank()) {
+            Text(status, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.testTag("composio_status"))
+        }
+        Text(
+            "Les identifiants de compte sont stockés localement (DataStore). Light n'appelle Composio qu'après votre action ; aucune requête n'est faite sans votre confirmation dans l'agent.",
+            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        TextButton(
+            onClick = { onUpdateComposio(enabled, googleSuper, notion, apiKey.takeIf { it.isNotBlank() }, clearKey) },
+            modifier = Modifier.testTag("composio_save_button")
+        ) { Text("Enregistrer les connecteurs") }
     }
 }
 

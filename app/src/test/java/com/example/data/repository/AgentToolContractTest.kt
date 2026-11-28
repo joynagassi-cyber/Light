@@ -30,6 +30,8 @@ class AgentToolContractTest {
         "web_search" to ("webSearch" to """{"query":"révision espacée","maxResults":3}"""),
         "fetch_page" to ("fetchPage" to """{"url":"https://example.org/article"}"""),
         "academic_search" to ("academicSearch" to """{"query":"spaced repetition","maxResults":3}"""),
+        "composio_search_tools" to ("composioSearchTools" to """{"query":"lire une page Notion","toolkit":"notion"}"""),
+        "composio_execute" to ("composioExecute" to """{"toolSlug":"NOTION_SEARCH_NOTION_PAGE","argumentsJson":"{\"query\":\"plan\"}"}"""),
     )
 
     private fun fakeExecutor(calls: MutableList<String>, approves: Boolean): StudyAgentToolExecutor {

@@ -145,7 +145,9 @@ class AgentChatAndSettingsUiTest {
     }
 
     @Test
-    fun settingsScreen_themesAndGradientsAreCollapsedUntilExpanded() {
+    fun settingsScreen_navigatesToThemesAndGradientsPages() {
+        var themesOpened = false
+        var gradientsOpened = false
         composeRule.setContent {
             LightThemeProvider {
                 SettingsScreen(
@@ -155,6 +157,8 @@ class AgentChatAndSettingsUiTest {
                     appSettings = StudyAppSettings(),
                     courses = emptyList(),
                     onSelectGradient = {},
+                    onOpenThemes = { themesOpened = true },
+                    onOpenGradients = { gradientsOpened = true },
                     onUpdateProfile = { _, _, _, _, _, _, _, _ -> },
                     onUpdateTimerDurations = { _, _, _ -> },
                     onUpdateDefaultCalendarView = {},
@@ -172,16 +176,15 @@ class AgentChatAndSettingsUiTest {
         composeRule.waitForIdle()
         composeRule.onNodeWithText("Compte").assertIsDisplayed()
         composeRule.onNodeWithText("Général").assertIsDisplayed()
-        val firstThemeTag = "theme_preset_${com.example.ui.theme.LightColorThemes.all.first().id}"
-        // Theme presets stay collapsed until toggled
-        composeRule.onAllNodesWithTag(firstThemeTag).assertCountEquals(0)
+        // Themes and gradients are dedicated pages now: rows trigger navigation callbacks
+        composeRule.onNodeWithTag("settings_list").performScrollToNode(hasTestTag("settings_themes_row"))
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("settings_themes_row").performClick()
+        assertTrue(themesOpened)
 
-        composeRule.onNodeWithTag("settings_list").performScrollToNode(hasTestTag("settings_expand_themes"))
+        composeRule.onNodeWithTag("settings_list").performScrollToNode(hasTestTag("settings_gradients_row"))
         composeRule.waitForIdle()
-        composeRule.onNodeWithTag("settings_expand_themes").performClick()
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag("settings_list").performScrollToNode(hasTestTag(firstThemeTag))
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag(firstThemeTag).assertIsDisplayed()
+        composeRule.onNodeWithTag("settings_gradients_row").performClick()
+        assertTrue(gradientsOpened)
     }
 }

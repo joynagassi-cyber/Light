@@ -137,6 +137,7 @@ class FocusAnalyticsAndSettingsUiTest {
     fun redesignedSettingsScreen_displaysGroupedCardsAndOpensDetailSheets() {
         var selectedCalendarView = "week"
         var selectedAppearance = "light"
+        var focusUniverseOpened = false
 
         composeRule.setContent {
             LightThemeProvider {
@@ -160,7 +161,8 @@ class FocusAnalyticsAndSettingsUiTest {
                     onCreateCourse = { _, _, _, _, _, _, _ -> },
                     onDeleteCourse = {},
                     onSignOut = {},
-                    onClose = {}
+                    onClose = {},
+                    onOpenFocusUniverse = { focusUniverseOpened = true }
                 )
             }
         }
@@ -187,9 +189,10 @@ class FocusAnalyticsAndSettingsUiTest {
         composeRule.waitForIdle()
         assertEquals("month", selectedCalendarView)
 
-        // Verify Focus & Minuteur grouped rows exist
-        composeRule.onNodeWithTag("settings_list").performScrollToNode(hasTestTag("settings_expand_focus_universe"))
-        composeRule.onNodeWithTag("settings_expand_focus_universe").assertIsDisplayed()
+        // Focus & Minuteur group is a navigation row to the dedicated page now
+        composeRule.onNodeWithTag("settings_list").performScrollToNode(hasTestTag("settings_focus_universe_row"))
+        composeRule.onNodeWithTag("settings_focus_universe_row").performClick()
+        assertTrue(focusUniverseOpened)
     }
 
     @Test

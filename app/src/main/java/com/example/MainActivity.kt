@@ -1483,6 +1483,7 @@ private fun AuthenticatedStudyShell(
                             onUpdateSearchSettings = viewModel::updateSearchSettings,
                             onUpdateImageSettings = viewModel::updateImageSettings,
                             onUpdateAgentGrounding = viewModel::updateAgentGrounding,
+                            onUpdateAgentKoogResearch = viewModel::updateAgentKoogResearch,
                             modifier = Modifier
                                 .widthIn(max = 760.dp)
                                 .fillMaxSize()

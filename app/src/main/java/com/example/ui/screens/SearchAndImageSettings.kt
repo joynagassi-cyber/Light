@@ -96,6 +96,26 @@ fun GroundingSettingsSection(
 }
 
 @Composable
+fun KoogResearchSettingsSection(
+    settings: StudyAppSettings,
+    onUpdateKoogResearch: (Boolean) -> Unit
+) {
+    var enabled by remember(settings.agentKoogResearchEnabled) { mutableStateOf(settings.agentKoogResearchEnabled) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(16.dp)) {
+        Text("Moteur Koog (recherche approfondie)", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+        Text(
+            "Expérimental, désactivé par défaut. Pour les tours « Recherche approfondie » sur un fournisseur compatible OpenAI, exécute la boucle d'outils avec Koog et compresse automatiquement l'historique long (résumé TL;DR) pour préserver le contexte. Non vérifié avec votre fournisseur : si les réponses se dégradent, désactivez — le moteur par défaut reste disponible sans ce réglage.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Exécuter la recherche via Koog", modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+            Switch(checked = enabled, onCheckedChange = { enabled = it; onUpdateKoogResearch(it) }, modifier = Modifier.testTag("agent_koog_research_switch"))
+        }
+    }
+}
+
+@Composable
 fun ImageSettingsSection(
     settings: StudyAppSettings,
     onUpdateImage: (provider: String, enabled: Boolean, size: String, apiKey: String?, clearKey: Boolean) -> Unit

@@ -2,8 +2,12 @@ package com.example.data.repository
 
 import ai.koog.agents.core.agent.AIAgent
 import ai.koog.agents.core.agent.config.AIAgentConfig
+import ai.koog.agents.core.dsl.builder.node
 import ai.koog.agents.core.dsl.builder.strategy
+import ai.koog.agents.core.dsl.extension.HistoryCompressionStrategy
+import ai.koog.agents.core.dsl.extension.ReceivedToolResults
 import ai.koog.agents.core.dsl.extension.nodeExecuteTools
+import ai.koog.agents.core.dsl.extension.nodeLLMCompressHistory
 import ai.koog.agents.core.dsl.extension.nodeLLMRequestStreaming
 import ai.koog.agents.core.dsl.extension.nodeLLMSendToolResultsStreaming
 import ai.koog.agents.core.dsl.extension.onTextMessage
@@ -23,8 +27,10 @@ import ai.koog.prompt.executor.llms.MultiLLMPromptExecutor
 import ai.koog.prompt.llm.LLMCapability
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
+import ai.koog.prompt.message.Message
 import ai.koog.prompt.streaming.StreamFrame
 import ai.koog.prompt.streaming.toMessageResponse
+import com.example.data.model.AgentSkillCatalog
 import com.example.data.preferences.StudyAppSettings
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.toList
@@ -325,6 +331,39 @@ private fun lightStreamingWithToolsStrategy() = strategy<String, String>("light_
     edge(nodeCallLLM forwardTo nodeFinish onTextMessage { true })
 }
 
+/**
+ * Variante « recherche approfondie » : mêmes nœuds de streaming, mais l'historique est
+ * compressé (TL;DR des messages anciens, jusqu'aux [COMPRESSION_KEEP_LAST] derniers conservés)
+ * dès qu'il dépasse [COMPRESSION_TRIGGER_MESSAGES]. Modélisée sur
+ * singleRunStrategyWithHistoryCompression (agents-core 1.3.0), en conservant le streaming.
+ * La compression ajoute un appel LLM supplémentaire lorsqu'elle se déclenche.
+ */
+private fun lightStreamingWithCompressionStrategy() = strategy<String, String>("light_streaming_loop_compressed") {
+    val nodeCallLLM by nodeLLMRequestStreaming().transform { it.toList().toMessageResponse() }
+    val nodeSendToolResults by nodeLLMSendToolResultsStreaming().transform { it.toList().toMessageResponse() }
+    val executeTools by nodeExecuteTools(parallel = false)
+    val compressHistory by nodeLLMCompressHistory<ReceivedToolResults>(
+        strategy = HistoryCompressionStrategy.FromLastNMessages(COMPRESSION_KEEP_LAST),
+    )
+    val nodeSendCompressedHistory by node<ReceivedToolResults, Message.Assistant> {
+        llm.writeSession { requestLLM() }
+    }
+
+    edge(nodeStart forwardTo nodeCallLLM)
+    edge(nodeCallLLM forwardTo executeTools onToolCalls { true })
+    edge(nodeCallLLM forwardTo nodeFinish onTextMessage { true })
+    edge(executeTools forwardTo compressHistory onCondition { llm.readSession { prompt.messages.size > COMPRESSION_TRIGGER_MESSAGES } })
+    edge(executeTools forwardTo nodeSendToolResults onCondition { llm.readSession { prompt.messages.size <= COMPRESSION_TRIGGER_MESSAGES } })
+    edge(compressHistory forwardTo nodeSendCompressedHistory)
+    edge(nodeSendCompressedHistory forwardTo nodeFinish onTextMessage { true })
+    edge(nodeSendCompressedHistory forwardTo executeTools onToolCalls { true })
+    edge(nodeSendToolResults forwardTo nodeFinish onTextMessage { true })
+    edge(nodeSendToolResults forwardTo executeTools onToolCalls { true })
+}
+
+private const val COMPRESSION_TRIGGER_MESSAGES = 20
+private const val COMPRESSION_KEEP_LAST = 12
+
 internal data class KoogTurnUsage(val inputTokens: Long?, val outputTokens: Long?)
 
 /**
@@ -341,6 +380,7 @@ internal suspend fun AiAgentRepository.runKoogOpenAiTurn(
     executedActions: MutableList<AgentActionLog>,
     onActivity: (AgentActivity) -> Unit,
     onTextUpdate: suspend (String) -> Unit,
+    skillKey: String? = null,
 ): Pair<String, KoogTurnUsage> {
     val root = settings.agentBaseUrl.trim().trimEnd('/')
     require(root.startsWith("https://", ignoreCase = true)) {
@@ -415,14 +455,15 @@ internal suspend fun AiAgentRepository.runKoogOpenAiTurn(
     var outputTokens = 0L
     var sawUsage = false
 
+    val isResearchTurn = skillKey == AgentSkillCatalog.DEEP_RESEARCH_SKILL_KEY
     val agent = AIAgent(
         promptExecutor = promptExecutor,
         agentConfig = AIAgentConfig(
             prompt = seededPrompt,
             model = model,
-            maxAgentIterations = MAX_TOOL_SEQUENCES,
+            maxAgentIterations = if (isResearchTurn) RESEARCH_TOOL_SEQUENCES else MAX_TOOL_SEQUENCES,
         ),
-        strategy = lightStreamingWithToolsStrategy(),
+        strategy = if (isResearchTurn) lightStreamingWithCompressionStrategy() else lightStreamingWithToolsStrategy(),
         toolRegistry = toolRegistry,
     ) {
         handleEvents {
@@ -493,4 +534,5 @@ private fun compactPlainTextMessages(messages: List<JsonObject>): List<JsonObjec
 private const val MAX_HISTORY_MESSAGES = 40
 private const val MAX_MESSAGE_CHARS = 8_000
 private const val MAX_TOOL_SEQUENCES = 20
+private const val RESEARCH_TOOL_SEQUENCES = 24
 private const val TAG = "KoogAgentEngine"

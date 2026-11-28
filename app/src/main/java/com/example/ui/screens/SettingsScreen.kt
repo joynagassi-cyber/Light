@@ -166,6 +166,7 @@ fun SettingsScreen(
     onUpdateSearchSettings: (String, Boolean, String?, Boolean) -> Unit = { _, _, _, _ -> },
     onUpdateImageSettings: (String, Boolean, String, String?, Boolean) -> Unit = { _, _, _, _, _ -> },
     onUpdateAgentGrounding: (Boolean) -> Unit = {},
+    onUpdateAgentKoogResearch: (Boolean) -> Unit = {},
     onOpenNavigationLayout: (() -> Unit)? = null,
     onOpenCapabilities: (() -> Unit)? = null,
     onOpenProfile: (() -> Unit)? = null,

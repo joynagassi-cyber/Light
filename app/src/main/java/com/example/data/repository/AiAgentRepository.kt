@@ -203,7 +203,24 @@ Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
         return try {
             val result = withTimeout(turnTimeoutMs) {
                 if (settings.agentProvider != AgentProvider.FIREBASE.id) {
-                    sendOpenAiCompatible(userPrompt, instructions, executor, settings, apiKey, executedActions, onActivity, onTextUpdate)
+                    if (isResearchTurn && settings.agentKoogResearchEnabled) {
+                        // Moteur Koog expérimental (compression d'historique + boucle outillée Koog).
+                        require(!apiKey.isNullOrBlank()) { "Ajoutez une clé API dans les réglages de Light Agent pour utiliser ce fournisseur." }
+                        val (reply, usage) = runKoogOpenAiTurn(
+                            userPrompt = userPrompt,
+                            instructions = instructions,
+                            executor = executor,
+                            settings = settings,
+                            apiKey = apiKey,
+                            executedActions = executedActions,
+                            onActivity = onActivity,
+                            onTextUpdate = onTextUpdate,
+                            skillKey = skillKey,
+                        )
+                        AgentTurnResult(includeActionOutcome(reply, executedActions), executedActions, usage.inputTokens, usage.outputTokens)
+                    } else {
+                        sendOpenAiCompatible(userPrompt, instructions, executor, settings, apiKey, executedActions, onActivity, onTextUpdate)
+                    }
                 } else {
                     sendFirebase(userPrompt, instructions, executor, settings, executedActions, onTextUpdate, onActivity)
                 }

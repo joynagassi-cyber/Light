@@ -43,9 +43,19 @@ class AcademicSearchRepository {
         try {
             val code = connection.responseCode
             require(code in 200..299) { "arXiv a répondu HTTP $code." }
-            val bytes = connection.inputStream.use { it.readNBytes(MAX_BYTES + 1) }
-            require(bytes.size <= MAX_BYTES) { "Réponse arXiv trop volumineuse." }
-            parseArxivAtom(String(bytes, Charsets.UTF_8)).take(limit)
+            val output = java.io.ByteArrayOutputStream(MAX_BYTES)
+            val buffer = ByteArray(16 * 1024)
+            var total = 0
+            connection.inputStream.use { input ->
+                while (total <= MAX_BYTES) {
+                    val read = input.read(buffer)
+                    if (read <= 0) break
+                    output.write(buffer, 0, read)
+                    total += read
+                }
+            }
+            require(total <= MAX_BYTES) { "Réponse arXiv trop volumineuse." }
+            parseArxivAtom(String(output.toByteArray(), Charsets.UTF_8)).take(limit)
         } finally {
             connection.disconnect()
         }

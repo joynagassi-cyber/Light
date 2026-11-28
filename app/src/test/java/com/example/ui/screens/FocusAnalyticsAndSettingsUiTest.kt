@@ -138,6 +138,8 @@ class FocusAnalyticsAndSettingsUiTest {
         var selectedCalendarView = "week"
         var selectedAppearance = "light"
         var focusUniverseOpened = false
+        var appearanceOpened = false
+        var calendarOpened = false
 
         composeRule.setContent {
             LightThemeProvider {
@@ -162,7 +164,9 @@ class FocusAnalyticsAndSettingsUiTest {
                     onDeleteCourse = {},
                     onSignOut = {},
                     onClose = {},
-                    onOpenFocusUniverse = { focusUniverseOpened = true }
+                    onOpenFocusUniverse = { focusUniverseOpened = true },
+                    onOpenAppearance = { appearanceOpened = true },
+                    onOpenCalendarView = { calendarOpened = true }
                 )
             }
         }
@@ -173,21 +177,15 @@ class FocusAnalyticsAndSettingsUiTest {
         composeRule.onNodeWithText("Général").assertIsDisplayed()
         composeRule.onNodeWithTag("settings_notifications_switch").assertIsDisplayed()
 
-        // Open Appearance bottom sheet from clean row and pick OLED mode
+        // Appearance is a navigation row to its dedicated page now
         composeRule.onNodeWithTag("settings_list").performScrollToNode(hasTestTag("settings_appearance_mode_row"))
         composeRule.onNodeWithTag("settings_appearance_mode_row").performClick()
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag("appearance_mode_oled").assertIsDisplayed().performClick()
-        composeRule.waitForIdle()
-        assertEquals("oled", selectedAppearance)
+        assertTrue(appearanceOpened)
 
-        // Open Default Calendar View bottom sheet and pick month view
+        // Default Calendar View is a navigation row to its dedicated page now
         composeRule.onNodeWithTag("settings_list").performScrollToNode(hasTestTag("settings_default_calendar_row"))
         composeRule.onNodeWithTag("settings_default_calendar_row").performClick()
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag("settings_default_view_month").assertIsDisplayed().performClick()
-        composeRule.waitForIdle()
-        assertEquals("month", selectedCalendarView)
+        assertTrue(calendarOpened)
 
         // Focus & Minuteur group is a navigation row to the dedicated page now
         composeRule.onNodeWithTag("settings_list").performScrollToNode(hasTestTag("settings_focus_universe_row"))

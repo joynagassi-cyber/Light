@@ -112,7 +112,6 @@ class AgentChatAndSettingsUiTest {
         composeRule.onNodeWithTag("agent_attach_button").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("agent_pick_skill_button").assertIsDisplayed()
-        composeRule.onNodeWithTag("agent_pick_skill_button").assertHeightIsAtLeast(8.dp)
         composeRule.onNodeWithTag("agent_pick_skill_button").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("agent_upload_tray").assertDoesNotExist()

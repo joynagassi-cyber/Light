@@ -1475,6 +1475,9 @@ class StudyViewModel(
             actions = progress.tools, elapsedMillis = (SystemClock.elapsedRealtime() - progress.startedAtMillis).coerceAtLeast(0))
     }
 
+    /** Public stop for the current agent turn (used by the conversation UI's stop button). */
+    fun stopAgentTurn() = interruptAgentTurn()
+
     private fun interruptAgentTurn() {
         val oldProgress = _agentProgress.value
         _agentProgress.value = null // Invalidate callbacks before changing thread or resuming a suspended tool.

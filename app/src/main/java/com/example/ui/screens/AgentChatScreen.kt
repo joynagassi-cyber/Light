@@ -6,12 +6,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,9 +18,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -31,7 +26,6 @@ import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AttachFile
 import androidx.compose.material.icons.rounded.AutoAwesome
-import androidx.compose.material.icons.rounded.ChatBubbleOutline
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Description
@@ -39,16 +33,15 @@ import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
@@ -56,13 +49,16 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -76,7 +72,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.data.document.ExtractedAgentDocument
 import com.example.data.document.LocalDocumentExtractor
-import com.example.data.document.isAgentMarkdownDocument
 import com.example.data.model.AgentModelOption
 import com.example.data.model.AgentProvider
 import com.example.data.model.AgentReflection
@@ -87,20 +82,24 @@ import com.example.data.model.UiState
 import com.example.data.preferences.AgentConversationThread
 import com.example.data.preferences.StudyAppSettings
 import com.example.data.repository.AgentActionApproval
-import com.example.data.repository.AgentPlanPreview
-import com.example.data.repository.AgentChatMessage
 import com.example.data.repository.AgentTurnProgress
-import com.example.ui.components.AgentActivityPanel
-import com.example.ui.components.AgentMarkdown
-import com.example.ui.components.AgentMessageDocumentCard
+import com.example.data.repository.AgentChatMessage
 import com.example.ui.components.AgentMessageDocumentReader
 import com.example.ui.components.AgentSkillPicker
 import com.example.ui.components.AgentThreadsDrawerSheet
-import com.example.ui.theme.LightSpacing
+import com.example.ui.components.LIGHT_INSTALL_ID
+import com.example.ui.components.LIGHT_USER_ID
+import com.example.ui.components.LightAgentComponentFactory
+import com.example.ui.components.LightAgentSnapshot
+import com.example.ui.components.LightAgentTransport
+import io.getstream.chat.android.ai.compose.conversation.rememberAIConversationState
+import io.getstream.chat.android.ai.compose.ui.component.AIConversation
+import io.getstream.chat.android.ai.compose.ui.component.AIToolApprover
+import io.getstream.chat.android.ai.compose.ui.component.LocalChatAiComponentFactory
+import kotlinx.coroutines.flow.MutableStateFlow
 import com.example.ui.theme.AppleRose
 import com.example.ui.theme.LocalLightGradient
 import com.example.ui.theme.appBrush
-import com.example.ui.theme.appVerticalBrush
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -145,6 +144,7 @@ fun AgentChatScreen(
     onNewThread: () -> Unit = onClearConversation,
     onDeleteThread: (String) -> Unit = {},
     onOpenSettings: () -> Unit,
+    onStopAgentTurn: () -> Unit = {},
     settings: StudyAppSettings,
     apiKeyConfigured: Boolean,
     agentModels: List<AgentModelOption>,
@@ -186,7 +186,6 @@ fun AgentChatScreen(
     LaunchedEffect(externalConfigTrigger) {
         if (externalConfigTrigger > 0) showAgentSettings = true
     }
-    val listState = rememberLazyListState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val documentExtractor = remember(context) { LocalDocumentExtractor(context.applicationContext) }
@@ -200,7 +199,7 @@ fun AgentChatScreen(
     var searchQuery by remember(activeThreadId) { mutableStateOf("") }
     var imagePrompt by remember(activeThreadId) { mutableStateOf("") }
     var imageFolderId by remember { mutableStateOf("") }
-    var saveLibraryTarget by remember { mutableStateOf<AgentChatMessage?>(null) }
+    var saveLibraryTarget by remember { mutableStateOf<com.example.ui.components.LightAgentMessage?>(null) }
     val libraryFolders = (libraryFoldersState as? UiState.Success)?.data.orEmpty()
     val draftToken = remember(activeThreadId) { Any() }
     var documentPickerOwner by remember { mutableStateOf<Any?>(null) }
@@ -232,6 +231,35 @@ fun AgentChatScreen(
         }
     }
 
+    val agentSnapshots = remember { MutableStateFlow(LightAgentSnapshot(emptyList(), null, null)) }
+    LaunchedEffect(messages, pendingAction, liveProgress) {
+        agentSnapshots.value = LightAgentSnapshot(messages, pendingAction, liveProgress)
+    }
+    val busyRef = rememberUpdatedState(isBusy)
+    val sendRef = rememberUpdatedState(onSendMessage)
+    val stopRef = rememberUpdatedState(onStopAgentTurn)
+    val transport = remember {
+        LightAgentTransport(
+            snapshots = agentSnapshots,
+            sendFn = { prompt, visible, skill -> sendRef.value(prompt, visible, skill) },
+            busyProvider = { busyRef.value },
+            stopFn = { stopRef.value() },
+        )
+    }
+    val approver = remember(onResolveAgentAction, scope) {
+        AIToolApprover(LIGHT_USER_ID, LIGHT_INSTALL_ID, scope) { call, allowed ->
+            onResolveAgentAction(call.id, allowed)
+        }
+    }
+    val conversationState = rememberAIConversationState(transport, approver)
+    val saveToLibraryEnabled = onSaveToLibrary != null
+    val lightFactory = remember(saveToLibraryEnabled) {
+        LightAgentComponentFactory(
+            onOpenDocument = { openDocumentId = it },
+            onSaveToLibrary = if (saveToLibraryEnabled) { message -> saveLibraryTarget = message } else null,
+        )
+    }
+
     val quickPrompts = listOf(
         Icons.Rounded.Search to "Quelles sont les tâches à accomplir",
         Icons.Rounded.Add to "Créer une tâche : réviser Architecture Logicielle demain à 14h",
@@ -239,12 +267,8 @@ fun AgentChatScreen(
         Icons.Rounded.Schedule to "Planification des activités pour aujourd'hui"
     )
 
-    LaunchedEffect(messages.size, isBusy, pendingAction?.id) {
-        val lastVisibleIndex = if (pendingAction != null) messages.size else messages.lastIndex
-        if (lastVisibleIndex >= 0) listState.animateScrollToItem(lastVisibleIndex)
-    }
-
     val chatContent: @Composable () -> Unit = {
+        CompositionLocalProvider(LocalChatAiComponentFactory provides lightFactory) {
         Column(
             modifier = (if (showEmbeddedNavigationChrome) Modifier else modifier)
                 .fillMaxSize()
@@ -385,80 +409,85 @@ fun AgentChatScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Messages list
-        LazyColumn(
-            state = listState,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
-            contentPadding = PaddingValues(vertical = 6.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            items(messages, key = { it.id }) { msg ->
-                AgentMessageBubble(
-                    message = msg,
-                    live = liveProgress?.takeIf { it.messageId == msg.id },
-                    onOpenDocument = { openDocumentId = msg.id },
-                    onSaveToLibrary = if (onSaveToLibrary != null && !msg.isUser && msg.text.isNotBlank()) {
-                        { saveLibraryTarget = msg }
-                    } else null
-                )
-            }
-
-            pendingAction?.let { action ->
-                item(key = "agent_approval_${action.id}") {
-                    AgentActionApprovalCard(
-                        action = action,
-                        onApprove = { onResolveAgentAction(action.id, true) },
-                        onReject = { onResolveAgentAction(action.id, false) }
+        // Messages (Stream AI Compose)
+        AIConversation(
+                state = conversationState,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                footer = {
+                    val error by conversationState.error.collectAsState()
+                    error?.let { failure ->
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 4.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.65f))
+                                .padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                failure.message ?: "La réponse a échoué. Vérifiez votre connexion ou la configuration du fournisseur.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                            TextButton(
+                                onClick = { conversationState.retry() },
+                                modifier = Modifier.testTag("agent_retry_button")
+                            ) {
+                                Text("Réessayer", color = MaterialTheme.colorScheme.onErrorContainer)
+                            }
+                        }
+                    }
+                },
+                emptyContent = {
+                    Text(
+                        "Light Agent vous attend…",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-            }
+            )
 
-            if (messages.size <= 1 && !isBusy) {
-                item {
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxWidth()
+        if (messages.size <= 1 && !isBusy) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                quickPrompts.forEachIndexed { idx, (icon, prompt) ->
+                    val cardLabel = when (idx) {
+                        1 -> "Créer une tâche."
+                        else -> prompt
+                    }
+                    Surface(
+                        onClick = { if (!isBusy) inputText = prompt },
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                        border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
+                        shadowElevation = 1.dp,
+                        modifier = Modifier.testTag("agent_suggestion_card_$idx")
                     ) {
-                        quickPrompts.forEachIndexed { idx, (icon, prompt) ->
-                            val cardLabel = when (idx) {
-                                1 -> "Créer une tâche."
-                                else -> prompt
-                            }
-                            Surface(
-                                onClick = { if (!isBusy) inputText = prompt },
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-                                border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
-                                shadowElevation = 1.dp,
-                                modifier = Modifier.testTag("agent_suggestion_card_$idx")
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = icon,
-                                        contentDescription = null,
-                                        tint = gradient.accentColor,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Text(
-                                        text = cardLabel,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                }
-                            }
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                tint = gradient.accentColor,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = cardLabel,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
                         }
                     }
                 }
             }
-
-
         }
 
         selectedSkill?.let { skill ->
@@ -642,37 +671,45 @@ fun AgentChatScreen(
 
                 Spacer(modifier = Modifier.width(6.dp))
 
+                val answering = isBusy
                 val canSend = (inputText.isNotBlank() || attachedDocuments.isNotEmpty()) && !isBusy && !isExtractingDocuments
                 Surface(
                     onClick = {
+                        if (answering) {
+                            conversationState.stop()
+                            return@Surface
+                        }
                         if (canSend) {
                             if (attachedDocuments.isNotEmpty()) {
                                 showDocumentConsent = true
                             } else {
                                 val toSend = inputText.trim()
                                 inputText = ""
-                                onSendMessage(toSend, toSend, selectedSkill?.key)
+                                transport.documentPrompt = null
+                                transport.pendingSkill = selectedSkillKey
+                                conversationState.send(toSend)
                                 selectedSkillKey = null
                                 showAttachmentTray = false
                             }
                         }
                     },
                     shape = CircleShape,
-                    color = if (canSend) gradient.accentColor else gradient.softContainer,
+                    color = if (canSend || answering) gradient.accentColor else gradient.softContainer,
                     modifier = Modifier
                         .size(48.dp)
                         .testTag("agent_send_button")
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.Send,
-                            contentDescription = "Envoyer à l'agent",
-                            tint = if (canSend) Color.White else gradient.accentColor.copy(alpha = 0.55f),
+                            imageVector = if (answering) Icons.Rounded.Stop else Icons.AutoMirrored.Rounded.Send,
+                            contentDescription = if (answering) "Arrêter la réponse" else "Envoyer à l'agent",
+                            tint = if (canSend || answering) Color.White else gradient.accentColor.copy(alpha = 0.55f),
                             modifier = Modifier.size(20.dp)
                         )
                     }
                 }
             }
+        }
         }
         }
     }
@@ -731,7 +768,9 @@ fun AgentChatScreen(
             confirmButton = {
                 TextButton(enabled = !isBusy && attachedDocuments.isNotEmpty(), onClick = {
                     val agentPrompt = buildDocumentPrompt(inputText.trim(), attachedDocuments.toList())
-                    onSendMessage(agentPrompt, visibleSummary, selectedSkill?.key)
+                    transport.documentPrompt = agentPrompt to visibleSummary
+                    transport.pendingSkill = selectedSkillKey
+                    conversationState.send(visibleSummary)
                     selectedSkillKey = null
                     showAttachmentTray = false
                     inputText = ""
@@ -830,113 +869,5 @@ fun AgentChatScreen(
                 showAgentSettings = false
             }
         )
-    }
-}
-
-@Composable
-private fun AgentPlanPreviewCard(plan: AgentPlanPreview) {
-    Surface(
-        modifier = Modifier.fillMaxWidth().testTag("agent_plan_preview"),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.75f),
-        border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant)
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(plan.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-            if (plan.summary.isNotBlank()) {
-                Text(plan.summary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            plan.items.forEachIndexed { index, item ->
-                Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surface) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth().padding(10.dp),
-                        verticalArrangement = Arrangement.spacedBy(3.dp)
-                    ) {
-                        Text("${index + 1}. ${item.title}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                        if (item.detail.isNotBlank()) Text(item.detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        val metadata = buildList {
-                            if (item.dateIso.isNotBlank()) add(item.dateIso)
-                            if (item.estimatedMinutes > 0) add("${item.estimatedMinutes} min")
-                            add("Priorité ${item.priority}")
-                        }.joinToString(" · ")
-                        Text(metadata, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                    }
-                }
-            }
-            Text(
-                "Aperçu uniquement : aucune tâche n'est créée tant que vous ne l'autorisez pas dans une carte d'action.",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-@Composable
-private fun AgentActionApprovalCard(
-    action: AgentActionApproval,
-    onApprove: () -> Unit,
-    onReject: () -> Unit
-) {
-    val container = if (action.destructive) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer
-    val foreground = if (action.destructive) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSecondaryContainer
-    Surface(
-        modifier = Modifier.fillMaxWidth().testTag("agent_action_approval_${action.id}"),
-        shape = RoundedCornerShape(20.dp),
-        color = container,
-        border = BorderStroke(1.dp, foreground.copy(alpha = 0.2f)),
-        shadowElevation = 1.dp
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Text("À valider", style = MaterialTheme.typography.labelMedium, color = foreground, fontWeight = FontWeight.SemiBold)
-            Text(action.title, style = MaterialTheme.typography.titleMedium, color = foreground, fontWeight = FontWeight.Bold)
-            action.details.forEach { (label, value) ->
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("$label :", style = MaterialTheme.typography.labelMedium, color = foreground, fontWeight = FontWeight.SemiBold)
-                    Text(value, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = foreground)
-                }
-            }
-            Text(
-                if (action.destructive) "Cette action est définitive. Rien ne sera supprimé sans votre accord." else "Light attend votre accord; aucune modification n'est encore effectuée.",
-                style = MaterialTheme.typography.bodySmall,
-                color = foreground
-            )
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedButton(onClick = onReject, modifier = Modifier.weight(1f)) { Text("Refuser") }
-                Button(onClick = onApprove, modifier = Modifier.weight(1f)) { Text("Autoriser") }
-            }
-        }
-    }
-}
-
-@Composable
-internal fun AgentMessageBubble(message: AgentChatMessage, live: AgentTurnProgress?, onOpenDocument: () -> Unit, onSaveToLibrary: (() -> Unit)? = null) {
-    val gradient = LocalLightGradient.current
-    Row(Modifier.fillMaxWidth().padding(vertical = LightSpacing.one), horizontalArrangement = Arrangement.spacedBy(LightSpacing.one),
-        verticalAlignment = Alignment.Top) {
-        Box(Modifier.size(LightSpacing.four), contentAlignment = Alignment.Center) {
-            if (!message.isUser) Icon(Icons.Rounded.AutoAwesome, "Light Agent", tint = gradient.accentColor)
-        }
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(LightSpacing.one)) {
-            if (!message.isUser) AgentActivityPanel(message.id, live, message.actions, message.elapsedMillis)
-            if (message.isError) Text(message.text, style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.error)
-            else if (isAgentMarkdownDocument(message.text)) AgentMessageDocumentCard(message.text, streaming = live != null, onOpen = onOpenDocument)
-            else if (live == null || message.text != "…") AgentMarkdown(message.text, Modifier.testTag("agent_message_content"))
-            message.planPreview?.let { plan -> AgentPlanPreviewCard(plan) }
-            if (onSaveToLibrary != null && !message.isUser && message.text.length > 20) {
-                TextButton(onClick = onSaveToLibrary, modifier = Modifier.testTag("save_to_library_${message.id}")) {
-                    Icon(Icons.Rounded.Description, contentDescription = null, modifier = Modifier.size(14.dp))
-                    androidx.compose.foundation.layout.Spacer(Modifier.size(6.dp))
-                    Text("Enregistrer dans la bibliothèque", style = MaterialTheme.typography.labelSmall)
-                }
-            }
-        }
     }
 }

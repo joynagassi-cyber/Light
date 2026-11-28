@@ -97,6 +97,9 @@ if (useReleaseInputs && file("google-services.json").isFile) {
 dependencies {
   implementation(platform(libs.androidx.compose.bom))
   implementation(libs.haze)
+  implementation(libs.stream.chat.android.compose)
+  implementation(libs.stream.chat.android.ai.compose)
+  implementation(libs.koog.agents)
   implementation(libs.commonmark)
   implementation(platform(libs.firebase.bom))
   // implementation(libs.accompanist.permissions)

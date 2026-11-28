@@ -23,6 +23,7 @@ import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.DateRange
 import androidx.compose.material.icons.rounded.Event
+import androidx.compose.material.icons.rounded.Forum
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Palette
@@ -70,6 +71,7 @@ enum class MoreSubPage(
     COUNTDOWN("countdown", "Échéances & jalons", "Examens, projets et dates importantes"),
     SEARCH("search", "Rechercher", "Tâches, cours, habitudes et échéances"),
     PROJECTS("projects", "Planning Gantt", "Tâches, matières, jalons et échéances"),
+    CHAT("chat", "Messages", "Discussions en direct — propulsé par Stream Chat"),
 }
 
 private data class IndexedPageRow(
@@ -103,6 +105,12 @@ fun MoreHubScreen(
             icon = Icons.Rounded.AutoAwesome,
             color = AppleSky,
             badge = null
+        ),
+        IndexedPageRow(
+            page = MoreSubPage.CHAT,
+            icon = Icons.Rounded.Forum,
+            color = AppleAmber,
+            badge = "Beta"
         ),
         IndexedPageRow(
             page = MoreSubPage.FOCUS_PROFILES,

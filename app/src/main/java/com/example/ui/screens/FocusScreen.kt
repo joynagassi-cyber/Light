@@ -92,7 +92,6 @@ import com.example.ui.components.AnimatedAudioEqualizer
 import com.example.ui.components.AppleCard
 import com.example.ui.components.FocusCustomizationSheet
 import com.example.ui.components.FocusCustomizationTab
-import com.example.ui.components.FocusThemeStyle
 import com.example.ui.components.GradientProgressRing
 import com.example.ui.components.focusIllustrationResource
 import com.example.ui.components.focusThemeFor
@@ -171,23 +170,24 @@ fun FocusScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        // Subtle atmospheric theme backdrop with high-contrast protective veil
+        // Full-bleed atmospheric theme backdrop — the illustration itself fills the page
         Image(
             painter = painterResource(focusTheme.imageRes),
             contentDescription = null,
             contentScale = ContentScale.Crop,
-            alpha = 0.24f,
             modifier = Modifier.fillMaxSize()
         )
+        // Protective scrim so text & cards keep their contrast over any artwork
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
                         listOf(
-                            MaterialTheme.colorScheme.background.copy(alpha = 0.88f),
-                            MaterialTheme.colorScheme.background.copy(alpha = 0.72f),
-                            MaterialTheme.colorScheme.background.copy(alpha = 0.92f)
+                            Color.Black.copy(alpha = 0.52f),
+                            Color.Black.copy(alpha = 0.16f),
+                            Color.Black.copy(alpha = 0.24f),
+                            Color.Black.copy(alpha = 0.62f)
                         )
                     )
                 )
@@ -213,7 +213,7 @@ fun FocusScreen(
                             text = "Focus",
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = Color.White
                         )
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -235,7 +235,7 @@ fun FocusScreen(
                             Text(
                                 text = if (isStopwatch) "Chronomètre libre" else "Mode ${focusState.mode.label}",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = Color.White.copy(alpha = 0.85f),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -543,9 +543,10 @@ fun FocusScreen(
                                     .scale(breathScale),
                                 contentAlignment = Alignment.Center
                             ) {
-                                FocusIllustrationBackdrop(
-                                    focusTheme = focusTheme,
-                                    modifier = Modifier.matchParentSize()
+                                Box(
+                                    modifier = Modifier
+                                        .matchParentSize()
+                                        .background(focusTheme.containerColor.copy(alpha = 0.55f), CircleShape)
                                 )
                                 Image(
                                     painter = painterResource(id = focusIllustrationResource(appSettings.focusIllustrationId)),
@@ -787,7 +788,7 @@ fun FocusScreen(
                         text = "Sessions récentes (${sessions.size})",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = Color.White
                     )
                     Surface(
                         shape = CircleShape,
@@ -1059,19 +1060,6 @@ fun FocusScreen(
             onDismiss = { customizationSheetTab = null }
         )
     }
-}
-
-@Composable
-private fun FocusIllustrationBackdrop(
-    focusTheme: FocusThemeStyle,
-    modifier: Modifier = Modifier
-) {
-    Image(
-        painter = painterResource(focusTheme.imageRes),
-        contentDescription = null,
-        contentScale = ContentScale.Crop,
-        modifier = modifier.clip(CircleShape)
-    )
 }
 
 private fun formatClockSeconds(totalSeconds: Int): String {

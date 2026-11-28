@@ -6,7 +6,7 @@ import com.example.data.preferences.ThemePreferencesStore
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
+import org.junit.Assert.assertFalse
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -24,9 +24,9 @@ class ExampleRobolectricTest {
   }
 
   @Test
-  fun `Google sign in is paused by default for local testing`() = runBlocking {
+  fun `Google sign in is not paused by default (test mode removed)`() = runBlocking {
     val context = ApplicationProvider.getApplicationContext<Context>()
-    assertTrue(ThemePreferencesStore(context).googleAuthPausedForTesting.first())
+    assertFalse(ThemePreferencesStore(context).googleAuthPausedForTesting.first())
   }
 
   @Test

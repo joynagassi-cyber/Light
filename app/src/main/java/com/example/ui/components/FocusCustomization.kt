@@ -180,6 +180,186 @@ val focusThemes: List<FocusThemeStyle> = listOf(
         accentColor = Color(0xFFF0512B),
         containerColor = Color(0xFFFDE9E3),
         trackColor = Color(0xFFF4F1EA)
+    ),
+    FocusThemeStyle(
+        id = "growth",
+        title = "Pousse & progrès",
+        subtitle = "Crois à ton rythme",
+        imageRes = R.drawable.focus_bg_growth,
+        gradientColors = listOf(Color(0xFF34D399), Color(0xFF22C55E), Color(0xFFA3E635)),
+        accentColor = Color(0xFF15803D),
+        containerColor = Color(0xFFE4F9EA),
+        trackColor = Color(0xFFD8EFDD)
+    ),
+    FocusThemeStyle(
+        id = "butterfly",
+        title = "Papillon serein",
+        subtitle = "Légèreté sur l'eau",
+        imageRes = R.drawable.focus_bg_butterfly,
+        gradientColors = listOf(Color(0xFF5EEAD4), Color(0xFF38BDF8), Color(0xFF0F766E)),
+        accentColor = Color(0xFF0F766E),
+        containerColor = Color(0xFFE0F7F4),
+        trackColor = Color(0xFFD2ECEA)
+    ),
+    FocusThemeStyle(
+        id = "zen_lake",
+        title = "Zen sur le lac",
+        subtitle = "Équilibre immobile",
+        imageRes = R.drawable.focus_bg_zen_lake,
+        gradientColors = listOf(Color(0xFF60A5FA), Color(0xFF38BDF8), Color(0xFFA7F3D0)),
+        accentColor = Color(0xFF0369A1),
+        containerColor = Color(0xFFE3F0F8),
+        trackColor = Color(0xFFD5E4EE)
+    ),
+    FocusThemeStyle(
+        id = "mountain_road",
+        title = "Route de montagne",
+        subtitle = "Le cap sur l'horizon",
+        imageRes = R.drawable.focus_bg_mountain_road,
+        gradientColors = listOf(Color(0xFF38BDF8), Color(0xFF22C55E), Color(0xFF166534)),
+        accentColor = Color(0xFF166534),
+        containerColor = Color(0xFFE4F3E6),
+        trackColor = Color(0xFFD6E8DA)
+    ),
+    FocusThemeStyle(
+        id = "dark_leaves",
+        title = "Nuit de feuilles",
+        subtitle = "Obscurité apaisante",
+        imageRes = R.drawable.focus_bg_dark_leaves,
+        gradientColors = listOf(Color(0xFF64748B), Color(0xFF475569), Color(0xFF1F2937)),
+        accentColor = Color(0xFF475569),
+        containerColor = Color(0xFFE2E8F0),
+        trackColor = Color(0xFFCBD5E1)
+    ),
+    FocusThemeStyle(
+        id = "book_seedling",
+        title = "Graine de savoir",
+        subtitle = "Apprendre, fleurir",
+        imageRes = R.drawable.focus_bg_book_seedling,
+        gradientColors = listOf(Color(0xFFF59E0B), Color(0xFF84CC16), Color(0xFFB45309)),
+        accentColor = Color(0xFFB45309),
+        containerColor = Color(0xFFFCEEDA),
+        trackColor = Color(0xFFF0E2C8)
+    ),
+    FocusThemeStyle(
+        id = "clover",
+        title = "Trèfle porte-bonheur",
+        subtitle = "Petites joies vertes",
+        imageRes = R.drawable.focus_bg_clover,
+        gradientColors = listOf(Color(0xFF4ADE80), Color(0xFF16A34A), Color(0xFFFDE68A)),
+        accentColor = Color(0xFF15803D),
+        containerColor = Color(0xFFE5F8EB),
+        trackColor = Color(0xFFD6EBDE)
+    ),
+    FocusThemeStyle(
+        id = "kittens",
+        title = "Chatons curieux",
+        subtitle = "Compagnons de concentration",
+        imageRes = R.drawable.focus_bg_kittens,
+        gradientColors = listOf(Color(0xFFF472B6), Color(0xFFFB923C), Color(0xFF9CA3AF)),
+        accentColor = Color(0xFFDB2777),
+        containerColor = Color(0xFFFCE7F3),
+        trackColor = Color(0xFFF2D8E4)
+    ),
+    FocusThemeStyle(
+        id = "rain_road",
+        title = "Route sous la pluie",
+        subtitle = "Traverser calmement",
+        imageRes = R.drawable.focus_bg_rain_road,
+        gradientColors = listOf(Color(0xFF34D399), Color(0xFF0EA5E9), Color(0xFFFBBF24)),
+        accentColor = Color(0xFF065F46),
+        containerColor = Color(0xFFE7F6EE),
+        trackColor = Color(0xFFD8EADF)
+    ),
+    FocusThemeStyle(
+        id = "black_bamboo",
+        title = "Bambou noir",
+        subtitle = "Force tranquille",
+        imageRes = R.drawable.focus_bg_black_bamboo,
+        gradientColors = listOf(Color(0xFF4B5563), Color(0xFF374151), Color(0xFF111827)),
+        accentColor = Color(0xFF374151),
+        containerColor = Color(0xFFE5E7EB),
+        trackColor = Color(0xFFC9CED6)
+    ),
+    FocusThemeStyle(
+        id = "moss_stones",
+        title = "Pierres de mousse",
+        subtitle = "Équilibre zen",
+        imageRes = R.drawable.focus_bg_moss_stones,
+        gradientColors = listOf(Color(0xFFA3E635), Color(0xFF84CC16), Color(0xFF3F6212)),
+        accentColor = Color(0xFF3F6212),
+        containerColor = Color(0xFFEDF7DD),
+        trackColor = Color(0xFFDFEAD0)
+    ),
+    FocusThemeStyle(
+        id = "white_piano",
+        title = "Piano blanc",
+        subtitle = "Mélodie concentrée",
+        imageRes = R.drawable.focus_bg_piano,
+        gradientColors = listOf(Color(0xFFE7E5E4), Color(0xFFA8A29E), Color(0xFF57534E)),
+        accentColor = Color(0xFF57534E),
+        containerColor = Color(0xFFF5F4F2),
+        trackColor = Color(0xFFE4E2DF)
+    ),
+    FocusThemeStyle(
+        id = "abyss_drops",
+        title = "Gouttes d'abîme",
+        subtitle = "Violet & sarcelle profonds",
+        imageRes = R.drawable.focus_bg_abyss_drops,
+        gradientColors = listOf(Color(0xFF8B5CF6), Color(0xFF14B8A6), Color(0xFFEC4899)),
+        accentColor = Color(0xFF7C3AED),
+        containerColor = Color(0xFFEFE7FD),
+        trackColor = Color(0xFFE0D4F5)
+    ),
+    FocusThemeStyle(
+        id = "magic_dew",
+        title = "Rosée magique",
+        subtitle = "Floraison fragile",
+        imageRes = R.drawable.focus_bg_magic_dew,
+        gradientColors = listOf(Color(0xFF22C55E), Color(0xFFEF4444), Color(0xFFA3E635)),
+        accentColor = Color(0xFFDC2626),
+        containerColor = Color(0xFFFDE9E7),
+        trackColor = Color(0xFFF5D9D6)
+    ),
+    FocusThemeStyle(
+        id = "bamboo_stream",
+        title = "Bambou coulant",
+        subtitle = "Écoute de l'instant",
+        imageRes = R.drawable.focus_bg_bamboo_stream,
+        gradientColors = listOf(Color(0xFF38BDF8), Color(0xFF60A5FA), Color(0xFF34D399)),
+        accentColor = Color(0xFF0369A1),
+        containerColor = Color(0xFFE1F2FA),
+        trackColor = Color(0xFFD2E6EF)
+    ),
+    FocusThemeStyle(
+        id = "ember_leaves",
+        title = "Ombre & braise",
+        subtitle = "Contraste silencieux",
+        imageRes = R.drawable.focus_bg_ember_leaves,
+        gradientColors = listOf(Color(0xFF374151), Color(0xFF1F2937), Color(0xFFF97316)),
+        accentColor = Color(0xFFEA580C),
+        containerColor = Color(0xFFE8E9EB),
+        trackColor = Color(0xFFD5D7DB)
+    ),
+    FocusThemeStyle(
+        id = "moonlit",
+        title = "Clair de lune",
+        subtitle = "Nuit étoilée sereine",
+        imageRes = R.drawable.focus_bg_moonlit,
+        gradientColors = listOf(Color(0xFF334155), Color(0xFF0F172A), Color(0xFF94A3B8)),
+        accentColor = Color(0xFF475569),
+        containerColor = Color(0xFFE4E7EE),
+        trackColor = Color(0xFFCFD4DF)
+    ),
+    FocusThemeStyle(
+        id = "green_leaves",
+        title = "Feuilles vertes",
+        subtitle = "Fraîcheur vivante",
+        imageRes = R.drawable.focus_bg_green_leaves,
+        gradientColors = listOf(Color(0xFF4ADE80), Color(0xFF16A34A), Color(0xFFBBF7D0)),
+        accentColor = Color(0xFF15803D),
+        containerColor = Color(0xFFE7F9EC),
+        trackColor = Color(0xFFD4EEDA)
     )
 )
 

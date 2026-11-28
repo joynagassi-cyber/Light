@@ -8,8 +8,10 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTextInput
+import android.os.Looper
+import org.robolectric.Shadows
 import com.example.data.preferences.AgentConversationThread
 import com.example.data.preferences.StudyAppSettings
 import com.example.data.repository.AgentChatMessage
@@ -23,11 +25,18 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
+@Config(sdk = [34], qualifiers = "w411dp-h915dp-xxhdpi")
 class AgentChatAndSettingsUiTest {
 
     @get:Rule
     val composeRule = createComposeRule()
+
+    /** Flush Compose idle state and any pending main-looper posts (the send goes through a coroutine). */
+    private fun flushMainLooper() {
+        composeRule.waitForIdle()
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+        composeRule.waitForIdle()
+    }
 
     @Test
     fun agentChat_menuUsesSkillForOneMessage_andDrawerListsThreads() {
@@ -100,14 +109,23 @@ class AgentChatAndSettingsUiTest {
         }
 
         composeRule.onNodeWithTag("agent_attach_button").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("agent_pick_skill_button").assertIsDisplayed()
         composeRule.onNodeWithTag("agent_pick_skill_button").performClick()
-        composeRule.onNodeWithTag("agent_skill_light:study").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("agent_upload_tray").assertDoesNotExist()
+        composeRule.onNodeWithText("Compétence du prochain message").assertExists()
+        composeRule.onNodeWithTag("agent_skill_light:study", useUnmergedTree = true).performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("Compétence du prochain message").assertDoesNotExist()
         composeRule.onNodeWithTag("agent_selected_skill").assertIsDisplayed()
         composeRule.onNodeWithTag("agent_chat_input").performTextInput("Les graphes")
         composeRule.onNodeWithTag("agent_send_button").performClick()
+        flushMainLooper()
         composeRule.onNodeWithTag("agent_selected_skill").assertDoesNotExist()
         composeRule.onNodeWithTag("agent_chat_input").performTextInput("Et ensuite ?")
         composeRule.onNodeWithTag("agent_send_button").performClick()
+        flushMainLooper()
         assertEquals(listOf("Les graphes" to "light:study", "Et ensuite ?" to null), sent)
 
         // Clicking top-left menu button opens the conversation threads drawer
@@ -127,7 +145,9 @@ class AgentChatAndSettingsUiTest {
     }
 
     @Test
-    fun settingsScreen_themesAndGradientsAreCollapsedUntilExpanded() {
+    fun settingsScreen_navigatesToThemesAndGradientsPages() {
+        var themesOpened = false
+        var gradientsOpened = false
         composeRule.setContent {
             LightThemeProvider {
                 SettingsScreen(
@@ -137,6 +157,8 @@ class AgentChatAndSettingsUiTest {
                     appSettings = StudyAppSettings(),
                     courses = emptyList(),
                     onSelectGradient = {},
+                    onOpenThemes = { themesOpened = true },
+                    onOpenGradients = { gradientsOpened = true },
                     onUpdateProfile = { _, _, _, _, _, _, _, _ -> },
                     onUpdateTimerDurations = { _, _, _ -> },
                     onUpdateDefaultCalendarView = {},
@@ -154,16 +176,15 @@ class AgentChatAndSettingsUiTest {
         composeRule.waitForIdle()
         composeRule.onNodeWithText("Compte").assertIsDisplayed()
         composeRule.onNodeWithText("Général").assertIsDisplayed()
-        val firstThemeTag = "theme_preset_${com.example.ui.theme.LightColorThemes.all.first().id}"
-        // Theme presets stay collapsed until toggled
-        composeRule.onAllNodesWithTag(firstThemeTag).assertCountEquals(0)
+        // Themes and gradients are dedicated pages now: rows trigger navigation callbacks
+        composeRule.onNodeWithTag("settings_list").performScrollToNode(hasTestTag("settings_themes_row"))
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("settings_themes_row").performClick()
+        assertTrue(themesOpened)
 
-        composeRule.onNodeWithTag("settings_list").performScrollToNode(hasTestTag("settings_expand_themes"))
+        composeRule.onNodeWithTag("settings_list").performScrollToNode(hasTestTag("settings_gradients_row"))
         composeRule.waitForIdle()
-        composeRule.onNodeWithTag("settings_expand_themes").performClick()
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag("settings_list").performScrollToNode(hasTestTag(firstThemeTag))
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag(firstThemeTag).assertIsDisplayed()
+        composeRule.onNodeWithTag("settings_gradients_row").performClick()
+        assertTrue(gradientsOpened)
     }
 }

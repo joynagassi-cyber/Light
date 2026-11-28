@@ -232,9 +232,8 @@ class FocusAndDrawerUiTest {
     }
 
     @Test
-    fun settingsScreen_containsCollapsibleFocusUniverseAndAudioSection() {
-        var selectedIllustration = "student"
-        var audioPlayToggled = false
+    fun settingsScreen_opensFocusUniversePageFromRow() {
+        var focusUniverseOpened = false
 
         composeRule.setContent {
             LightThemeProvider {
@@ -255,30 +254,19 @@ class FocusAndDrawerUiTest {
                     onDeleteCourse = {},
                     onSignOut = {},
                     onClose = {},
-                    onToggleAudioPlayPause = { audioPlayToggled = true },
-                    onSelectFocusIllustration = { selectedIllustration = it }
+                    onOpenFocusUniverse = { focusUniverseOpened = true }
                 )
             }
         }
 
         composeRule.waitForIdle()
+        // The Focus Universe & audio inline section was replaced by a navigation row
         composeRule.onAllNodesWithTag("focus_illustration_planner").assertCountEquals(0)
 
-        composeRule.onNodeWithTag("settings_list").performScrollToNode(hasTestTag("settings_expand_focus_universe"))
+        composeRule.onNodeWithTag("settings_list").performScrollToNode(hasTestTag("settings_focus_universe_row"))
         composeRule.waitForIdle()
-        composeRule.onNodeWithTag("settings_expand_focus_universe").performClick()
+        composeRule.onNodeWithTag("settings_focus_universe_row").performClick()
         composeRule.waitForIdle()
-
-        composeRule.onNodeWithTag("settings_list").performScrollToNode(hasTestTag("focus_illustration_planner"))
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag("focus_illustration_planner").performClick()
-        composeRule.waitForIdle()
-        assertEquals("planner", selectedIllustration)
-
-        composeRule.onNodeWithTag("settings_list").performScrollToNode(hasTestTag("audio_play_pause_button"))
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag("audio_play_pause_button").performClick()
-        composeRule.waitForIdle()
-        assertTrue(audioPlayToggled)
+        assertTrue(focusUniverseOpened)
     }
 }

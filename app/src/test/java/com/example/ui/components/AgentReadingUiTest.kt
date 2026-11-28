@@ -11,8 +11,9 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.example.data.preferences.AgentConversationThread
 import com.example.data.repository.AgentChatMessage
-import com.example.ui.screens.AgentMessageBubble
 import com.example.ui.theme.LightThemeProvider
+import io.getstream.chat.android.ai.compose.conversation.AIMessageRole
+import io.getstream.chat.android.ai.compose.ui.component.AIConversationAssistantMessageParams
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -50,7 +51,30 @@ class AgentReadingUiTest {
         val readerOpen = mutableStateOf(false)
         compose.setContent {
             LightThemeProvider {
-                AgentMessageBubble(message, null, onOpenDocument = { readerOpen.value = true })
+                val lightMessage = LightAgentMessage(
+                    id = message.id,
+                    role = AIMessageRole.Assistant,
+                    text = message.text,
+                    isGenerating = false,
+                    parts = emptyList(),
+                    isError = false,
+                    planPreview = null,
+                    elapsedMillis = null,
+                )
+                LightAgentComponentFactory(
+                    onOpenDocument = { readerOpen.value = true },
+                    onSaveToLibrary = null,
+                ).AIConversationAssistantMessage(
+                    AIConversationAssistantMessageParams(
+                        message = lightMessage,
+                        text = lightMessage.text,
+                        isGenerating = false,
+                        parts = emptyList(),
+                        attachments = emptyList(),
+                        reasoningText = { null },
+                        approver = null,
+                    )
+                )
                 if (readerOpen.value) AgentMessageDocumentReader(message) { readerOpen.value = false }
             }
         }

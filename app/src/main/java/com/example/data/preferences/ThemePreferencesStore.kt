@@ -72,7 +72,12 @@ private val FOCUS_ILLUSTRATION_IDS = setOf(
     "student", "coder", "planner", "desk_writer", "book_reader", "flashcards",
     "lab_student", "music_student", "math_student", "group_study", "tablet_notes", "speech_practice"
 )
-private val FOCUS_THEME_IDS = setOf("lunar", "focusly_dusk", "cyberpunk_night", "aurora_borealis", "ocean", "forest", "desk", "nebula", "mountain", "premium")
+private val FOCUS_THEME_IDS = setOf(
+    "lunar", "focusly_dusk", "cyberpunk_night", "aurora_borealis", "ocean", "forest", "desk", "nebula", "mountain", "premium",
+    "growth", "butterfly", "zen_lake", "mountain_road", "dark_leaves", "book_seedling", "clover", "kittens",
+    "rain_road", "black_bamboo", "moss_stones", "white_piano", "abyss_drops", "magic_dew",
+    "bamboo_stream", "ember_leaves", "moonlit", "green_leaves"
+)
 
 class ThemePreferencesStore(private val context: Context) {
     private val gradientKey = stringPreferencesKey("selected_gradient_id")

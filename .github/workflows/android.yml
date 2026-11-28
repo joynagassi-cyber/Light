@@ -9,8 +9,7 @@ on:
   workflow_call:
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 concurrency:
   group: android-ci-${{ github.workflow }}-${{ github.ref }}
@@ -35,36 +34,12 @@ jobs:
       - name: Compile APKs and run JVM tests
         shell: bash
         run: |
-          if ./gradlew :app:assembleDebug :app:testDebugUnitTest --tests "com.example.ui.screens.AgentChatAndSettingsUiTest.agentChat_menuUsesSkillForOneMessage_andDrawerListsThreads" --console=plain 2>&1 | tee "$RUNNER_TEMP/light-gradle.log"; then
+          if ./gradlew :app:assembleDebug :app:assembleRelease :app:testDebugUnitTest --console=plain 2>&1 | tee "$RUNNER_TEMP/light-gradle.log"; then
             exit 0
           fi
-          # Keep compiler diagnostics and test failures visible even when the CI log archive is unavailable.
-          awk '/^e: .*\.kt:/ || /FAILED/ || /AssertionFailedError/ || /expected:/ || /but was:/ || /^> Could not / || /org.junit/ { printf "::error::%s\n", substr($0, 1, 600); if (++n >= 40) exit }' "$RUNNER_TEMP/light-gradle.log"
-          for f in app/build/test-results/testDebugUnitTest/TEST-*.xml; do [ -f "$f" ] || continue; if grep -q 'failures="[^0]\|errors="[^0]' "$f"; then echo "::error::FAILFILE $f"; grep -a "failure\|error" "$f" | head -20 | while IFS= read -r line; do echo "::error::$line" | cut -c1-900; done; cat "$f" | tr '\n' ' ' | grep -o "message=[^>]*" | head -10 | while IFS= read -r line; do echo "::error::$line" | cut -c1-900; done; fi; done
+          # Keep compiler diagnostics visible even when the CI log archive is unavailable.
+          awk '/^e: .*\.kt:/ || /^> .*FAILED/ || /^> Could not / { printf "::error::%s\n", substr($0, 1, 600); if (++n >= 12) exit }' "$RUNNER_TEMP/light-gradle.log"
           exit 1
-      - name: Collect failure details
-        if: failure()
-        shell: bash
-        run: |
-          echo "Collecting failure details..."
-          {
-            echo "### Test failures for ${{ github.sha }}"
-            echo '```'
-            for f in app/build/test-results/testDebugUnitTest/TEST-*.xml; do [ -f "$f" ] || continue; if grep -q 'failures="[^0]\|errors="[^0]' "$f"; then echo "=== $f ==="; cat "$f" | head -300; echo "---END $f---"; fi; done
-            echo '```'
-            echo "Gradle log tail:"
-            echo '```'
-            tail -300 "$RUNNER_TEMP/light-gradle.log" | head -150
-            echo '```'
-          } > /tmp/failure.md
-          cat /tmp/failure.md
-      - name: Upload failure report as artifact
-        if: failure()
-        uses: actions/upload-artifact@v6
-        with:
-          name: ci-failure-report
-          path: /tmp/failure.md
-          retention-days: 14
       - name: Upload test reports
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v6

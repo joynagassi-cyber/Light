@@ -8,9 +8,8 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performScrollToNode
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.test.performTextInput
 import android.os.Looper
 import org.robolectric.Shadows
 import com.example.data.preferences.AgentConversationThread
@@ -26,7 +25,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
+@Config(sdk = [34], qualifiers = "w411dp-h915dp-xxhdpi")
 class AgentChatAndSettingsUiTest {
 
     @get:Rule
@@ -111,12 +110,14 @@ class AgentChatAndSettingsUiTest {
 
         composeRule.onNodeWithTag("agent_attach_button").performClick()
         composeRule.waitForIdle()
-        val skillButtonNode = composeRule.onNodeWithTag("agent_pick_skill_button").fetchSemanticsNode()
-        throw AssertionError("PROBE boundsInRoot=${skillButtonNode.boundsInRoot} size=${skillButtonNode.size}")
+        composeRule.onNodeWithTag("agent_pick_skill_button").assertIsDisplayed()
+        composeRule.onNodeWithTag("agent_pick_skill_button").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("agent_upload_tray").assertDoesNotExist()
         composeRule.onNodeWithText("Compétence du prochain message").assertExists()
+        composeRule.onNodeWithTag("agent_skill_light:study", useUnmergedTree = true).performClick()
         composeRule.waitForIdle()
+        composeRule.onNodeWithText("Compétence du prochain message").assertDoesNotExist()
         composeRule.onNodeWithTag("agent_selected_skill").assertIsDisplayed()
         composeRule.onNodeWithTag("agent_chat_input").performTextInput("Les graphes")
         composeRule.onNodeWithTag("agent_send_button").performClick()

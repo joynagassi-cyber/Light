@@ -52,6 +52,7 @@ import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.DateRange
 import androidx.compose.material.icons.rounded.Event
 import androidx.compose.material.icons.rounded.Explore
+import androidx.compose.material.icons.rounded.Forum
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Insights
@@ -154,6 +155,7 @@ import com.example.ui.screens.HomeDashboardScreen
 import com.example.ui.screens.LibraryScreen
 import com.example.ui.screens.MoreHubScreen
 import com.example.ui.screens.MoreSubPage
+import com.example.ui.screens.StreamChatScreen
 import com.example.ui.screens.OnboardingScreen
 import com.example.ui.screens.PlannerScreen
 import com.example.ui.screens.ProfileErrorScreen
@@ -566,7 +568,8 @@ private fun AuthenticatedStudyShell(
                 MoreSubPage.HABITS to Icons.Rounded.SelfImprovement,
                 MoreSubPage.COUNTDOWN to Icons.Rounded.Event,
                 MoreSubPage.SEARCH to Icons.Rounded.Search,
-                MoreSubPage.PROJECTS to Icons.Rounded.DateRange
+                MoreSubPage.PROJECTS to Icons.Rounded.DateRange,
+                MoreSubPage.CHAT to Icons.Rounded.Forum
             )
             val pendingCount = tasks.count { !it.completed }
 
@@ -606,6 +609,7 @@ private fun AuthenticatedStudyShell(
                             MoreSubPage.HABITS -> habits.size.takeIf { it > 0 }?.toString()
                             MoreSubPage.COUNTDOWN -> countdowns.size.takeIf { it > 0 }?.toString()
                             MoreSubPage.SEARCH, MoreSubPage.PROJECTS -> pendingCount.takeIf { it > 0 }?.toString()
+                            MoreSubPage.CHAT -> "Beta"
                             else -> null
                         }
                         DropdownMenuItem(
@@ -1079,6 +1083,13 @@ private fun AuthenticatedStudyShell(
                                                     activeMorePage = page
                                                 },
                                                 onOpenGradientPicker = { showGradientSheet = true }
+                                            )
+                                        } else if (subPage == MoreSubPage.CHAT) {
+                                            StreamChatScreen(
+                                                onBack = {
+                                                    initialFocusProfileDetailId = ""
+                                                    activeMorePage = null
+                                                }
                                             )
                                         } else if (subPage == MoreSubPage.AGENT) {
                                             AgentChatScreen(

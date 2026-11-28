@@ -31,6 +31,7 @@ dependencyResolutionManagement {
       }
     }
     mavenCentral()
+    maven("https://stream-io-repo.com")
   }
 }
 

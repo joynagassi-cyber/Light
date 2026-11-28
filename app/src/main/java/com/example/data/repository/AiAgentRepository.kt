@@ -118,6 +118,9 @@ interface StudyAgentToolExecutor {
     suspend fun setGradientTheme(gradientId: String): JsonObject
     suspend fun startFocusTimer(mode: String, taskTitle: String?): JsonObject
     suspend fun createHabit(title: String, subtitle: String, category: String): JsonObject
+    suspend fun webSearch(query: String, maxResults: Int): JsonObject
+    suspend fun fetchPage(url: String): JsonObject
+    suspend fun academicSearch(query: String, maxResults: Int): JsonObject
     suspend fun createCountdown(title: String, notes: String, targetDateIso: String, category: String): JsonObject
 }
 
@@ -697,6 +700,26 @@ Contexte de l'utilisateur : $contextSnapshot""".trimIndent()
                 val category = CountdownCategory.sanitizeKey(args.str("category", "exam"))
                 val res = executor.createCountdown(title, notes, targetDate, category)
                 res to if (agentToolResultSucceeded(res)) "Échéance créée : $title" else "Échéance non créée"
+            }
+
+            "web_search" -> {
+                val query = args.str("query", "").trim().take(300)
+                val maxResults = args.int("maxResults", 5).coerceIn(1, 8)
+                val res = executor.webSearch(query, maxResults)
+                res to if (agentToolResultSucceeded(res)) "Recherche web effectuée" else "Recherche web indisponible"
+            }
+
+            "fetch_page" -> {
+                val url = args.str("url", "").trim().take(500)
+                val res = executor.fetchPage(url)
+                res to if (agentToolResultSucceeded(res)) "Page lue" else "Page illisible"
+            }
+
+            "academic_search" -> {
+                val query = args.str("query", "").trim().take(300)
+                val maxResults = args.int("maxResults", 5).coerceIn(1, 8)
+                val res = executor.academicSearch(query, maxResults)
+                res to if (agentToolResultSucceeded(res)) "Publications recherchées" else "Recherche académique indisponible"
             }
 
             else -> JsonObject(mapOf("error" to JsonPrimitive("Outil inconnu: $name"))) to "Action inconnue"

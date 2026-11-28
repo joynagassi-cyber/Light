@@ -21,7 +21,7 @@ class AgentTurnInstructionsTest {
     @Test fun catalogExcludesDisabledEntriesAndSeparatesCustomIdsFromBuiltIns() {
         val custom = listOf(AgentSkill("light:study", "Perso", "Un autre sujet"),
             AgentSkill("hidden", "Désactivée", "Ne pas transmettre", enabled = false))
-        assertEquals(6, AgentSkillCatalog.available(custom).size)
+        assertEquals(7, AgentSkillCatalog.available(custom).size)
         assertEquals("Réviser un cours", AgentSkillCatalog.resolve("light:study", custom)?.title)
         assertEquals("Perso", AgentSkillCatalog.resolve("custom:light:study", custom)?.title)
         assertEquals("Base", agentTurnSystemPrompt("Base", "custom:hidden", custom))

@@ -49,8 +49,10 @@ import com.example.data.repository.belongsTo
 import com.example.data.repository.AgentModelCatalogRepository
 import com.example.data.repository.AiPlannerRepository
 import com.example.data.repository.ImageGenerationRepository
+import com.example.data.repository.AcademicSearchRepository
 import com.example.data.repository.SearchRepository
 import com.example.data.repository.SearchResult
+import com.example.data.repository.WebPageFetcher
 import com.example.data.repository.StudyAgentToolExecutor
 import com.example.data.repository.StudyWorkspaceRepository
 import com.example.notifications.LightNotificationHelper
@@ -135,7 +137,8 @@ class StudyViewModel(
     val isLocalMode: Boolean = false,
     private val agentThreadsStore: AgentThreadsStore? = null,
     private val searchRepository: SearchRepository = SearchRepository(),
-    private val imageGenerationRepository: ImageGenerationRepository = ImageGenerationRepository()
+    private val imageGenerationRepository: ImageGenerationRepository = ImageGenerationRepository(),
+    private val academicSearchRepository: AcademicSearchRepository = AcademicSearchRepository()
 ) : ViewModel() {
 
     private var timerJob: Job? = null
@@ -1593,6 +1596,46 @@ class StudyViewModel(
                         )) })
                     ))
                 }
+
+                override suspend fun webSearch(query: String, maxResults: Int): JsonObject {
+                    if (!currentAgentSettings.searchEnabled || currentAgentSettings.searchProvider == "none") {
+                        return JsonObject(mapOf(
+                            "success" to JsonPrimitive(false),
+                            "error" to JsonPrimitive("Recherche web désactivée : activez-la dans Réglages → Recherche & Images (Tavily ou Exa + clé locale).")
+                        ))
+                    }
+                    val provider = currentAgentSettings.searchProvider
+                    val key = getSearchApiKey(provider)
+                    if (key.isNullOrBlank()) {
+                        return JsonObject(mapOf(
+                            "success" to JsonPrimitive(false),
+                            "error" to JsonPrimitive("Clé API $provider manquante : ajoutez-la dans Réglages → Recherche & Images.")
+                        ))
+                    }
+                    return try {
+                        val results = searchRepository.search(query, provider, key, maxResults)
+                        JsonObject(mapOf(
+                            "success" to JsonPrimitive(true),
+                            "provider" to JsonPrimitive(provider),
+                            "count" to JsonPrimitive(results.size),
+                            "results" to JsonArray(results.map { result ->
+                                JsonObject(mapOf(
+                                    "title" to JsonPrimitive(result.title),
+                                    "url" to JsonPrimitive(result.url),
+                                    "snippet" to JsonPrimitive(result.snippet),
+                                    "source" to JsonPrimitive(result.source)
+                                ))
+                            })
+                        ))
+                    } catch (e: Exception) {
+                        JsonObject(mapOf("success" to JsonPrimitive(false), "error" to JsonPrimitive(e.message ?: "Recherche web impossible.")))
+                    }
+                }
+
+                override suspend fun fetchPage(url: String): JsonObject = WebPageFetcher.fetchAsJson(url)
+
+                override suspend fun academicSearch(query: String, maxResults: Int): JsonObject =
+                    academicSearchRepository.searchAsJson(query, maxResults)
 
                 override suspend fun createTask(
                     title: String,

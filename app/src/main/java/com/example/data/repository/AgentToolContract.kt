@@ -162,6 +162,12 @@ internal object AgentToolContract {
             "subtitle" to text("Description", 140, true), "category" to choices("Catégorie", HabitCategory.entries.map { it.key }, true)),
         mutation("create_countdown", AgentCapabilities.MANAGE_COUNTDOWNS, "Ajouter une échéance.", "title" to text("Nom", 100),
             "notes" to text("Notes", 300, true), "targetDateIso" to date("Date cible"), "category" to choices("Catégorie", CountdownCategory.entries.map { it.key }, true)),
+        AgentToolSpec("web_search", AgentCapabilities.WEB_SEARCH, "Rechercher sur le web (Tavily/Exa, opt-in). Renvoie titre, url et extrait avec attribution.", false, mapOf(
+            "query" to text("Requête (2 à 300 caractères)", 300), "maxResults" to int("Nombre de résultats", 1..8, optional = true))),
+        AgentToolSpec("fetch_page", AgentCapabilities.WEB_SEARCH, "Lire le texte d'une page web publique en https (extrait borné à 3500 caractères).", false, mapOf(
+            "url" to text("URL https:// de la page", 500))),
+        AgentToolSpec("academic_search", AgentCapabilities.ACADEMIC_SEARCH, "Rechercher des publications sur arXiv (titre, auteurs, année, lien). Sans clé.", false, mapOf(
+            "query" to text("Requête (2 à 300 caractères)", 300), "maxResults" to int("Nombre de résultats", 1..8, optional = true))),
     )
     private val byName = tools.associateBy { it.name }
     operator fun get(name: String) = byName[name]

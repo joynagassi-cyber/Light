@@ -270,6 +270,31 @@ internal class LightKoogTools(
     )
 
     @Tool
+    @LLMDescription("Rechercher des publications scientifiques sur arXiv (titre, auteurs, année, lien). Sans clé.")
+    suspend fun academic_search(
+        @LLMDescription("Requête (sujet, mots-clés ou titre)")
+        query: String,
+        @LLMDescription("Nombre de résultats (1 à 8)")
+        maxResults: Int = 5,
+    ): String = delegate("academic_search", args("query" to text(query), "maxResults" to JsonPrimitive(maxResults.coerceIn(1, 8))))
+
+    @Tool
+    @LLMDescription("Rechercher sur le web via Tavily/Exa (nécessite l'activation dans Réglages et une clé locale). Retourne titre, url et extrait. La réponse cite toujours les sources.")
+    suspend fun web_search(
+        @LLMDescription("Requête de recherche")
+        query: String,
+        @LLMDescription("Nombre de résultats (1 à 8)")
+        maxResults: Int = 5,
+    ): String = delegate("web_search", args("query" to text(query), "maxResults" to JsonPrimitive(maxResults.coerceIn(1, 8))))
+
+    @Tool
+    @LLMDescription("Lire le texte d'une page web publique en https (extrait borné à 3500 caractères).")
+    suspend fun fetch_page(
+        @LLMDescription("URL https:// de la page à lire")
+        url: String,
+    ): String = delegate("fetch_page", args("url" to text(url)))
+
+    @Tool
     @LLMDescription("Ajouter une échéance à la liste. Demande toujours une confirmation avant exécution.")
     suspend fun create_countdown(
         @LLMDescription("Nom de l'échéance (100 caractères maximum)")

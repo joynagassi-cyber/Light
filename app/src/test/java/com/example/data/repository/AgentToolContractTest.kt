@@ -27,6 +27,9 @@ class AgentToolContractTest {
         "start_focus_timer" to ("startFocusTimer" to """{"mode":"pomodoro"}"""),
         "create_habit" to ("createHabit" to """{"title":"Lire"}"""),
         "create_countdown" to ("createCountdown" to """{"title":"Examen","targetDateIso":"2026-11-20"}"""),
+        "web_search" to ("webSearch" to """{"query":"révision espacée","maxResults":3}"""),
+        "fetch_page" to ("fetchPage" to """{"url":"https://example.org/article"}"""),
+        "academic_search" to ("academicSearch" to """{"query":"spaced repetition","maxResults":3}"""),
     )
 
     private fun fakeExecutor(calls: MutableList<String>, approves: Boolean): StudyAgentToolExecutor {

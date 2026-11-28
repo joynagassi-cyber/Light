@@ -20,6 +20,8 @@ object AgentCapabilities {
     const val MANAGE_COUNTDOWNS = "manage_countdowns"
     const val READ_STUDY_DATA = "read_study_data"
     const val SHOW_STUDY_PLAN = "show_study_plan"
+    const val WEB_SEARCH = "web_search"
+    const val ACADEMIC_SEARCH = "academic_search"
 
     val all = listOf(
         READ_TASKS to "Consulter le planning",
@@ -33,7 +35,9 @@ object AgentCapabilities {
         MANAGE_HABITS to "Créer des habitudes",
         MANAGE_COUNTDOWNS to "Créer des échéances",
         READ_STUDY_DATA to "Consulter matières, projets, habitudes et échéances",
-        SHOW_STUDY_PLAN to "Afficher des plans structurés"
+        SHOW_STUDY_PLAN to "Afficher des plans structurés",
+        WEB_SEARCH to "Rechercher sur le web (nécessite la recherche activée et une clé)",
+        ACADEMIC_SEARCH to "Rechercher des publications arXiv (sans clé)"
     )
 
     val descriptions = mapOf(
@@ -48,8 +52,11 @@ object AgentCapabilities {
         MANAGE_HABITS to "Ajouter une habitude quotidienne. L'agent ne peut pas valider ni supprimer une habitude.",
         MANAGE_COUNTDOWNS to "Ajouter une échéance ou un jalon. L'agent ne peut pas supprimer vos événements.",
         READ_STUDY_DATA to "Consulter les données affichées dans Light, sans pouvoir les modifier.",
-        SHOW_STUDY_PLAN to "Afficher un aperçu en cartes Compose à partir d'un schéma fixe. Aucun élément de ce plan n'est exécuté automatiquement."
+        SHOW_STUDY_PLAN to "Afficher un aperçu en cartes Compose à partir d'un schéma fixe. Aucun élément de ce plan n'est exécuté automatiquement.",
+        WEB_SEARCH to "Recherche bornée sur le web via Tavily ou Exa : activez « Recherche & Images » et ajoutez une clé locale. L'assistant cite toujours l'URL des sources. fetch_page lit le texte d'une page https publique.",
+        ACADEMIC_SEARCH to "Recherche de publications sur arXiv (API ouverte, sans compte). Les liens pointent vers la page de l'article."
     )
 
-    val defaults = all.map { it.first }.filterNot { it == DELETE_TASKS }.toSet()
+    // Les capacités de recherche (web / arXiv) sont opt-in : désactivées par défaut.
+    val defaults = all.map { it.first }.filterNot { it == DELETE_TASKS || it == WEB_SEARCH || it == ACADEMIC_SEARCH }.toSet()
 }

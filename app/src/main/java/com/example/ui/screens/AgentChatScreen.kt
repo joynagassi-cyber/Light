@@ -91,6 +91,7 @@ import com.example.ui.components.LIGHT_INSTALL_ID
 import com.example.ui.components.LIGHT_USER_ID
 import com.example.ui.components.LightAgentComponentFactory
 import com.example.ui.components.LightAgentSnapshot
+import com.example.a2ui.LocalA2uiActionHandler
 import com.example.ui.components.LightAgentTransport
 import io.getstream.chat.android.ai.compose.conversation.rememberAIConversationState
 import io.getstream.chat.android.ai.compose.ui.component.AIConversation
@@ -267,8 +268,14 @@ fun AgentChatScreen(
         Icons.Rounded.Schedule to "Planification des activités pour aujourd'hui"
     )
 
+    // A2UI : les interactions avec une surface rendue dans le chat repartent vers l'agent
+    // comme un message utilisateur (`{"a2uiUserAction":{…}}`), analysé via le prompt système.
+    val a2uiActionHandler = remember { { json: String -> sendRef.value(json, "Action sur l’interface", null) } }
     val chatContent: @Composable () -> Unit = {
-        CompositionLocalProvider(LocalChatAiComponentFactory provides lightFactory) {
+        CompositionLocalProvider(
+            LocalChatAiComponentFactory provides lightFactory,
+            LocalA2uiActionHandler provides a2uiActionHandler,
+        ) {
         Column(
             modifier = (if (showEmbeddedNavigationChrome) Modifier else modifier)
                 .fillMaxSize()

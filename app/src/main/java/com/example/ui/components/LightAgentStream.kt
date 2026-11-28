@@ -15,6 +15,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -26,6 +27,8 @@ import com.example.data.repository.AgentChatMessage
 import com.example.data.repository.AgentPlanPreview
 import com.example.data.repository.AgentTurnPhase
 import com.example.data.repository.AgentTurnProgress
+import com.example.a2ui.A2uiMessageSurfaces
+import com.example.a2ui.extractA2ui
 import io.getstream.chat.android.ai.compose.conversation.AIAgentActivity
 import io.getstream.chat.android.ai.compose.conversation.AIConversationFeed
 import io.getstream.chat.android.ai.compose.conversation.AIConversationRequest
@@ -240,22 +243,30 @@ internal class LightAgentComponentFactory(
             if (params.parts.isNotEmpty()) {
                 AIMessageParts(parts = params.parts, approver = params.approver)
             }
+            val extraction = remember(params.text) { extractA2ui(params.text) }
+            if (extraction.blocks.isNotEmpty()) {
+                A2uiMessageSurfaces(
+                    messageId = light?.id ?: params.message.id,
+                    extraction = extraction,
+                    isGenerating = params.isGenerating,
+                )
+            }
             if (light?.isError == true) {
                 Text(
-                    text = params.text,
+                    text = extraction.cleanText.ifBlank { params.text },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.testTag("agent_message_content"),
                 )
-            } else if (params.text.isNotEmpty()) {
-                if (isAgentMarkdownDocument(params.text)) {
+            } else if (extraction.cleanText.isNotBlank()) {
+                if (isAgentMarkdownDocument(extraction.cleanText)) {
                     AgentMessageDocumentCard(
-                        text = params.text,
+                        text = extraction.cleanText,
                         streaming = params.isGenerating,
                         onOpen = { light?.let { onOpenDocument(it.id) } },
                     )
                 } else {
-                    AgentMarkdown(params.text, Modifier.testTag("agent_message_content"))
+                    AgentMarkdown(extraction.cleanText, Modifier.testTag("agent_message_content"))
                 }
             }
             light?.planPreview?.let { plan -> AgentPlanPreviewCard(plan) }

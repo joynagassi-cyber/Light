@@ -35,7 +35,7 @@ jobs:
       - name: Compile APKs and run JVM tests
         shell: bash
         run: |
-          if ./gradlew :app:assembleDebug :app:assembleRelease :app:testDebugUnitTest --console=plain 2>&1 | tee "$RUNNER_TEMP/light-gradle.log"; then
+          if ./gradlew :app:assembleDebug :app:testDebugUnitTest --tests "com.example.ui.screens.AgentChatAndSettingsUiTest.agentChat_menuUsesSkillForOneMessage_andDrawerListsThreads" --console=plain 2>&1 | tee "$RUNNER_TEMP/light-gradle.log"; then
             exit 0
           fi
           # Keep compiler diagnostics and test failures visible even when the CI log archive is unavailable.

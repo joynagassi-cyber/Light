@@ -112,7 +112,12 @@ class AgentChatAndSettingsUiTest {
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("agent_pick_skill_button").performClick()
         composeRule.waitForIdle()
-        composeRule.onNodeWithTag("agent_skill_light:study", useUnmergedTree = true).performClick()
+        val rootDump = composeRule.onRoot(useUnmergedTree = true).fetchSemanticsNode().printToString()
+        try {
+            composeRule.onNodeWithTag("agent_skill_light:study", useUnmergedTree = true).performClick()
+        } catch (e: Throwable) {
+            throw AssertionError("TREE_DUMP_BEGIN\n" + rootDump.take(7000) + "\nTREE_DUMP_END", e)
+        }
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("agent_selected_skill").assertIsDisplayed()
         composeRule.onNodeWithTag("agent_chat_input").performTextInput("Les graphes")

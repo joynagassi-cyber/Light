@@ -36,9 +36,7 @@ import io.getstream.chat.android.ai.compose.parts.AIMessagePart
 import io.getstream.chat.android.ai.compose.ui.component.AIConversationAssistantMessageParams
 import io.getstream.chat.android.ai.compose.ui.component.AIMessageAttachmentItem
 import io.getstream.chat.android.ai.compose.ui.component.AIMessageParts
-import io.getstream.chat.android.ai.compose.ui.component.AIMessagePartItem
 import io.getstream.chat.android.ai.compose.ui.component.ChatAiComponentFactory
-import io.getstream.chat.android.ai.compose.ui.component.StreamingReasoning
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -231,14 +229,7 @@ internal class LightAgentComponentFactory(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (params.parts.isNotEmpty()) {
-                AIMessageParts(parts = params.parts) { part ->
-                    val reasoning = part.reasoning
-                    if (reasoning != null) {
-                        StreamingReasoning(part = reasoning, text = params.reasoningText(reasoning))
-                    } else {
-                        AIMessagePartItem(part = part, approver = params.approver)
-                    }
-                }
+                AIMessageParts(parts = params.parts, approver = params.approver)
             }
             if (light?.isError == true) {
                 Text(

@@ -871,5 +871,3 @@ fun AgentChatScreen(
         )
     }
 }
-
-@Composable
